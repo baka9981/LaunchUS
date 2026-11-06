@@ -135,6 +135,8 @@ enum LauncherMenus {
     static func entry(_ entry: GridEntry, model: LauncherModel, folderID: String?) -> NSMenu {
         let menu = NSMenu.launcher()
         switch entry {
+        case .app(let app) where SettingsPanes.isPane(app.id):
+            menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.launch(app) }
         case .app(let app):
             let meta = model.meta(for: app.id)
             menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.launch(app) }
@@ -147,6 +149,7 @@ enum LauncherMenus {
                     model.onClose?()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { FinderInfo.show(app.url) }
                 }
+                menu.add(String(localized: "简介…"), symbol: "info.circle") { model.showInfo(app.id) }
             }
             menu.addSeparator()
             // Name, icon, tags and Dock all live in one editor.

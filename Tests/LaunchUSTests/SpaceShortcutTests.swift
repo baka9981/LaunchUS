@@ -13,8 +13,9 @@ struct SpaceShortcutTests {
     @Test func spaceAndArrowsGoRound() {
         #expect(SpaceShortcut.guess.step(1) == .recent)
         #expect(SpaceShortcut.recent.step(1) == .mostUsed)
-        #expect(SpaceShortcut.mostUsed.step(1) == .guess)
-        #expect(SpaceShortcut.guess.step(-1) == .mostUsed)
+        #expect(SpaceShortcut.mostUsed.step(1) == .newest)
+        #expect(SpaceShortcut.newest.step(1) == .guess)
+        #expect(SpaceShortcut.guess.step(-1) == .newest)
     }
 
     @Test func recentAndMostUsed() {
@@ -26,6 +27,18 @@ struct SpaceShortcutTests {
         // Opened through LaunchUS counts as most recent.
         let oldID = apps[0].id
         #expect(SpaceShortcut.recent.apps(from: apps, recent: [oldID], hours: [:], now: now, ownID: nil).first?.name == "Old")
+    }
+
+    @Test func newestLeavesOutSystemApps() {
+        let now = Date()
+        func added(_ name: String, daysAgo: Double, removable: Bool = true) -> AppItem {
+            var item = app(name)
+            item.isRemovable = removable
+            item.addedDate = now.addingTimeInterval(-daysAgo * 86_400)
+            return item
+        }
+        let apps = [added("Older", daysAgo: 20), added("Fresh", daysAgo: 1), added("Mail", daysAgo: 0, removable: false), app("Undated")]
+        #expect(SpaceShortcut.newest.apps(from: apps, recent: [], hours: [:], now: now, ownID: nil).map(\.name) == ["Fresh", "Older"])
     }
 
     @Test func guessFavoursThisHour() throws {

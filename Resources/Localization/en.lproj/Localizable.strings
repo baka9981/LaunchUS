@@ -536,3 +536,20 @@
 "猜你想找" = "Suggested";
 "最近使用" = "Recent";
 "最常使用" = "Most Used";
+
+"%lld 次" = "%lld times";
+"Apple 芯片" = "Apple silicon";
+"Intel（通过 Rosetta 运行）" = "Intel (runs with Rosetta)";
+"通用（Apple 芯片与 Intel）" = "Universal (Apple silicon and Intel)";
+"位置" = "Location";
+"其他来源" = "Elsewhere";
+"大小" = "Size";
+"安装时间" = "Installed";
+"打开次数" = "Opened";
+"来源" = "Source";
+"正在计算…" = "Calculating…";
+"没有记录" = "No record";
+"版本" = "Version";
+"电池" = "Battery";
+"简介…" = "Info…";
+"芯片" = "Chip";

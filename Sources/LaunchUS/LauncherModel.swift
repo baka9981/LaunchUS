@@ -29,6 +29,8 @@ enum LauncherSheet: Hashable {
     /// `nil` folder ID creates a new smart folder.
     case editSmartFolder(String?, query: String)
     case confirmTrash(String)
+    /// The info card of an app.
+    case appInfo(String)
     /// `nil` creates a new launch item.
     case editCustom(String?)
     case confirmDeleteCustom(String)
@@ -345,8 +347,9 @@ final class LauncherModel {
 
         let byID = Dictionary(visibleApps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         if isSearching {
+            // System Settings panes come after the apps.
             let results = spaceList.map { $0.apps(from: visibleApps, recent: recentIDs, hours: LaunchHours.load()) }
-                ?? search(query, includeHidden: hiddenUnlocked)
+                ?? search(query, includeHidden: hiddenUnlocked) + SettingsPanes.search(query)
             if results.isEmpty, spaceList == nil, query.count >= (query.allSatisfy(\.isASCII) ? 3 : 2) { offerTip(.launchItem) }
             pages = stride(from: 0, to: max(results.count, 1), by: perPage).map { start in
                 results[start..<min(start + perPage, results.count)].map(GridEntry.app)

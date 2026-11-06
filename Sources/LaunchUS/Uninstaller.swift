@@ -84,7 +84,7 @@ enum Uninstaller {
     }
 
     /// Allocated size on disk, like Finder's "on disk" figure.
-    private static func file(_ url: URL) -> File {
+    static func file(_ url: URL) -> File {
         let keys: Set<URLResourceKey> = [.totalFileAllocatedSizeKey, .isDirectoryKey]
         let values = try? url.resourceValues(forKeys: keys)
         guard values?.isDirectory == true else { return File(url: url, size: Int64(values?.totalFileAllocatedSize ?? 0)) }

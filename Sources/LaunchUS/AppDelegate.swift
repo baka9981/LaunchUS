@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if InstallLocation.checkAtLaunch() { return }
         let firstRun = !FileManager.default.fileExists(atPath: LayoutStore.layoutURL.path)
         launcher = LauncherController(catalog: catalog)
+        SettingsPanes.warmUp()
         launcher.model.settingsActions = SettingsActions(
             rescan: { [weak self] done in
                 guard let self else { return }

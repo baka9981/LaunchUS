@@ -1,10 +1,10 @@
 import Foundation
 
 /// Space in the empty search field opens these lists instead of typing a space: a guess at
-/// what's wanted now, the most recently opened, the most opened. Space again or → goes to
-/// the next one, ← back.
+/// what's wanted now, the most recently opened, the most opened, the newest installed.
+/// Space again or → goes to the next one, ← back.
 enum SpaceShortcut: Int, CaseIterable {
-    case guess, recent, mostUsed
+    case guess, recent, mostUsed, newest
 
     /// The next list (or previous, for -1), going round.
     func step(_ by: Int) -> SpaceShortcut {
@@ -17,6 +17,7 @@ enum SpaceShortcut: Int, CaseIterable {
         case .guess: String(localized: "猜你想找")
         case .recent: String(localized: "最近使用")
         case .mostUsed: String(localized: "最常使用")
+        case .newest: String(localized: "最近安装")
         }
     }
 
@@ -24,6 +25,7 @@ enum SpaceShortcut: Int, CaseIterable {
     static let guessLimit = 12
 
     /// - recent: opened through LaunchUS, newest first, then the system's last-used dates.
+    /// - newest: by when the app arrived in its folder, leaving out the system's own.
     /// - hours: launches through LaunchUS by app and hour of day (`LaunchHours`).
     func apps(from apps: [AppItem], recent: [String], hours: [String: [Int]],
               now: Date = Date(), ownID: String? = Bundle.main.bundleIdentifier) -> [AppItem] {
@@ -35,6 +37,12 @@ enum SpaceShortcut: Int, CaseIterable {
         case .mostUsed:
             return pool.filter { $0.useCount > 0 }.sorted {
                 $0.useCount != $1.useCount ? $0.useCount > $1.useCount
+                    : $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+        case .newest:
+            // Apps the user put there; the system's own all date from the macOS install.
+            return pool.filter { $0.custom == nil && $0.isRemovable && $0.addedDate != nil }.sorted {
+                $0.addedDate! != $1.addedDate! ? $0.addedDate! > $1.addedDate!
                     : $0.name.localizedStandardCompare($1.name) == .orderedAscending
             }
         case .guess:

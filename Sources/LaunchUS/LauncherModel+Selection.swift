@@ -68,6 +68,19 @@ extension LauncherModel {
         }
     }
 
+    /// The info card of an app (not of launch items or settings panes).
+    func showInfo(_ id: String) {
+        guard let app = app(id), app.custom == nil else { return }
+        sheet = .appInfo(id)
+    }
+
+    /// ⌘I: the selected app, or the first search result.
+    func showInfoForSelection() {
+        let entry: GridEntry? = if let pos = selection, isValid(pos) { selectablePages[pos.page][pos.slot] }
+            else if isSearching { pages.first?.first } else { nil }
+        if case .app(let app)? = entry { showInfo(app.id) }
+    }
+
     func activate(_ entry: GridEntry) {
         switch entry {
         case .app(let app):
@@ -110,6 +123,11 @@ extension LauncherModel {
     }
 
     func launch(_ app: AppItem) {
+        // A settings pane is a shortcut into System Settings, not something to remember.
+        guard !SettingsPanes.isPane(app.id) else {
+            onLaunch?(app)
+            return
+        }
         RecentLaunches.record(app.id)
         recentIDs = RecentLaunches.load()
         updateFrequentApps()

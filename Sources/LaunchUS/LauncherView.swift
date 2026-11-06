@@ -525,7 +525,7 @@ struct EntryView: View {
                 .contentShape(RoundedRectangle(cornerRadius: metrics.iconSize * 0.18, style: .continuous)
                     .inset(by: metrics.iconSize * 0.1))
                 .overlay(alignment: .topLeading) {
-                    if model.isEditing, model.settings.deleteBadges, !isDragged, case .app(let app) = entry, app.isRemovable || app.isCustom {
+                    if model.isEditing, model.settings.deleteBadges, !isDragged, case .app(let app) = entry, app.isRemovable || app.isCustom, !SettingsPanes.isPane(app.id) {
                         DeleteBadge {
                             if app.isCustom { model.sheet = .confirmDeleteCustom(app.id) } else { model.sheet = .confirmTrash(app.id) }
                         }
@@ -709,7 +709,8 @@ struct EntryIcon: View {
                     // Hovering an app over another one previews the folder it would make.
                     FolderBackground(size: tile).scaleEffect(1.18)
                 }
-                if let icon = icons[app.id] {
+                // Settings panes show System Settings' icon.
+                if let icon = icons[app.id] ?? (SettingsPanes.isPane(app.id) ? icons[SettingsPanes.settingsAppID] : nil) {
                     Image(decorative: icon, scale: 2).resizable().interpolation(.high)
                         .frame(width: size, height: size)
                         .scaleEffect(mergeTarget ? 0.82 : 1)

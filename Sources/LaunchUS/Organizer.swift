@@ -60,6 +60,8 @@ struct SheetCard: View {
                 SmartFolderEditor(model: model, folderID: id, initialQuery: query)
             case .confirmTrash:
                 EmptyView()
+            case .appInfo(let id):
+                if let app = model.app(id) { AppInfoCard(model: model, app: app) }
             case .editCustom(let id):
                 CustomItemEditor(model: model, item: id.flatMap(model.customItem))
             case .confirmDeleteCustom(let id):

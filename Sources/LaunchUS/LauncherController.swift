@@ -272,7 +272,7 @@ final class LauncherController {
             for _ in 0..<(env["LAUNCHUS_SPACES"].flatMap(Int.init) ?? 0) { self.model.pressSpace() }
             if let id = env["LAUNCHUS_UNINSTALL"] { self.model.sheet = .confirmTrash(id) }
             if let id = env["LAUNCHUS_EDIT"] { self.model.sheet = .editApp(id) }
-            // LAUNCHUS_SHEET=custom | custom:<id> | icon:<id> | profile | whatsnew | guide:<step> | tip:<name>
+            // LAUNCHUS_SHEET=custom | custom:<id> | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name>
             if let sheet = env["LAUNCHUS_SHEET"] {
                 if sheet == "custom" { self.model.sheet = .editCustom(nil) }
                 else if sheet == "whatsnew" { self.model.showWhatsNew = true }
@@ -280,6 +280,7 @@ final class LauncherController {
                 else if sheet.hasPrefix("tip:") { self.model.tip = Tip(rawValue: String(sheet.dropFirst(4))) }
                 else if sheet == "profile" { self.model.sheet = .newProfile }
                 else if sheet.hasPrefix("icon:") { self.model.sheet = .chooseIcon(String(sheet.dropFirst(5))) }
+                else if sheet.hasPrefix("info:") { self.model.sheet = .appInfo(String(sheet.dropFirst(5))) }
                 else if sheet.hasPrefix("custom:") { self.model.sheet = .editCustom(sheet) }
             }
             if let tab = env["LAUNCHUS_SETTINGS"].flatMap(SettingsTab.named) { self.model.openSettings(tab) }
@@ -341,6 +342,11 @@ final class LauncherController {
     }
 
     private func launch(_ app: AppItem) {
+        if SettingsPanes.isPane(app.id) {
+            NSWorkspace.shared.open(app.url)
+            hide(restoreFocus: false)
+            return
+        }
         if let item = model.customItem(app.id) {
             CustomLauncher.open(item)
             hide(restoreFocus: false)
@@ -540,7 +546,7 @@ final class LauncherController {
             if flags == .command { model.openShortcut(digit) } else { model.goToPage(digit - 1) }
             return nil
         }
-        // Space with nothing typed opens the 猜你想找 / 最近使用 / 最常使用 lists; while they
+        // Space with nothing typed opens the 猜你想找 / 最近使用 / 最常使用 / 最近安装 lists; while they
         // show, space and →/← switch between them and ⌫ closes them.
         if model.query.isEmpty, model.openFolderID == nil, !model.isEditing,
            flags.intersection([.command, .option, .control, .shift]).isEmpty {
@@ -587,6 +593,8 @@ final class LauncherController {
             hide(restoreFocus: true)
         case kVK_ANSI_Comma where command:
             openSettings()
+        case kVK_ANSI_I where command:
+            model.showInfoForSelection()
         default:
             return event
         }
