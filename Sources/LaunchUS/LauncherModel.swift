@@ -90,7 +90,11 @@ final class LauncherModel {
     var query = "" {
         didSet { if query != oldValue { queryChanged() } }
     }
-    var isSearching: Bool { !query.isEmpty }
+    /// Space in the empty search field: one of the "猜你想找 / 最近使用 / 最常使用" lists.
+    var spaceList: SpaceShortcut? {
+        didSet { if spaceList != oldValue { spaceListChanged() } }
+    }
+    var isSearching: Bool { !query.isEmpty || spaceList != nil }
     /// Hidden apps were verified for this session: they show in their panel and in search.
     private(set) var hiddenUnlocked = false
     var showHiddenApps = false
@@ -341,8 +345,9 @@ final class LauncherModel {
 
         let byID = Dictionary(visibleApps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         if isSearching {
-            let results = search(query, includeHidden: hiddenUnlocked)
-            if results.isEmpty, query.count >= (query.allSatisfy(\.isASCII) ? 3 : 2) { offerTip(.launchItem) }
+            let results = spaceList.map { $0.apps(from: visibleApps, recent: recentIDs, hours: LaunchHours.load()) }
+                ?? search(query, includeHidden: hiddenUnlocked)
+            if results.isEmpty, spaceList == nil, query.count >= (query.allSatisfy(\.isASCII) ? 3 : 2) { offerTip(.launchItem) }
             pages = stride(from: 0, to: max(results.count, 1), by: perPage).map { start in
                 results[start..<min(start + perPage, results.count)].map(GridEntry.app)
             }
@@ -461,6 +466,15 @@ final class LauncherModel {
             }
             return
         }
+        // The field never starts with a space (space there opens the lists); this catches pastes.
+        if let first = query.first, first.isWhitespace {
+            DispatchQueue.main.async { self.query = String(self.query.drop(while: \.isWhitespace)) }
+            return
+        }
+        if !query.isEmpty, spaceList != nil {
+            spaceList = nil  // typing goes back to searching
+            return
+        }
         if openFolderID != nil { closeFolder() }
         isEditing = false
         multiSelection = []
@@ -470,12 +484,28 @@ final class LauncherModel {
         selection = isSearching && !(pages.first ?? []).isEmpty ? GridPos(page: 0, slot: 0) : nil
     }
 
+    private func spaceListChanged() {
+        if openFolderID != nil { closeFolder() }
+        isEditing = false
+        multiSelection = []
+        refresh()
+        currentPage = 0
+        dragOffset = 0
+        selection = isSearching && !(pages.first ?? []).isEmpty ? GridPos(page: 0, slot: 0) : nil
+    }
+
+    /// Space with nothing typed: opens the lists, then moves to the next one.
+    func pressSpace() {
+        spaceList = spaceList?.step(1) ?? .guess
+    }
+
     func prepareForShow() {
         // Back from granting Full Disk Access: pick the uninstall up again, rescanned.
         sheet = resumeUninstall.map(LauncherSheet.confirmTrash)
         resumeUninstall = nil
         showSettings = false
         query = ""
+        spaceList = nil
         selection = nil
         dragOffset = 0
         isEditing = false
@@ -944,6 +974,7 @@ enum RecentLaunches {
         var ids = load().filter { $0 != id }
         ids.insert(id, at: 0)
         UserDefaults.standard.set(Array(ids.prefix(limit)), forKey: key)
+        LaunchHours.record(id)
     }
 
     static func setPinned(_ pin: Bool, _ id: String) {

@@ -262,12 +262,14 @@ final class LauncherController {
         }
     }
 
-    /// Debug aid: LAUNCHUS_SNAPSHOT=/path.png [LAUNCHUS_QUERY=text] saves the rendered view.
+    /// Debug aid: LAUNCHUS_SNAPSHOT=/path.png [LAUNCHUS_QUERY=text] [LAUNCHUS_SPACES=n] saves the rendered view.
     private func writeDebugSnapshotIfRequested() {
         let env = ProcessInfo.processInfo.environment
         guard let path = env["LAUNCHUS_SNAPSHOT"] else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             if let query = env["LAUNCHUS_QUERY"] { self.model.query = query }
+            // LAUNCHUS_SPACES=n: as if space was pressed n times in the empty field.
+            for _ in 0..<(env["LAUNCHUS_SPACES"].flatMap(Int.init) ?? 0) { self.model.pressSpace() }
             if let id = env["LAUNCHUS_UNINSTALL"] { self.model.sheet = .confirmTrash(id) }
             if let id = env["LAUNCHUS_EDIT"] { self.model.sheet = .editApp(id) }
             // LAUNCHUS_SHEET=custom | custom:<id> | icon:<id> | profile | whatsnew | guide:<step> | tip:<name>
@@ -537,6 +539,26 @@ final class LauncherController {
         if let digit = Self.digit(event), flags == .command || flags == .control {
             if flags == .command { model.openShortcut(digit) } else { model.goToPage(digit - 1) }
             return nil
+        }
+        // Space with nothing typed opens the 猜你想找 / 最近使用 / 最常使用 lists; while they
+        // show, space and →/← switch between them and ⌫ closes them.
+        if model.query.isEmpty, model.openFolderID == nil, !model.isEditing,
+           flags.intersection([.command, .option, .control, .shift]).isEmpty {
+            switch Int(event.keyCode) {
+            case kVK_Space:
+                model.pressSpace()
+                return nil
+            case kVK_RightArrow where model.spaceList != nil:
+                model.spaceList = model.spaceList?.step(1)
+                return nil
+            case kVK_LeftArrow where model.spaceList != nil:
+                model.spaceList = model.spaceList?.step(-1)
+                return nil
+            case kVK_Delete where model.spaceList != nil:
+                model.spaceList = nil
+                return nil
+            default: break
+            }
         }
         switch Int(event.keyCode) {
         case kVK_Home:

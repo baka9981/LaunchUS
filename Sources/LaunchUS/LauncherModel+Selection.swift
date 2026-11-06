@@ -267,6 +267,8 @@ extension LauncherModel {
             withAnimation(.easeOut(duration: 0.15)) { multiSelection = [] }
         } else if isEditing {
             isEditing = false
+        } else if spaceList != nil {
+            spaceList = nil
         } else if isSearching {
             query = ""
         } else {

@@ -175,15 +175,23 @@ struct PageDots: View {
     }
 }
 
-/// Tag suggestions under the search field while typing "#…", or the offer to keep a tag
-/// search as a smart folder.
+/// Tag suggestions under the search field while typing "#…", the offer to keep a tag
+/// search as a smart folder, or the tabs of the lists space opens.
 struct TagBar: View {
     let model: LauncherModel
 
     var body: some View {
         HStack(spacing: 6) {
             let candidates = model.tagCandidates
-            if !candidates.isEmpty {
+            if let current = model.spaceList {
+                // The lists space opens; space or ←/→ moves between them, or click one.
+                ForEach(SpaceShortcut.allCases, id: \.self) { list in
+                    Chip(title: list.title, selected: list == current) {
+                        model.spaceList = list
+                        model.focusRequest += 1
+                    }
+                }
+            } else if !candidates.isEmpty {
                 ForEach(candidates, id: \.self) { tag in
                     Chip(title: "#" + tag) { model.completeTag(tag) }
                 }
