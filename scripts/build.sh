@@ -53,8 +53,8 @@ ditto "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
 
 # Update feed from update.conf (FEED_URL in the environment wins).
 source update.conf
-if [[ -z "${FEED_URL:-}" && -n "${GITHUB_REPO:-}" ]]; then
-    FEED_URL="https://github.com/$GITHUB_REPO/releases/latest/download/appcast.xml"
+if [[ -z "${FEED_URL:-}" && -n "${DOWNLOAD_URL:-}" ]]; then
+    FEED_URL="$DOWNLOAD_URL/appcast.xml"
 fi
 if [[ -n "${FEED_URL:-}" ]]; then
     /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $FEED_URL" "$APP/Contents/Info.plist"
