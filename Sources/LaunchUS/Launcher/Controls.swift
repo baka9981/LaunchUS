@@ -8,6 +8,7 @@ struct SearchField: View {
     var chatting = false
     /// Builds the "⋯" menu.
     let menu: () -> NSMenu
+    @State private var composing = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -15,7 +16,7 @@ struct SearchField: View {
                 .font(.system(size: 15))
                 .foregroundStyle(.white.opacity(0.75))
             ZStack(alignment: .leading) {
-                if text.isEmpty {
+                if text.isEmpty && !composing {
                     Text(chatting ? "继续问…" : "搜索应用")
                         .foregroundStyle(.white.opacity(0.5))
                         .allowsHitTesting(false)
@@ -28,6 +29,7 @@ struct SearchField: View {
                     .focused(focused)
             }
             .font(.system(size: 13))
+            .trackingComposition($composing)
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill").foregroundStyle(.white.opacity(0.6))
@@ -77,6 +79,7 @@ struct WindowHeader: View {
     var focused: FocusState<Bool>.Binding
     var chatting = false
     let menu: () -> NSMenu
+    @State private var composing = false
 
     var body: some View {
         HStack(spacing: 12) {
@@ -85,7 +88,7 @@ struct WindowHeader: View {
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
             ZStack(alignment: .leading) {
-                if text.isEmpty {
+                if text.isEmpty && !composing {
                     Text(chatting ? "继续问…" : "应用程序")
                         .foregroundStyle(.secondary)
                         .allowsHitTesting(false)
@@ -96,6 +99,7 @@ struct WindowHeader: View {
                     .focused(focused)
             }
             .font(.system(size: 26, weight: .regular))
+            .trackingComposition($composing)
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(systemName: "xmark.circle.fill").font(.system(size: 16)).foregroundStyle(.tertiary)
@@ -229,5 +233,21 @@ struct Chip: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+    }
+}
+
+extension View {
+    /// Keeps `composing` true while an input method has uncommitted text (pinyin before a
+    /// candidate is picked) in the focused field. That text isn't in the field's binding yet, so
+    /// a placeholder drawn for an empty binding would sit on top of it. Marked text lives in the
+    /// field editor's text storage, whose edits are the only signal; it's read once they settle.
+    func trackingComposition(_ composing: Binding<Bool>) -> some View {
+        onReceive(NotificationCenter.default.publisher(for: NSTextStorage.didProcessEditingNotification)) { _ in
+            DispatchQueue.main.async {
+                let editor = NSApp.keyWindow?.firstResponder as? NSTextView
+                let marked = editor?.isFieldEditor == true && editor?.hasMarkedText() == true
+                if composing.wrappedValue != marked { composing.wrappedValue = marked }
+            }
+        }
     }
 }
