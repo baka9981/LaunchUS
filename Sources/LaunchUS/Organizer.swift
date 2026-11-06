@@ -36,7 +36,7 @@ struct SheetCard: View {
     var body: some View {
         if case .manager = sheet {
             AppManagerCard(model: model)
-                .frame(width: 760, height: 600)
+                .frame(width: 820, height: 600)
                 .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
                 .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -117,6 +117,56 @@ struct CardHeader: View {
     }
 }
 
+/// One line of a grouped form: the label on the left, the field and an optional hint on the right.
+struct FormLine<Content: View>: View {
+    let label: String
+    var hint: String?
+    var hintIsError = false
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(label).font(.system(size: 13)).foregroundStyle(.secondary)
+                .frame(width: 52, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                content()
+                if let hint {
+                    Text(hint).font(.system(size: 11)).foregroundStyle(hintIsError ? AnyShapeStyle(.red) : AnyShapeStyle(.tertiary))
+                }
+            }
+            .font(.system(size: 13))
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+    }
+}
+
+struct FormDivider: View {
+    var body: some View { Divider().padding(.leading, 78) }
+}
+
+/// A small "+ tag" suggestion under the tag field.
+struct TagSuggestion: View {
+    let title: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(verbatim: "+ " + title)
+                .font(.system(size: 11))
+                .foregroundStyle(hovering ? .primary : .secondary)
+                .padding(.horizontal, 7)
+                .frame(height: 20)
+                .background(Color.primary.opacity(hovering ? 0.1 : 0.05), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
 struct FieldRow<Content: View>: View {
     let label: String
     @ViewBuilder let content: () -> Content
@@ -176,58 +226,82 @@ struct AppEditor: View {
     private var originalName: String { model.catalog.apps.first { $0.id == app.id }?.name ?? app.name }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 16) {
             CardHeader(model: model, app: app, title: originalName, subtitle: app.bundleID ?? app.url.path)
-            FieldRow(label: String(localized: "显示名称")) {
-                TextField(originalName, text: $name).textFieldStyle(CardFieldStyle()).focused($focus, equals: 0)
-                    .onSubmit(save)
-            }
-            FieldRow(label: String(localized: "搜索别名（用逗号分隔，只用于搜索）")) {
-                TextField(String(localized: "例如：wx, 聊天"), text: $aliases).textFieldStyle(CardFieldStyle()).focused($focus, equals: 1)
-                    .onSubmit(save)
-            }
-            FieldRow(label: String(localized: "标签（用逗号分隔）")) {
-                TextField(String(localized: "例如：设计, 常用"), text: $tags).textFieldStyle(CardFieldStyle()).focused($focus, equals: 2)
-                    .onSubmit(save)
-                let current = Set(LauncherModel.splitList(tags))
-                let others = model.allTags.filter { !current.contains($0) }
-                if !others.isEmpty {
-                    FlowChips(items: Array(others.prefix(16))) { tag in
-                        tags = (LauncherModel.splitList(tags) + [tag]).joined(separator: ", ")
+            VStack(spacing: 0) {
+                FormLine(label: String(localized: "名称")) {
+                    TextField(originalName, text: $name).textFieldStyle(.plain).focused($focus, equals: 0)
+                        .onSubmit(save)
+                }
+                FormDivider()
+                FormLine(label: String(localized: "别名"), hint: String(localized: "只用于搜索，多个用逗号分隔")) {
+                    TextField(String(localized: "例如：wx, 聊天"), text: $aliases).textFieldStyle(.plain).focused($focus, equals: 1)
+                        .onSubmit(save)
+                }
+                FormDivider()
+                FormLine(label: String(localized: "标签")) {
+                    TextField(String(localized: "例如：设计, 常用"), text: $tags).textFieldStyle(.plain).focused($focus, equals: 2)
+                        .onSubmit(save)
+                    let current = Set(LauncherModel.splitList(tags))
+                    let others = model.allTags.filter { !current.contains($0) }
+                    if !others.isEmpty {
+                        FlowLayout(spacing: 5) {
+                            ForEach(Array(others.prefix(12)), id: \.self) { tag in
+                                TagSuggestion(title: tag) {
+                                    tags = (LauncherModel.splitList(tags) + [tag]).joined(separator: ", ")
+                                }
+                            }
+                        }
+                        .padding(.top, 4)
+                    }
+                }
+                FormDivider()
+                FormLine(label: String(localized: "快捷键"), hint: AppHotKeys.failed.contains(app.id)
+                         ? String(localized: "已被占用，换一个") : String(localized: "在任何地方按下就打开它，再按一次隐藏"),
+                         hintIsError: AppHotKeys.failed.contains(app.id)) {
+                    HStack(spacing: 6) {
+                        let shortcut = model.meta(for: app.id).shortcut
+                        ShortcutRecorder(display: shortcut?.display, placeholder: String(localized: "点按后按下快捷键"), width: 170,
+                                         soft: true,
+                                         clear: { model.setShortcut(nil, for: app.id) },
+                                         record: { model.setShortcut($0, for: app.id) })
+                            .id(shortcutTick)
+                        if shortcut != nil {
+                            Button { model.setShortcut(nil, for: app.id); shortcutTick += 1 } label: {
+                                Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                            }
+                            .buttonStyle(.plain)
+                            .help(String(localized: "清除"))
+                        }
+                        Spacer(minLength: 0)
                     }
                 }
             }
-            FieldRow(label: String(localized: "快捷键（在任何地方按下就打开它，再按一次隐藏）")) {
-                HStack(spacing: 8) {
-                    let shortcut = model.meta(for: app.id).shortcut
-                    ShortcutRecorder(display: shortcut?.display, placeholder: String(localized: "点按后按下快捷键"), width: 180,
-                                     clear: { model.setShortcut(nil, for: app.id) },
-                                     record: { model.setShortcut($0, for: app.id) })
-                        .id(shortcutTick)
-                    if shortcut != nil {
-                        Button(String(localized: "清除")) { model.setShortcut(nil, for: app.id); shortcutTick += 1 }
-                            .controlSize(.small)
-                    }
-                    if AppHotKeys.failed.contains(app.id) {
-                        Text("已被占用，换一个").font(.system(size: 11)).foregroundStyle(.red)
-                    }
-                }
-            }
+            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Color.primary.opacity(0.07), lineWidth: 0.75))
+
             HStack(spacing: 8) {
-                Button(String(localized: "更换图标…"), systemImage: "photo") {
-                    store()
-                    model.sheet = .chooseIcon(app.id)
+                HStack(spacing: 14) {
+                    Button { store(); model.sheet = .chooseIcon(app.id) } label: {
+                        Label(String(localized: "更换图标…"), systemImage: "photo")
+                    }
+                    let inDock = DockPins.contains(app.url)
+                    Button { DockPins.add(app.url); dockTick += 1 } label: {
+                        Label(inDock ? String(localized: "已在程序坞中") : String(localized: "添加到程序坞"),
+                              systemImage: inDock ? "checkmark" : "dock.rectangle")
+                    }
+                    .disabled(inDock)
+                    .id(dockTick)
                 }
-                let inDock = DockPins.contains(app.url)
-                Button(inDock ? String(localized: "已在程序坞中") : String(localized: "添加到程序坞"), systemImage: "dock.rectangle") {
-                    DockPins.add(app.url)
-                    dockTick += 1
-                }
-                .disabled(inDock)
-                .id(dockTick)
+                .buttonStyle(.borderless)
+                .labelStyle(.titleAndIcon)
+                .controlSize(.small)
+                .font(.system(size: 12))
+                Spacer()
+                Button(String(localized: "取消")) { model.sheet = nil }.keyboardShortcut(.cancelAction)
+                Button(String(localized: "存储"), action: save).keyboardShortcut(.defaultAction)
             }
-            .controlSize(.small)
-            CardButtons(confirmTitle: String(localized: "存储"), cancel: { model.sheet = nil }, confirm: save)
+            .controlSize(.large)
         }
         .onAppear {
             let m = model.meta(for: app.id)

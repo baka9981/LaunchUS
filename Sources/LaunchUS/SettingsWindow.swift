@@ -356,6 +356,8 @@ struct ShortcutRecorder: View {
     let display: String?
     var placeholder = ""
     var width: CGFloat = 200
+    /// The soft well of the app editor's form instead of a control box.
+    var soft = false
     let clear: () -> Void
     let record: (HotKeySpec) -> Void
     @State private var recording = false
@@ -368,9 +370,9 @@ struct ShortcutRecorder: View {
             Text(recording ? String(localized: "请按下快捷键…") : display ?? placeholder)
                 .font(.system(size: 13))
                 .foregroundStyle(recording ? Color.accentColor : display == nil ? .secondary : .primary)
-                .frame(width: width, height: 26)
-                .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(recording ? Color.accentColor : Color.primary.opacity(0.15)))
+                .frame(width: width, height: soft ? 24 : 26)
+                .background(RoundedRectangle(cornerRadius: 7).fill(soft ? Color.primary.opacity(0.06) : Color(nsColor: .controlBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(recording ? Color.accentColor : Color.primary.opacity(soft ? 0.08 : 0.15)))
         }
         .buttonStyle(.plain)
         .onDisappear(perform: stop)

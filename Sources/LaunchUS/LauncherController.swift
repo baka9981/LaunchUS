@@ -650,7 +650,8 @@ final class LauncherController {
             if !isTrackpad { wheelFlip(event) }
             return nil
         }
-        if model.showSettings { return event }
+        // Cards (the App manager's lists) scroll themselves; the pages stay put.
+        if model.showSettings || model.sheet != nil { return event }
         // The scrolling browse style scrolls natively, unless a folder is open.
         if settings.browseStyle == .scroll, model.openFolderID == nil { return event }
         if model.openFolderID != nil, model.folderScrolls {
