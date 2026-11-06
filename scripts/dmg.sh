@@ -66,8 +66,7 @@ rm -f "$OUT"
 hdiutil convert -quiet "$WORK/rw.dmg" -format ULFO -o "$OUT"
 
 # Same identity as the app (build.sh), when the local signing certificate exists.
-# The certificate keeps its name from before the rename.
-if security find-identity -p codesigning | grep -q "LaunchNew Local Signing"; then
-    codesign --force --sign "LaunchNew Local Signing" "$OUT"
+if security find-identity -p codesigning | grep -q "LaunchUS Local Signing"; then
+    codesign --force --sign "LaunchUS Local Signing" "$OUT"
 fi
 echo "Wrote $OUT"

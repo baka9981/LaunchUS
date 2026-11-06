@@ -1,6 +1,6 @@
 #!/bin/bash
 # Build LaunchUS and package it as build/LaunchUS.app.
-# Signs with SIGN_IDENTITY, else the "LaunchNew Local Signing" certificate (named before the app became LaunchUS) when it's in the
+# Signs with SIGN_IDENTITY, else the "LaunchUS Local Signing" certificate when it's in the
 # keychain, else ad-hoc. A fixed identity keeps privacy permissions (Accessibility, Full Disk
 # Access) across rebuilds; ad-hoc builds lose them each time.
 set -euo pipefail
@@ -65,7 +65,7 @@ ICONSET="$(mktemp -d)/AppIcon.iconset"
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 rm -rf "$(dirname "$ICONSET")"
 
-LOCAL_IDENTITY="LaunchNew Local Signing"
+LOCAL_IDENTITY="LaunchUS Local Signing"
 if [[ -z "${SIGN_IDENTITY:-}" ]] && security find-identity -p codesigning | grep -q "\"$LOCAL_IDENTITY\""; then
     SIGN_IDENTITY="$LOCAL_IDENTITY"
 fi
