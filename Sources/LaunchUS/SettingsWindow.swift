@@ -280,7 +280,7 @@ struct GeneralTab: View {
         SettingsSection(title: String(localized: "打开方式")) {
             Card {
                 Row(title: String(localized: "快捷键")) { HotKeyRecorder(spec: $settings.hotKey) }
-                Row(title: String(localized: "系统 F4 键"), info: String(localized: "用键盘上的启动台键（F4）打开 LaunchUS")) {
+                Row(title: String(localized: "系统 F4 键"), info: String(localized: "用键盘上的 F4 键打开 LaunchUS（新款键盘上是「聚焦」键，打开后它不再打开聚焦）")) {
                     if trusted {
                         Toggle("", isOn: $settings.f4Key).toggleStyle(.switch).labelsHidden()
                     } else {

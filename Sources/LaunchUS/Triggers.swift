@@ -29,15 +29,17 @@ enum Permissions {
     }
 }
 
-/// Swallows the Launchpad key (F4 on Apple keyboards) and toggles the launcher instead.
+/// Swallows the F4 key and toggles the launcher instead: the Launchpad key on older Apple
+/// keyboards, the Spotlight key on newer ones.
 /// Needs Accessibility, because it has to stop the key reaching the system.
 final class LaunchpadKeyTap {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private let action: @MainActor @Sendable () -> Void
 
-    /// 131: the Launchpad key; 118: F4 when the keys act as standard function keys.
-    private static let keyCodes: Set<Int64> = [131, 118]
+    /// 131: the Launchpad key; 129: the Spotlight key; 118: F4 when the keys act as standard
+    /// function keys.
+    private static let keyCodes: Set<Int64> = [131, 129, 118]
 
     init?(action: @escaping @MainActor @Sendable () -> Void) {
         self.action = action

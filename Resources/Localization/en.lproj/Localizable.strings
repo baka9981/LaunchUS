@@ -197,7 +197,7 @@
 "版本 %@" = "Version %@";
 "现在重启" = "Restart Now";
 "生活" = "Lifestyle";
-"用键盘上的启动台键（F4）打开 LaunchUS" = "Open LaunchUS with the Launchpad key (F4) on the keyboard";
+"用键盘上的 F4 键打开 LaunchUS（新款键盘上是「聚焦」键，打开后它不再打开聚焦）" = "Open LaunchUS with the F4 key on the keyboard (the Spotlight key on newer keyboards, which then no longer opens Spotlight)";
 "界面" = "Interface";
 "社交" = "Social";
 "移出文件夹" = "Remove from Folder";
@@ -533,3 +533,6 @@
 "从这里运行" = "Run from Here";
 "没能移到「应用程序」" = "Couldn’t move to Applications";
 "请在安装盘窗口里把 LaunchUS 拖到「应用程序」文件夹，再从那里打开。" = "In the installer window, drag LaunchUS to the Applications folder, then open it from there.";
+"猜你想找" = "Suggested";
+"最近使用" = "Recent";
+"最常使用" = "Most Used";
