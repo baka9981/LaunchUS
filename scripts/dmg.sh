@@ -1,7 +1,8 @@
 #!/bin/bash
 # Wraps build/LaunchUS.app in a drag-to-install disk image:
 #   ./scripts/dmg.sh <out.dmg>
-# The window shows the app, an arrow and Applications on a drawn background.
+# The window shows the app, an arrow and Applications on a drawn background
+# (layout in dmg-background.swift: 1000×520, icons at x 330 and 670, y 260).
 # Laying out the window drives Finder, so macOS may ask once to allow that.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -38,17 +39,17 @@ tell application "Finder"
             set pathbar visible of container window to false
         end try
         set sidebar width of container window to 0
-        set the bounds of container window to {200, 120, 860, 520}
+        set the bounds of container window to {200, 120, 1200, 640}
         set opts to the icon view options of container window
         set arrangement of opts to not arranged
-        set icon size of opts to 128
-        set text size of opts to 13
+        set icon size of opts to 160
+        set text size of opts to 14
         set background picture of opts to file ".background:background.tiff"
-        set position of item "LaunchUS.app" of container window to {170, 200}
-        set position of item "Applications" of container window to {490, 200}
+        set position of item "LaunchUS.app" of container window to {330, 260}
+        set position of item "Applications" of container window to {670, 260}
         close
         open
-        set the bounds of container window to {200, 120, 860, 520}
+        set the bounds of container window to {200, 120, 1200, 640}
         update without registering applications
         delay 2
         close

@@ -3,10 +3,13 @@
 //   swift scripts/dmg-background.swift <out-dir>
 import AppKit
 
-let width = 660.0, height = 400.0
-// Finder sometimes opens the window larger than the bounds dmg.sh saves. The picture
-// is drawn from the window's top-left and not stretched, so the canvas reaches well past
-// the layout and the wash carries on there instead of leaving white.
+// Finder sometimes ignores the window bounds dmg.sh saves and opens the window at its own
+// default size (about 994×526 on macOS 26). The layout is that size, so it looks the same
+// either way. Keep in step with the window bounds and icon positions in dmg.sh.
+let width = 1000.0, height = 520.0
+let leftX = 330.0, rightX = 670.0, iconY = 260.0  // icon centres, from the top-left
+// The picture is drawn from the window's top-left and not stretched, so the canvas reaches
+// past the layout and the wash carries on there instead of leaving white.
 let canvasWidth = 1600.0, canvasHeight = 1000.0
 let out = URL(fileURLWithPath: CommandLine.arguments[1])
 
@@ -30,28 +33,30 @@ func draw(scale: CGFloat) -> Data {
     NSGradient(colors: [NSColor(white: 0.99, alpha: 1), bottom])!
         .draw(in: NSRect(x: 0, y: 0, width: canvasWidth, height: height), angle: -90)
     NSGradient(colors: [NSColor(calibratedRed: 0.04, green: 0.52, blue: 1, alpha: 0.10), .clear])!
-        .draw(fromCenter: NSPoint(x: width / 2, y: 215), radius: 0, toCenter: NSPoint(x: width / 2, y: 215), radius: 300, options: [])
+        .draw(fromCenter: NSPoint(x: width / 2, y: height - iconY), radius: 0,
+              toCenter: NSPoint(x: width / 2, y: height - iconY), radius: 420, options: [])
 
     // Title.
     let title = NSAttributedString(string: "LaunchUS", attributes: [
-        .font: NSFont.systemFont(ofSize: 26, weight: .bold),
+        .font: NSFont.systemFont(ofSize: 32, weight: .bold),
         .foregroundColor: NSColor(white: 0.12, alpha: 1),
     ])
-    title.draw(at: NSPoint(x: (width - title.size().width) / 2, y: height - 62))
+    title.draw(at: NSPoint(x: (width - title.size().width) / 2, y: height - 92))
 
-    // Arrow between the two icons (icon centres are at x 170 and 490, y 200 from the top).
-    let y = height - 200
+    // Arrow between the two icons.
+    let y = height - iconY
     let blue = NSColor(calibratedRed: 0.04, green: 0.52, blue: 1, alpha: 1)
     let dots = NSBezierPath()
-    for x in stride(from: 262.0, through: 378.0, by: 14) {
+    let tip = rightX - 104
+    for x in stride(from: leftX + 104, through: tip - 22, by: 15) {
         dots.appendOval(in: NSRect(x: x - 2.5, y: y - 2.5, width: 5, height: 5))
     }
     blue.withAlphaComponent(0.45).setFill()
     dots.fill()
     let head = NSBezierPath()
-    head.move(to: NSPoint(x: 386, y: y + 13))
-    head.line(to: NSPoint(x: 400, y: y))
-    head.line(to: NSPoint(x: 386, y: y - 13))
+    head.move(to: NSPoint(x: tip - 15, y: y + 15))
+    head.line(to: NSPoint(x: tip, y: y))
+    head.line(to: NSPoint(x: tip - 15, y: y - 15))
     head.lineWidth = 5
     head.lineCapStyle = .round
     head.lineJoinStyle = .round
@@ -62,11 +67,11 @@ func draw(scale: CGFloat) -> Data {
     let style = NSMutableParagraphStyle()
     style.alignment = .center
     let hint = NSAttributedString(string: "拖到「应用程序」即可安装  ·  Drag to Applications to install", attributes: [
-        .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+        .font: NSFont.systemFont(ofSize: 14, weight: .medium),
         .foregroundColor: NSColor(white: 0.45, alpha: 1),
         .paragraphStyle: style,
     ])
-    hint.draw(in: NSRect(x: 0, y: 48, width: width, height: 20))
+    hint.draw(in: NSRect(x: 0, y: 64, width: width, height: 22))
 
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])!
