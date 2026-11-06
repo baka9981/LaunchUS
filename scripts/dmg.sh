@@ -57,6 +57,13 @@ tell application "Finder"
 end tell
 EOF
 
+# With "prefer tabs: always" and another Finder window open, the disk opens as a tab and
+# Finder saves the positions but drops the background and icon size. Catch that here.
+if ! grep -q pBBk "/Volumes/$VOLUME/.DS_Store" 2>/dev/null; then
+    echo "Finder didn't save the window background. Close all Finder windows and run this again." >&2
+    exit 1
+fi
+
 # The disk's own icon. Added after Finder is done, which otherwise drops it.
 cp "$APP/Contents/Resources/AppIcon.icns" "/Volumes/$VOLUME/.VolumeIcon.icns"
 SetFile -a C "/Volumes/$VOLUME"

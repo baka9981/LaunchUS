@@ -11,11 +11,11 @@
 ![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)
 [![Downloads](https://img.shields.io/github/downloads/baka9981/LaunchUS/total?style=flat-square&color=34C759)](https://github.com/baka9981/LaunchUS/releases)
 [![License](https://img.shields.io/badge/license-MIT-8E8E93?style=flat-square)](LICENSE)
-[![Website](https://img.shields.io/badge/Website-baka9981.github.io-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://baka9981.github.io/LaunchUS/)
+[![Website](https://img.shields.io/badge/Website-launchusapp.com-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://launchusapp.com/)
 
 <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
 
-🌐 <a href="https://baka9981.github.io/LaunchUS/"><b>Website</b></a>
+🌐 <a href="https://launchusapp.com/"><b>Website</b></a>
 
 <img src="docs/images/whats-new.png" width="49%" alt="What’s New"> <img src="docs/images/guide.png" width="49%" alt="Welcome tour">
 
@@ -46,7 +46,7 @@ macOS 26 replaced Launchpad with the Apps window. LaunchUS brings back the full-
 
 ## Install
 
-1. Download **LaunchUS-x.y.z.dmg** from the [latest release](https://github.com/baka9981/LaunchUS/releases/latest), open it and drag LaunchUS onto **Applications**.
+1. [Download **LaunchUS.dmg**](https://dl.launchusapp.com/LaunchUS.dmg) (or any version from [Releases](https://github.com/baka9981/LaunchUS/releases)), open it and drag LaunchUS onto **Applications**.
 2. On first launch macOS may say it can’t verify the developer: open **System Settings › Privacy & Security** and click **Open Anyway**.
 3. Press **⌥Space** to open. Right-click empty space or press **⌘,** for settings.
 

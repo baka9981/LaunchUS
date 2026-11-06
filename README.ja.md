@@ -11,11 +11,11 @@
 ![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)
 [![Downloads](https://img.shields.io/github/downloads/baka9981/LaunchUS/total?style=flat-square&color=34C759)](https://github.com/baka9981/LaunchUS/releases)
 [![License](https://img.shields.io/badge/license-MIT-8E8E93?style=flat-square)](LICENSE)
-[![Website](https://img.shields.io/badge/%E5%85%AC%E5%BC%8F%E3%82%B5%E3%82%A4%E3%83%88-baka9981.github.io-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://baka9981.github.io/LaunchUS/)
+[![Website](https://img.shields.io/badge/%E5%85%AC%E5%BC%8F%E3%82%B5%E3%82%A4%E3%83%88-launchusapp.com-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://launchusapp.com/)
 
 <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
 
-🌐 <a href="https://baka9981.github.io/LaunchUS/"><b>公式サイト</b></a>
+🌐 <a href="https://launchusapp.com/"><b>公式サイト</b></a>
 
 <img src="docs/images/whats-new.png" width="49%" alt="新機能"> <img src="docs/images/guide.png" width="49%" alt="ようこそガイド">
 
@@ -46,7 +46,7 @@ macOS 26 では Launchpad が「アプリ」ウインドウに置き換わりま
 
 ## インストール
 
-1. [最新リリース](https://github.com/baka9981/LaunchUS/releases/latest) から **LaunchUS-x.y.z.dmg** をダウンロードして開き、LaunchUS を「アプリケーション」にドラッグします。
+1. [**LaunchUS.dmg** をダウンロード](https://dl.launchusapp.com/LaunchUS.dmg)（過去のバージョンは [Releases](https://github.com/baka9981/LaunchUS/releases)）して開き、LaunchUS を「アプリケーション」にドラッグします。
 2. 初回起動時に開発元を確認できないと表示されたら、**システム設定 › プライバシーとセキュリティ** で **このまま開く** をクリックします。
 3. **⌥Space** で開きます。何もないところを右クリックするか **⌘,** で設定を開きます。
 

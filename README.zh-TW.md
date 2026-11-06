@@ -11,11 +11,11 @@
 ![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)
 [![Downloads](https://img.shields.io/github/downloads/baka9981/LaunchUS/total?style=flat-square&color=34C759)](https://github.com/baka9981/LaunchUS/releases)
 [![License](https://img.shields.io/badge/license-MIT-8E8E93?style=flat-square)](LICENSE)
-[![Website](https://img.shields.io/badge/%E5%AE%98%E7%B6%B2-baka9981.github.io-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://baka9981.github.io/LaunchUS/)
+[![Website](https://img.shields.io/badge/%E5%AE%98%E7%B6%B2-launchusapp.com-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://launchusapp.com/)
 
 <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
 
-🌐 <a href="https://baka9981.github.io/LaunchUS/"><b>官網</b></a>
+🌐 <a href="https://launchusapp.com/"><b>官網</b></a>
 
 <img src="docs/images/whats-new.png" width="49%" alt="新功能"> <img src="docs/images/guide.png" width="49%" alt="使用引導">
 
@@ -46,7 +46,7 @@ macOS 26 用「應用程式」視窗取代了啟動台。LaunchUS 把熟悉的�
 
 ## 安裝
 
-1. 從 [最新版本](https://github.com/baka9981/LaunchUS/releases/latest) 下載 **LaunchUS-x.y.z.dmg**，打開後把 LaunchUS 拖到「應用程式」。
+1. [下載 **LaunchUS.dmg**](https://dl.launchusapp.com/LaunchUS.dmg)（歷史版本見 [Releases](https://github.com/baka9981/LaunchUS/releases)），打開後把 LaunchUS 拖到「應用程式」。
 2. 首次打開如果提示無法驗證開發者：打開 **系統設定 › 隱私權與安全性**，點 **強制打開**。
 3. 按 **⌥Space** 打開。右鍵空白處或按 **⌘,** 進入設定。
 
