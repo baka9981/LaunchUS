@@ -7,6 +7,9 @@ struct AITab: View {
     @State private var key = AIKey.value
     @State private var testing = false
     @State private var testResult: Result<String, Error>?
+    @State private var models: [String] = []
+    @State private var fetching = false
+    @State private var fetchError: String?
 
     private var configured: Bool {
         !settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty
@@ -32,10 +35,33 @@ struct AITab: View {
                             .frame(width: 260)
                             .onChange(of: key) { _, value in AIKey.value = value; testResult = nil }
                     }
-                    Row(title: String(localized: "模型")) {
-                        TextField(settings.aiFormat.modelPlaceholder, text: $settings.aiModel)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 260)
+                    Row(title: String(localized: "模型"), subtitle: fetchError ?? (models.isEmpty ? String(localized: "点「获取」列出网关提供的模型") : String(localized: "共 \(models.count) 个模型"))) {
+                        HStack(spacing: 6) {
+                            TextField(settings.aiFormat.modelPlaceholder, text: $settings.aiModel)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: models.isEmpty ? 190 : 160)
+                            if !models.isEmpty {
+                                Menu {
+                                    ForEach(models, id: \.self) { name in
+                                        Button { settings.aiModel = name } label: {
+                                            if name == settings.aiModel { Label(name, systemImage: "checkmark") } else { Text(verbatim: name) }
+                                        }
+                                    }
+                                } label: { Image(systemName: "chevron.up.chevron.down") }
+                                .menuStyle(.borderlessButton)
+                                .menuIndicator(.hidden)
+                                .fixedSize()
+                                .help(String(localized: "选择模型"))
+                            }
+                            Button(fetching ? String(localized: "获取中…") : String(localized: "获取")) { fetchModels() }
+                                .disabled(fetching || (key.isEmpty && settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty))
+                        }
+                    }
+                }
+                Card {
+                    Row(title: String(localized: "让 AI 操作 LaunchUS"),
+                        subtitle: settings.aiToolAccess.detail) {
+                        MenuPicker(selection: $settings.aiToolAccess, options: AIToolAccess.allCases, title: \.title)
                     }
                 }
                 Card {
@@ -61,7 +87,8 @@ struct AITab: View {
                 .padding(.leading, 4)
                 .onChange(of: settings.aiModel) { _, _ in testResult = nil }
                 .onChange(of: settings.aiBaseURL) { _, _ in testResult = nil }
-                .onChange(of: settings.aiFormat) { _, _ in testResult = nil }
+                .onChange(of: settings.aiFormat) { _, _ in testResult = nil; models = [] }
+                .onChange(of: settings.aiBaseURL) { _, _ in models = [] }
             }
             MCPSection()
         }
@@ -77,7 +104,7 @@ struct AITab: View {
                             in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {
                 Text("在搜索框里和 AI 聊天").font(.system(size: 14, weight: .semibold))
-                Text("配置好网关后，搜索没有结果时按 ⇥ 或点「问 AI」，就在启动台里直接对话。")
+                Text("配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；网页搜索改为按 ⇥。")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -97,6 +124,21 @@ struct AITab: View {
             if !configured {
                 Text("填好模型和密钥后可测试").font(.system(size: 12)).foregroundStyle(.secondary)
             }
+        }
+    }
+
+    private func fetchModels() {
+        fetching = true
+        fetchError = nil
+        let client = AIClient(settings: settings)
+        Task {
+            do {
+                models = try await client.models()
+                if settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty, let first = models.first { settings.aiModel = first }
+            } catch {
+                fetchError = error.localizedDescription
+            }
+            fetching = false
         }
     }
 

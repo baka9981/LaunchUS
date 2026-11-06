@@ -1164,7 +1164,7 @@ enum SearchCard {
     static let width: CGFloat = 580
 }
 
-/// Search found nothing: search the web (↩) or Finder (⌘↩) for it instead.
+/// Search found nothing: ask AI (↩) when it is set up, search the web (↩, or ⇥ with AI) or Finder (⌘↩).
 private struct FallbackCard: View {
     let text: String
     let engine: String
@@ -1181,11 +1181,11 @@ private struct FallbackCard: View {
                 .foregroundStyle(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.75)))
                 .lineLimit(1).truncationMode(.middle)
             HStack(spacing: 10) {
-                choice(String(localized: "用 \(engine) 搜索"), symbol: "globe", key: "↩", action: web)
-                choice(String(localized: "在访达中搜索"), symbol: "magnifyingglass", key: "⌘↩", action: finder)
                 if let ai {
-                    choice(String(localized: "问 AI"), symbol: "sparkles", key: "⇥", action: ai)
+                    choice(String(localized: "问 AI"), symbol: "sparkles", key: "↩", action: ai)
                 }
+                choice(String(localized: "用 \(engine) 搜索"), symbol: "globe", key: ai == nil ? "↩" : "⇥", action: web)
+                choice(String(localized: "在访达中搜索"), symbol: "magnifyingglass", key: "⌘↩", action: finder)
             }
         }
         .padding(.horizontal, 24).padding(.vertical, 18)

@@ -716,3 +716,36 @@
 "配置好网关后，搜索没有结果时按 ⇥ 或点「问 AI」，就在启动台里直接对话。" = "Once a gateway is set up, press ⇥ or click “Ask AI” when a search finds nothing to chat right in the launcher.";
 "重试" = "Retry";
 "问 AI" = "Ask AI";
+
+/* AI tools */
+"AI 只聊天，不碰你的 App" = "AI only chats and leaves your apps alone";
+"AI 想要" = "AI wants to";
+"↩ 允许 · Esc 拒绝" = "↩ Allow · Esc Decline";
+"允许" = "Allow";
+"共 %lld 个模型" = "%lld models";
+"切换到布局「%@」" = "Switch to the layout “%@”";
+"只能查询" = "Look Up Only";
+"可以搜索和查看 App、文件夹、布局，不能打开或退出" = "Can search and look at apps, folders and layouts, but not open or quit them";
+"已拒绝" = "Declined";
+"强制退出「%@」" = "Force quit “%@”";
+"强制退出会丢失未存储的内容" = "Force quitting loses unsaved changes";
+"打开「%@」" = "Open “%@”";
+"打开「%@」里的所有 App" = "Open all apps in “%@”";
+"拒绝" = "Decline";
+"搜索 App「%@」" = "Search apps for “%@”";
+"搜索没有结果时，按 ↩ 用它搜索（配置了 AI 时改为 ⇥，↩ 问 AI）；按 ⌘↩ 在访达中搜索" = "When a search finds nothing, press ↩ to search with it (⇥ once AI is set up, when ↩ asks AI); press ⌘↩ to search in Finder";
+"操作前确认" = "Ask Before Acting";
+"本次对话都允许" = "Allow for This Chat";
+"查看 App 列表" = "List apps";
+"查看布局" = "List layouts";
+"查看文件夹" = "List folders";
+"查看正在运行的 App" = "List running apps";
+"查询直接进行；打开 App、切换布局等每次先问你，退出 App 总要确认" = "Lookups run right away; opening apps, switching layouts and the like ask you first, and quitting an app always asks";
+"点「获取」列出网关提供的模型" = "Click Fetch to list the gateway's models";
+"网关没有返回模型列表" = "The gateway returned no models";
+"获取" = "Fetch";
+"获取中…" = "Fetching…";
+"让 AI 操作 LaunchUS" = "Let AI Use LaunchUS";
+"退出「%@」" = "Quit “%@”";
+"选择模型" = "Choose Model";
+"配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；网页搜索改为按 ⇥。" = "Once a gateway is set up, press ↩ or click “Ask AI” when a search finds nothing to chat right in the launcher; web search moves to ⇥.";

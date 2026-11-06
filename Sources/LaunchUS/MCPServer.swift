@@ -113,6 +113,12 @@ enum MCPServer {
         init(_ text: String) { errorDescription = text }
     }
 
+    /// A call whose arguments are still JSON text (from the built-in chat).
+    static func call(_ name: String, json: String) throws -> String {
+        let input = json.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) } as? [String: Any]
+        return try call(name, input ?? [:])
+    }
+
     static func call(_ name: String, _ arguments: [String: Any]) throws -> String {
         func text(_ key: String) throws -> String {
             let value = (arguments[key] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

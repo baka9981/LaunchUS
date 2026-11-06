@@ -138,3 +138,46 @@ struct MCPTests {
         #expect(unknown?["error"] != nil)
     }
 }
+
+struct AIToolTests {
+    @Test func collectsStreamedToolCalls() throws {
+        var openAI = StreamParser(format: .openAI)
+        _ = try openAI.feed(#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"open_app","arguments":""}}]}}]}"#)
+        _ = try openAI.feed(#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"app\":"}}]}}]}"#)
+        _ = try openAI.feed(#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"\"Safari\"}"}}]}}]}"#)
+        #expect(openAI.toolCalls == [ToolCall(id: "call_1", name: "open_app", arguments: #"{"app":"Safari"}"#)])
+
+        var anthropic = StreamParser(format: .anthropic)
+        _ = try anthropic.feed(#"data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"quit_app","input":{}}}"#)
+        _ = try anthropic.feed(#"data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"app\":\"Notes\"}"}}"#)
+        #expect(anthropic.toolCalls.first?.input["app"] as? String == "Notes")
+    }
+
+    @Test func sendsResultsAfterTheirCalls() {
+        let call = ToolCall(id: "c1", name: "open_app", arguments: #"{"app":"Safari"}"#)
+        let messages = [ChatMessage(role: .user, text: "open safari"),
+                        ChatMessage(role: .assistant, text: "", toolCalls: [call]),
+                        ChatMessage(role: .tool, text: "Opened Safari.", call: call),
+                        ChatMessage(role: .assistant, text: "Done.")]
+        let openAI = AIClient.encode(messages, format: .openAI, system: "")
+        #expect(openAI.map { $0["role"] as? String } == ["user", "assistant", "tool", "assistant"])
+        #expect(openAI[2]["content"] as? String == "Opened Safari.")
+        let anthropic = AIClient.encode(messages, format: .anthropic, system: "")
+        #expect(anthropic.map { $0["role"] as? String } == ["user", "assistant", "user", "assistant"])
+        // A call left unanswered still gets a result, so the next request is valid.
+        let stopped = AIClient.encode(Array(messages.prefix(2)), format: .openAI, system: "")
+        #expect(stopped.last?["content"] as? String == "Cancelled by the user.")
+    }
+
+    @Test func guardsActions() {
+        let open = ToolCall(id: "1", name: "open_app", arguments: "{}")
+        let quit = ToolCall(id: "2", name: "quit_app", arguments: "{}")
+        let look = ToolCall(id: "3", name: "list_apps", arguments: "{}")
+        #expect(AITools.needsApproval(open, allowAll: false))
+        #expect(!AITools.needsApproval(open, allowAll: true))
+        #expect(AITools.needsApproval(quit, allowAll: true))
+        #expect(!AITools.needsApproval(look, allowAll: false))
+        #expect(AITools.available(.off).isEmpty)
+        #expect(!AITools.available(.readOnly).contains { $0.name == "open_app" })
+    }
+}

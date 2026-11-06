@@ -67,14 +67,32 @@ extension LauncherModel {
     func startChat() {
         guard let text = fallbackQuery, AIClient.isConfigured else { return }
         let session = ChatSession()
+        session.local = { [weak self] call in self?.runLocalTool(call) }
         withAnimation(.easeOut(duration: 0.2)) { chat = session }
         query = ""
         session.send(text)
     }
 
+    /// Tools from the chat that act on the launcher itself.
+    private func runLocalTool(_ call: ToolCall) -> String? {
+        let name = (call.input["name"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        switch call.name {
+        case "switch_layout":
+            return switchProfile(named: name) ? "Switched to the layout \(name)." : "No layout named \(name)."
+        case "open_group":
+            guard let folder = folder(named: name) else { return "No folder named \(name)." }
+            openAll(folder.id)
+            return "Opened the apps in \(folder.name)."
+        default:
+            return nil
+        }
+    }
+
     /// ↩ in the field while chatting.
     func sendChat() {
-        guard let chat, !chat.isStreaming else { return }
+        guard let chat else { return }
+        if chat.isAsking, query.trimmingCharacters(in: .whitespaces).isEmpty { return chat.approve() }
+        guard !chat.isStreaming else { return }
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         query = ""
@@ -136,7 +154,8 @@ extension LauncherModel {
         } else if calculation != nil {
             copyCalculation()
         } else if fallbackQuery != nil {
-            searchWeb()
+            // With AI set up, ↩ asks it and ⇥ searches the web.
+            if canAskAI { startChat() } else { searchWeb() }
         } else if isSearching, case .app(let app)? = pages.first?.first {
             launch(app)
         }
@@ -373,7 +392,9 @@ extension LauncherModel {
         } else if isEditing {
             isEditing = false
         } else if let chat {
-            if chat.isStreaming {
+            if chat.isAsking {
+                chat.deny()
+            } else if chat.isStreaming {
                 chat.stop()
             } else if !query.isEmpty {
                 query = ""

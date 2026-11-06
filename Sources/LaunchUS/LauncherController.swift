@@ -272,6 +272,10 @@ final class LauncherController {
             if let query = env["LAUNCHUS_QUERY"] { self.model.query = query }
             // LAUNCHUS_SPACES=n: as if space was pressed n times in the empty field.
             for _ in 0..<(env["LAUNCHUS_SPACES"].flatMap(Int.init) ?? 0) { self.model.pressSpace() }
+            if let ask = env["LAUNCHUS_ASK"] {
+                self.model.query = ask
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.model.startChat() }
+            }
             if env["LAUNCHUS_CHAT"] != nil {
                 let chat = ChatSession()
                 chat.load([
@@ -301,7 +305,7 @@ final class LauncherController {
                case .folder(let folder, _)? = self.model.pages.joined().first(where: { $0.title == name }) {
                 self.model.openFolder(folder.id)
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + (env["LAUNCHUS_DELAY"].flatMap(Double.init) ?? 1.0)) {
                 if self.model.showSettings || env["LAUNCHUS_EDIT"] != nil || env["LAUNCHUS_SHEET"] != nil || env["LAUNCHUS_REAL"] != nil, let view = self.panel.contentView,
                    let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                     // AppKit controls only draw through the real view hierarchy.
@@ -637,7 +641,7 @@ final class LauncherController {
         case kVK_Tab where !model.tagCandidates.isEmpty:
             model.completeTag(model.tagCandidates[0])
         case kVK_Tab where model.canAskAI:
-            model.startChat()
+            model.searchWeb()
         case kVK_Return where command && model.fallbackQuery != nil:
             model.searchFinder()
         case kVK_Return, kVK_ANSI_KeypadEnter:

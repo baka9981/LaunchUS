@@ -330,7 +330,7 @@ struct GeneralTab: View {
                 Row(title: String(localized: "点击空白区域关闭")) {
                     Toggle("", isOn: $settings.clickBackgroundToClose).toggleStyle(.switch).labelsHidden()
                 }
-                Row(title: String(localized: "网页搜索"), info: String(localized: "搜索没有结果时，按 ↩ 用它搜索；按 ⌘↩ 在访达中搜索")) {
+                Row(title: String(localized: "网页搜索"), info: String(localized: "搜索没有结果时，按 ↩ 用它搜索（配置了 AI 时改为 ⇥，↩ 问 AI）；按 ⌘↩ 在访达中搜索")) {
                     MenuPicker(selection: $settings.searchEngine, options: SearchEngine.allCases, title: \.title)
                 }
                 Row(title: String(localized: "搜索文件"), info: String(localized: "在 App 下面列出聚焦找到的文件和文件夹")) {

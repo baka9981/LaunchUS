@@ -331,6 +331,8 @@ final class Settings {
     var aiModel: String { didSet { save(aiModel, "aiModel") } }
     /// Optional instructions sent before every chat.
     var aiSystemPrompt: String { didSet { save(aiSystemPrompt, "aiSystemPrompt") } }
+    /// Whether the chat may look up and act on apps, folders and layouts.
+    var aiToolAccess: AIToolAccess { didSet { save(aiToolAccess.rawValue, "aiToolAccess") } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -397,6 +399,7 @@ final class Settings {
         aiBaseURL = value("aiBaseURL", "")
         aiModel = value("aiModel", "")
         aiSystemPrompt = value("aiSystemPrompt", "")
+        aiToolAccess = AIToolAccess(rawValue: value("aiToolAccess", "")) ?? .confirm
     }
 
     private func save(_ value: Any, _ key: String) {
