@@ -276,7 +276,16 @@ final class LauncherController {
                 self.model.query = ask
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { self.model.startChat() }
             }
-            if env["LAUNCHUS_CHAT"] != nil {
+            // LAUNCHUS_CHAT=1: a sample chat; =empty: a fresh one, with the recent chats; =error: a failed answer.
+            if env["LAUNCHUS_CHAT"] == "empty" {
+                self.model.chat = ChatSession()
+            } else if env["LAUNCHUS_CHAT"] == "error" {
+                let chat = ChatSession()
+                let json: [String: Any] = ["error": ["message": "You didn't provide an API key. You need to provide your API key in an Authorization header using Bearer auth.", "type": "invalid_request_error"]]
+                chat.load([ChatMessage(role: .user, text: "啥")],
+                          error: AIFailure.gateway(status: 401, json: json, keyMissing: true))
+                self.model.chat = chat
+            } else if env["LAUNCHUS_CHAT"] != nil {
                 let chat = ChatSession()
                 chat.load([
                     ChatMessage(role: .user, text: "怎么用 Swift 读取一个文件的大小？"),

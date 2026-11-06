@@ -11,6 +11,8 @@ struct AITab: View {
     @State private var models: [String] = UserDefaults.app.stringArray(forKey: "aiModelList") ?? []
     @State private var fetching = false
     @State private var fetchError: String?
+    @State private var savedChats = ChatHistory.list().count
+    @State private var confirmingClear = false
 
     private var configured: Bool {
         !settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty
@@ -68,6 +70,25 @@ struct AITab: View {
                     }
                 }
                 Card {
+                    Row(title: String(localized: "对话记录"), subtitle: settings.aiHistoryCount > 0
+                            ? String(localized: "保留最近 \(settings.aiHistoryCount) 段对话，只存在这台 Mac 上")
+                            : String(localized: "已关闭，对话关掉就没了")) {
+                        HStack(spacing: 10) {
+                            Stepper(settings.aiHistoryCount > 0 ? String(localized: "\(settings.aiHistoryCount) 段") : String(localized: "关"),
+                                    value: $settings.aiHistoryCount, in: 0...200, step: 10)
+                                .monospacedDigit()
+                            Button(String(localized: "全部删除…")) { confirmingClear = true }
+                                .disabled(savedChats == 0)
+                        }
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: ChatHistory.didChange)) { _ in savedChats = ChatHistory.list().count }
+                .confirmationDialog(String(localized: "删除所有对话记录？"), isPresented: $confirmingClear) {
+                    Button(String(localized: "全部删除"), role: .destructive) { ChatHistory.deleteAll() }
+                } message: {
+                    Text("删除后无法恢复。")
+                }
+                Card {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("系统提示词").font(.system(size: 13))
                         Text("每次对话开头发给 AI，可留空").font(.system(size: 11)).foregroundStyle(.secondary)
@@ -121,7 +142,8 @@ struct AITab: View {
                   systemImage: "checkmark.circle.fill")
                 .foregroundStyle(.green).font(.system(size: 12)).lineLimit(1)
         case .failure(let error):
-            Label(error.localizedDescription, systemImage: "xmark.octagon.fill")
+            Label(AIFailure.from(error).localizedDescription, systemImage: "xmark.octagon.fill")
+                .help(AIFailure.from(error).hasDetail ? AIFailure.from(error).detail : "")
                 .foregroundStyle(.red).font(.system(size: 12)).lineLimit(2).textSelection(.enabled)
         case nil:
             if !configured {
@@ -145,7 +167,7 @@ struct AITab: View {
                 UserDefaults.app.set(models, forKey: "aiModelList")
                 if settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty, let first = models.first { settings.aiModel = first }
             } catch {
-                fetchError = error.localizedDescription
+                fetchError = AIFailure.from(error).localizedDescription
             }
             fetching = false
         }

@@ -70,6 +70,8 @@ extension LauncherModel {
         withAnimation(.easeOut(duration: 0.2)) { chat = session }
         query = ""
         session.send(text)
+        // The field moves into the chat card: keep typing there.
+        DispatchQueue.main.async { self.focusRequest += 1 }
     }
 
     private func makeChat() -> ChatSession {
@@ -86,7 +88,7 @@ extension LauncherModel {
         spaceList = nil
         withAnimation(.easeOut(duration: 0.2)) { chat = session }
         query = ""
-        focusRequest += 1
+        DispatchQueue.main.async { self.focusRequest += 1 }
     }
 
     /// ↩ in the field while chatting.
@@ -111,6 +113,7 @@ extension LauncherModel {
         withAnimation(.easeOut(duration: 0.2)) { self.chat = nil }
         query = ""
         refresh()
+        DispatchQueue.main.async { self.focusRequest += 1 }
     }
 
     /// What's typed, when search found nothing: offered to the web or Finder instead.

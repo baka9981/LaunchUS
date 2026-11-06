@@ -69,7 +69,7 @@ enum AIKey {
 }
 
 /// One tool the AI asked to use; `arguments` is its JSON text.
-struct ToolCall: Equatable, Sendable {
+struct ToolCall: Equatable, Sendable, Codable {
     var id: String
     var name: String
     var arguments: String
@@ -79,10 +79,10 @@ struct ToolCall: Equatable, Sendable {
     }
 }
 
-struct ChatMessage: Identifiable, Equatable {
-    enum Role: String { case user, assistant, tool }
-    enum ToolState: Equatable { case asking, running, done, denied, failed }
-    let id = UUID()
+struct ChatMessage: Identifiable, Equatable, Codable {
+    enum Role: String, Codable { case user, assistant, tool }
+    enum ToolState: String, Equatable, Codable { case asking, running, done, denied, failed }
+    var id = UUID()
     let role: Role
     var text: String
     /// Assistant: the tools it asked to use.
@@ -106,7 +106,7 @@ struct StreamParser {
         let payload = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
         guard payload != "[DONE]", let data = payload.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        if let message = AIClient.errorMessage(json) { throw AIError.message(message) }
+        if AIClient.errorMessage(json) != nil { throw AIFailure.gateway(status: nil, json: json) }
         switch format {
         case .openAI:
             guard let choice = (json["choices"] as? [[String: Any]])?.first,
@@ -173,6 +173,9 @@ struct AIClient: Sendable {
         guard !settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
         return !AIKey.value.isEmpty || !settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty
     }
+
+    /// Named when the gateway can't be reached.
+    var endpointHost: String { Self.endpoint(format: format, base: baseURL)?.host ?? "" }
 
     static func endpoint(format: AIFormat, base: String) -> URL? {
         var text = base.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -304,7 +307,8 @@ struct AIClient: Sendable {
         let (data, response) = try await URLSession.shared.data(for: request)
         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            throw AIError.message("HTTP \(http.statusCode)" + (json.flatMap(Self.errorMessage).map { " · " + $0 } ?? ""))
+            throw AIFailure.gateway(status: http.statusCode, json: json, body: String(data: data, encoding: .utf8) ?? "",
+                                    keyMissing: key.isEmpty)
         }
         let list = (json?["data"] as? [[String: Any]] ?? json?["models"] as? [[String: Any]] ?? [])
             .compactMap { $0["id"] as? String ?? $0["name"] as? String }
@@ -327,6 +331,8 @@ struct AIClient: Sendable {
     func stream(_ messages: [ChatMessage], tools: [MCPServer.Tool] = []) -> AsyncThrowingStream<StreamEvent, Error> {
         let built = Result { try request(messages, tools: tools) }
         let format = format
+        let keyMissing = key.isEmpty
+        let model = model
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -335,9 +341,8 @@ struct AIClient: Sendable {
                         var data = Data()
                         for try await byte in bytes { data.append(byte); if data.count > 64_000 { break } }
                         let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-                        let detail = json.flatMap(Self.errorMessage) ?? String(data: data, encoding: .utf8)?
-                            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                        throw AIError.message("HTTP \(http.statusCode)" + (detail.isEmpty ? "" : " · " + String(detail.prefix(300))))
+                        throw AIFailure.gateway(status: http.statusCode, json: json, body: String(data: data, encoding: .utf8) ?? "",
+                                                keyMissing: keyMissing, model: model)
                     }
                     var parser = StreamParser(format: format)
                     for try await line in bytes.lines {
@@ -365,8 +370,10 @@ enum AIError: LocalizedError {
 @MainActor @Observable
 final class ChatSession {
     private(set) var messages: [ChatMessage] = []
+    /// Its file in the chat history.
+    private(set) var historyID = UUID()
     private(set) var isStreaming = false
-    private(set) var error: String?
+    private(set) var error: AIFailure?
     /// The non-risky actions were allowed for the rest of this chat.
     private(set) var allowAll = false
     @ObservationIgnored private var task: Task<Void, Never>?
@@ -417,17 +424,29 @@ final class ChatSession {
             messages[index].text = "Stopped by the user."
         }
         messages.removeAll { $0.role == .assistant && $0.text.isEmpty && $0.toolCalls.isEmpty }
+        ChatHistory.save(self)
     }
 
     func reset() {
         stop()
+        historyID = UUID()
         messages = []
         error = nil
         allowAll = false
     }
 
     /// Shown in snapshots and previews.
-    func load(_ sample: [ChatMessage]) { messages = sample }
+    func load(_ sample: [ChatMessage], error: AIFailure? = nil) {
+        messages = sample
+        self.error = error
+    }
+
+    /// Picks up a saved chat where it left off.
+    func resume(_ saved: ChatHistory.Chat) {
+        reset()
+        historyID = saved.id
+        messages = saved.messages
+    }
 
     private func answer() {
         error = nil
@@ -459,7 +478,7 @@ final class ChatSession {
                 return
             } catch {
                 guard !Task.isCancelled else { return }
-                self.error = error.localizedDescription
+                self.error = AIFailure.from(error, host: client.endpointHost)
                 break rounds
             }
             guard !Task.isCancelled, index < messages.count else { return }
@@ -472,6 +491,7 @@ final class ChatSession {
         }
         isStreaming = false
         messages.removeAll { $0.role == .assistant && $0.text.isEmpty && $0.toolCalls.isEmpty }
+        ChatHistory.save(self)
     }
 
     /// Runs one call. Only tools that were offered run, so a model can't reach past the access setting.

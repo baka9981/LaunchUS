@@ -123,7 +123,7 @@ struct AIChatTests {
         #expect(try AIClient.delta(in: "data: [DONE]", format: .openAI) == nil)
         #expect(try AIClient.delta(in: #"data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Yo"}}"#, format: .anthropic) == "Yo")
         #expect(try AIClient.delta(in: "event: ping", format: .anthropic) == nil)
-        #expect(throws: AIError.self) { try AIClient.delta(in: #"data: {"error":{"message":"bad key"}}"#, format: .openAI) }
+        #expect(throws: AIFailure.self) { try AIClient.delta(in: #"data: {"error":{"message":"bad key"}}"#, format: .openAI) }
     }
 }
 

@@ -130,8 +130,10 @@ struct LauncherView: View {
                     .nativeContextMenu { LauncherMenus.main(model) }
 
                 ZStack(alignment: .top) {
-                    if windowed {
-                        WindowHeader(text: $model.query, focused: $searchFocused, chatting: model.chat != nil) { LauncherMenus.main(model, includeSearchItems: true) }
+                    if model.chat != nil {
+                        // The chat card has its own field at the bottom.
+                    } else if windowed {
+                        WindowHeader(text: $model.query, focused: $searchFocused, chatting: false) { LauncherMenus.main(model, includeSearchItems: true) }
                             .frame(width: metrics.searchSize.width, height: metrics.searchSize.height)
                             .offset(y: metrics.searchCenterY - metrics.searchSize.height / 2)
                         Rectangle().fill(.primary.opacity(0.1))
@@ -142,7 +144,7 @@ struct LauncherView: View {
                             .offset(y: metrics.categoryBarY - 15)
                             .opacity(model.isSearching ? 0 : 1)
                     } else {
-                        SearchField(text: $model.query, focused: $searchFocused, chatting: model.chat != nil) { LauncherMenus.main(model, includeSearchItems: true) }
+                        SearchField(text: $model.query, focused: $searchFocused, chatting: false) { LauncherMenus.main(model, includeSearchItems: true) }
                             .frame(width: metrics.searchSize.width, height: metrics.searchSize.height)
                             .offset(y: metrics.searchCenterY - metrics.searchSize.height / 2)
                     }
@@ -157,6 +159,7 @@ struct LauncherView: View {
                     }
 
                     TagBar(model: model)
+                        .opacity(model.chat == nil ? 1 : 0)
                         .frame(width: geo.size.width * 0.8)
                         .offset(y: windowed ? metrics.categoryBarY - 12 : metrics.searchCenterY + metrics.searchSize.height / 2 + 10)
                         .zIndex(1)
@@ -204,9 +207,15 @@ struct LauncherView: View {
                 }
 
                 if let chat = model.chat {
-                    let top = metrics.gridTop + (windowed ? 0 : 6)
-                    let height = min(760, max(240, metrics.dotsY - 16 - top))
-                    ChatCard(chat: chat, windowed: windowed, height: height,
+                    // From where the search field was down to the page dots, as wide as reads well.
+                    let top = max(16, metrics.searchCenterY - metrics.searchSize.height / 2)
+                    let height = min(1000, max(320, metrics.dotsY - 8 - top))
+                    let width = min(980, max(560, geo.size.width - 96))
+                    ChatCard(chat: chat, windowed: windowed, width: width, height: height,
+                             query: $model.query, focused: $searchFocused,
+                             send: { model.sendChat() },
+                             ask: { text in model.query = text; model.sendChat() },
+                             openSettings: { model.openSettings(.ai) },
                              newChat: { model.newChat() }, close: { model.exitChat() })
                         .position(x: geo.size.width / 2, y: top + height / 2)
                         .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
@@ -252,8 +261,10 @@ struct LauncherView: View {
                     Color.black.opacity(model.folderExpanded ? (windowed ? 0.06 : 0.28) : 0)
                         .contentShape(Rectangle())
                         .onTapGesture { model.closeFolder() }
+                        .zIndex(10)
                     FolderPanel(model: model, metrics: metrics, folder: folder.0, apps: folder.1)
                         .id(folder.0.id)
+                        .zIndex(10)
                 }
 
                 if model.showHiddenApps {
@@ -261,8 +272,10 @@ struct LauncherView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { model.closeHiddenApps() }
                         .transition(.opacity)
+                        .zIndex(10)
                     HiddenAppsPanel(model: model, metrics: metrics)
                         .transition(.scale(scale: 0.9).combined(with: .opacity))
+                        .zIndex(10)
                 }
 
                 if let sheet = model.sheet {
@@ -270,10 +283,12 @@ struct LauncherView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { model.dismissSheet() }
                         .transition(.opacity)
+                        .zIndex(10)
                     SheetCard(model: model, sheet: sheet)
                         .id(sheet)
                         .position(x: geo.size.width / 2, y: geo.size.height * 0.42)
                         .transition(.scale(scale: 0.94).combined(with: .opacity))
+                        .zIndex(10)
                 }
 
                 if model.showSettings {
@@ -281,29 +296,36 @@ struct LauncherView: View {
                         .contentShape(Rectangle())
                         .onTapGesture { model.closeSettings() }
                         .transition(.opacity)
+                        .zIndex(10)
                     SettingsView(model: model, settings: settings, actions: model.settingsActions,
                                  height: min(700, geo.size.height - 60))
                         .position(x: geo.size.width / 2, y: geo.size.height / 2)
                         .transition(.scale(scale: 0.96).combined(with: .opacity))
+                        .zIndex(10)
                 }
 
                 DragOverlay(model: model, metrics: metrics)
+                    .zIndex(11)
 
                 if model.showGuide {
                     Color.black.opacity(0.3)
                         .contentShape(Rectangle())
                         .transition(.opacity)
+                        .zIndex(12)
                     GuideView(model: model)
                         .position(x: geo.size.width / 2, y: geo.size.height / 2)
                         .transition(.scale(scale: 0.94).combined(with: .opacity))
+                        .zIndex(12)
                 } else if model.showWhatsNew {
                     Color.black.opacity(0.3)
                         .contentShape(Rectangle())
                         .onTapGesture { model.finishWhatsNew() }
                         .transition(.opacity)
+                        .zIndex(12)
                     WhatsNewView(model: model)
                         .position(x: geo.size.width / 2, y: geo.size.height / 2)
                         .transition(.scale(scale: 0.94).combined(with: .opacity))
+                        .zIndex(12)
                 }
             }
             .animation(.easeOut(duration: 0.18), value: model.sheet)

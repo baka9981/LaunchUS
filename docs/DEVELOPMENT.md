@@ -22,7 +22,7 @@ open launchus://open
 
 唤起后把界面渲染成 PNG。`LAUNCHUS_REAL=1` 改用真实视图截图；`LAUNCHUS_SHEET=custom|custom:<id>|icon:<id>|profile|whatsnew|guide:<步骤>|tip:<名称>` 打开对应的卡片（有模糊背景时截图要十几秒）。演示截图：`LAUNCHUS_DEMO=1` 只列系统自带的 App（/System 里的）、不显示引导，`LAUNCHUS_WALLPAPER=<图片>` 代替桌面壁纸，再加 `CFFIXED_USER_HOME=<空目录>` 用一份全新的布局。演示模式的设置存在单独的 `local.launchus.LaunchUS.demo` 里、每次启动清空（`UserDefaults.app`；`CFFIXED_USER_HOME` 隔离不了设置），不会把“只有系统 App”写进真实设置、让其他 App 全变成新装。`LAUNCHUS_SHOW=1` 启动后直接打开（录屏用），`LAUNCHUS_GUIDE=1` 启动时显示引导，`LAUNCHUS_CHECK_UPDATES=1` 启动时检查更新。
 
-AI 聊天：`LAUNCHUS_CHAT=1` 载入示例对话，`LAUNCHUS_ASK=<问题>` 真的发一条（用设置里的网关；`LAUNCHUS_AI_KEY` 可临时换密钥），`LAUNCHUS_DELAY=<秒>` 推迟截图等回答流完，`LAUNCHUS_SETTINGS=ai` 打开对应的设置页。debug 构建直接运行时加载不了 Sparkle，截图和 MCP 测试请用 `scripts/build.sh release` 的产物。
+AI 聊天：`LAUNCHUS_CHAT=1` 载入示例对话（`=empty` 打开空对话，显示建议和最近的对话记录；`=error` 显示一条出错的回答；记录存在 Application Support/LaunchUS/Chats，截图运行不写入），`LAUNCHUS_ASK=<问题>` 真的发一条（用设置里的网关；`LAUNCHUS_AI_KEY` 可临时换密钥），`LAUNCHUS_DELAY=<秒>` 推迟截图等回答流完，`LAUNCHUS_SETTINGS=ai` 打开对应的设置页。debug 构建直接运行时加载不了 Sparkle，截图和 MCP 测试请用 `scripts/build.sh release` 的产物。
 
 ## AI 与 MCP
 

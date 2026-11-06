@@ -333,6 +333,13 @@ final class Settings {
     var aiSystemPrompt: String { didSet { save(aiSystemPrompt, "aiSystemPrompt") } }
     /// Whether the chat may look up and act on apps, folders and layouts.
     var aiToolAccess: AIToolAccess { didSet { save(aiToolAccess.rawValue, "aiToolAccess") } }
+    /// Past chats kept on this Mac; 0 keeps none and removes what's there.
+    var aiHistoryCount: Int {
+        didSet {
+            save(aiHistoryCount, "aiHistoryCount")
+            if aiHistoryCount < oldValue { ChatHistory.prune(keeping: aiHistoryCount) }
+        }
+    }
 
     init(defaults: UserDefaults = .app) {
         self.defaults = defaults
@@ -400,6 +407,7 @@ final class Settings {
         aiModel = value("aiModel", "")
         aiSystemPrompt = value("aiSystemPrompt", "")
         aiToolAccess = AIToolAccess(rawValue: value("aiToolAccess", "")) ?? .confirm
+        aiHistoryCount = min(200, max(0, value("aiHistoryCount", 50)))
     }
 
     private func save(_ value: Any, _ key: String) {
