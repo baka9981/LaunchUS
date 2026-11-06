@@ -512,11 +512,13 @@ struct AppearanceTab: View {
         }
     }
 
-    /// A small checkbox whose explanation shows on hover.
+    /// A small checkbox with an ⓘ that shows its explanation on click.
     private func mark(_ title: String.LocalizationValue, _ isOn: Binding<Bool>, _ help: String.LocalizationValue) -> some View {
-        Toggle(String(localized: title), isOn: isOn)
-            .toggleStyle(.checkbox)
-            .help(String(localized: help))
+        HStack(spacing: 4) {
+            Toggle(String(localized: title), isOn: isOn)
+                .toggleStyle(.checkbox)
+            InfoButton(text: String(localized: help))
+        }
     }
 }
 
