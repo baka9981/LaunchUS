@@ -476,7 +476,6 @@
 "很久没有打开" = "not opened in a long time";
 "快速" = "Fast";
 "按 ↩ 或点按复制结果" = "Press ↩ or click to copy the result";
-"文件夹和打开的文件夹透出并折射后面的内容；关掉则用烟灰玻璃" = "Folders and open folders show and bend what's behind them. Turn off for smoked glass.";
 "标准" = "Standard";
 "没有超过 3 个月没打开的 App" = "No apps unused for over 3 months";
 "液态玻璃文件夹" = "Liquid Glass Folders";
@@ -513,3 +512,5 @@
 "设置 › 外观 › 网格" = "Settings › Appearance › Grid";
 "点一项直接去试试。以后可以在设置 › 高级 › 帮助里再看使用引导。" = "Click one to try it. You can replay the Welcome Tour later in Settings › Advanced › Help.";
 "长按图标或按住 ⌥ 进入编辑模式，按住 ⌘ 点击可以多选。右键选「编辑…」可以改名称、图标和标签，也可以移动或卸载。" = "Press and hold an icon, or hold ⌥, to start editing. ⌘-click to select several. Right-click › Edit… to change the name, icon and tags; you can also move or uninstall from there.";
+"液态玻璃" = "Liquid Glass";
+"文件夹、打开的文件夹和搜索栏透出并折射后面的内容；关掉则用烟灰玻璃" = "Folders, open folders and the search bar show and bend what's behind them. Turn off for smoked glass.";

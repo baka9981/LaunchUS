@@ -190,10 +190,7 @@ struct Row<Trailing: View>: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(title).font(.system(size: 13))
-                    if let info {
-                        Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(.secondary)
-                            .help(info)
-                    }
+                    if let info { InfoButton(text: info) }
                 }
                 if let subtitle {
                     Text(subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
@@ -418,7 +415,7 @@ struct AppearanceTab: View {
         }
         SettingsSection(title: String(localized: "图标")) {
             Card {
-                Row(title: String(localized: "液态玻璃文件夹"), info: String(localized: "文件夹和打开的文件夹透出并折射后面的内容；关掉则用烟灰玻璃")) {
+                Row(title: String(localized: "液态玻璃"), info: String(localized: "文件夹、打开的文件夹和搜索栏透出并折射后面的内容；关掉则用烟灰玻璃")) {
                     Toggle("", isOn: $settings.liquidGlass).toggleStyle(.switch).labelsHidden()
                 }
                 Row(title: String(localized: "常用一行"), info: String(localized: "在搜索栏下方显示最近打开的 App")) {

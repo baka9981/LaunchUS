@@ -45,8 +45,22 @@ struct SearchField: View {
         .padding(.leading, 16)
         .padding(.trailing, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.black.opacity(0.08), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.28), lineWidth: 1))
+        .modifier(SearchFieldGlass(liquid: Settings.shared.liquidGlass))
+    }
+}
+
+/// Liquid glass like the folder tiles when that's on; otherwise the smoked capsule.
+private struct SearchFieldGlass: ViewModifier {
+    let liquid: Bool
+
+    func body(content: Content) -> some View {
+        if liquid {
+            content.glassEffect(.clear.interactive(), in: Capsule())
+        } else {
+            content
+                .background(.black.opacity(0.08), in: Capsule())
+                .overlay(Capsule().strokeBorder(.white.opacity(0.28), lineWidth: 1))
+        }
     }
 }
 
