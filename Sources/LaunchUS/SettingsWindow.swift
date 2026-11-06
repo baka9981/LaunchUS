@@ -327,6 +327,9 @@ struct GeneralTab: View {
                 Row(title: String(localized: "点击空白区域关闭")) {
                     Toggle("", isOn: $settings.clickBackgroundToClose).toggleStyle(.switch).labelsHidden()
                 }
+                Row(title: String(localized: "网页搜索"), info: String(localized: "搜索没有结果时，按 ↩ 用它搜索；按 ⌘↩ 在访达中搜索")) {
+                    MenuPicker(selection: $settings.searchEngine, options: SearchEngine.allCases, title: \.title)
+                }
             }
         }
         .onReceive(poll) { _ in
@@ -340,6 +343,21 @@ struct GeneralTab: View {
 /// Click, then press the new shortcut. Esc cancels; Delete restores ⌥Space.
 struct HotKeyRecorder: View {
     @Binding var spec: HotKeySpec
+
+    var body: some View {
+        ShortcutRecorder(display: spec.display, clear: { spec = .default }, record: { spec = $0 })
+    }
+}
+
+/// Click, then press a shortcut. Esc cancels; Delete calls `clear`. Every global shortcut is
+/// paused meanwhile, so pressing one that's in use records it instead of firing it.
+struct ShortcutRecorder: View {
+    /// The current shortcut; nil shows `placeholder`.
+    let display: String?
+    var placeholder = ""
+    var width: CGFloat = 200
+    let clear: () -> Void
+    let record: (HotKeySpec) -> Void
     @State private var recording = false
     @State private var monitor: Any?
 
@@ -347,10 +365,10 @@ struct HotKeyRecorder: View {
         Button {
             recording ? stop() : start()
         } label: {
-            Text(recording ? String(localized: "请按下快捷键…") : spec.display)
+            Text(recording ? String(localized: "请按下快捷键…") : display ?? placeholder)
                 .font(.system(size: 13))
-                .foregroundStyle(recording ? Color.accentColor : .primary)
-                .frame(width: 200, height: 26)
+                .foregroundStyle(recording ? Color.accentColor : display == nil ? .secondary : .primary)
+                .frame(width: width, height: 26)
                 .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor)))
                 .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(recording ? Color.accentColor : Color.primary.opacity(0.15)))
         }
@@ -361,16 +379,17 @@ struct HotKeyRecorder: View {
     private func start() {
         recording = true
         HotKeyCenter.paused = true
+        AppHotKeys.paused = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let code = Int(event.keyCode)
             let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
             if code == kVK_Escape_ { stop(); return nil }
-            if code == 51 && flags.isEmpty { spec = .default; stop(); return nil }
+            if code == 51 && flags.isEmpty { clear(); stop(); return nil }
             // Plain letters would fire while typing elsewhere; require a modifier except for F-keys.
             let isFunctionKey = HotKeyFormat.functionKeys[code] != nil
             guard !flags.isEmpty || isFunctionKey else { NSSound.beep(); return nil }
-            spec = HotKeySpec(keyCode: code, modifiers: HotKeyFormat.carbon(flags),
-                              display: HotKeyFormat.display(flags: flags, keyCode: code, characters: event.charactersIgnoringModifiers))
+            record(HotKeySpec(keyCode: code, modifiers: HotKeyFormat.carbon(flags),
+                              display: HotKeyFormat.display(flags: flags, keyCode: code, characters: event.charactersIgnoringModifiers)))
             stop()
             return nil
         }
@@ -379,6 +398,7 @@ struct HotKeyRecorder: View {
     private func stop() {
         recording = false
         HotKeyCenter.paused = false
+        AppHotKeys.paused = false
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
     }
@@ -801,6 +821,12 @@ struct OrganizeTab: View {
                 }
                 Row(title: String(localized: "久未打开的 App"), info: String(localized: "选中超过 3 个月没打开的 App，再统一移进文件夹或隐藏")) {
                     Button(String(localized: "全部选中")) { model.selectStaleApps() }
+                }
+                Row(title: String(localized: "App 管理"), info: String(localized: "按大小查看所有 App，找出 Intel App、有更新的和很久没打开的，直接卸载；还有使用统计")) {
+                    Button(String(localized: "打开…")) {
+                        model.closeSettings()
+                        model.sheet = .manager
+                    }
                 }
             }
         }

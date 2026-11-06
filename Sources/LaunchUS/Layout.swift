@@ -83,6 +83,8 @@ struct AppMeta: Codable, Hashable {
     var hidden = false
     /// Icon picked by the user: an SF Symbol ("symbol:…") or an image file in `CustomIcons`.
     var icon: String?
+    /// Global shortcut that opens the app from anywhere (`AppHotKeys`).
+    var shortcut: HotKeySpec?
 
     init() {}
 
@@ -93,6 +95,7 @@ struct AppMeta: Codable, Hashable {
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
         hidden = try c.decodeIfPresent(Bool.self, forKey: .hidden) ?? false
         icon = try c.decodeIfPresent(String.self, forKey: .icon)
+        shortcut = try c.decodeIfPresent(HotKeySpec.self, forKey: .shortcut)
     }
 }
 

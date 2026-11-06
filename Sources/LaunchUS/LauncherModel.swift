@@ -36,6 +36,8 @@ enum LauncherSheet: Hashable {
     case confirmDeleteCustom(String)
     case chooseIcon(String)
     case newProfile
+    /// The App manager: sizes, chips, updates and usage statistics.
+    case manager
     case message(title: String, text: String, revealPath: String?)
 }
 
@@ -76,7 +78,10 @@ final class LauncherModel {
     // MARK: Persistent state
     var layout: [[LayoutItem]] = []
     var meta: [String: AppMeta] = [:] {
-        didSet { catalog.iconOverrides = Self.iconOverrides(meta) }
+        didSet {
+            catalog.iconOverrides = Self.iconOverrides(meta)
+            AppHotKeys.update(meta.compactMapValues(\.shortcut))
+        }
     }
     @ObservationIgnored private var layoutLoaded = false
 
@@ -84,7 +89,11 @@ final class LauncherModel {
     private(set) var visibleApps: [AppItem] = []
     /// Every tag in use, most used first.
     private(set) var allTags: [String] = []
-    var sheet: LauncherSheet?
+    var sheet: LauncherSheet? {
+        didSet { if sheet == nil { sheetParent = nil } }
+    }
+    /// Where closing the current card goes back to (the App manager, for an app opened from it).
+    var sheetParent: LauncherSheet?
     /// Open the next folder with its name already being edited.
     var renameOnOpen = false
 
@@ -737,6 +746,10 @@ final class LauncherModel {
     func app(_ id: String) -> AppItem? { visibleApps.first { $0.id == id } ?? catalog.apps.first { $0.id == id } }
     func meta(for id: String) -> AppMeta { meta[id] ?? AppMeta() }
 
+    func setShortcut(_ spec: HotKeySpec?, for id: String) {
+        setMeta(id) { $0.shortcut = spec }
+    }
+
     func setMeta(_ id: String, _ change: (inout AppMeta) -> Void) {
         var m = meta[id] ?? AppMeta()
         change(&m)
@@ -941,7 +954,7 @@ final class LauncherModel {
     func finishUninstall(_ app: AppItem, failed: [URL]) {
         catalog.reload(force: true)
         if failed.isEmpty {
-            sheet = nil
+            dismissSheet()
         } else {
             let names = failed.prefix(4).map(\.lastPathComponent).joined(separator: "、")
             sheet = .message(title: String(localized: "有 \(failed.count) 个项目没能移到废纸篓"),
@@ -978,6 +991,7 @@ enum RecentLaunches {
         ids.insert(id, at: 0)
         UserDefaults.standard.set(Array(ids.prefix(limit)), forKey: key)
         LaunchHours.record(id)
+        LaunchLog.record(id)
     }
 
     static func setPinned(_ pin: Bool, _ id: String) {

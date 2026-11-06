@@ -51,6 +51,7 @@ final class LauncherController {
         self.catalog = catalog
         model = LauncherModel(catalog: catalog)
         model.onLaunch = { [weak self] app in self?.launch(app) }
+        AppHotKeys.action = { [weak self] id in self?.openFromShortcut(id) }
         model.onOpenFiles = { [weak self] urls, app in self?.open(urls, with: app) }
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
         PermissionHelper.shared.hideLauncher = { [weak self] in
@@ -272,9 +273,11 @@ final class LauncherController {
             for _ in 0..<(env["LAUNCHUS_SPACES"].flatMap(Int.init) ?? 0) { self.model.pressSpace() }
             if let id = env["LAUNCHUS_UNINSTALL"] { self.model.sheet = .confirmTrash(id) }
             if let id = env["LAUNCHUS_EDIT"] { self.model.sheet = .editApp(id) }
-            // LAUNCHUS_SHEET=custom | custom:<id> | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name>
+            // LAUNCHUS_SHEET=custom | custom:<id> | manager | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name>
             if let sheet = env["LAUNCHUS_SHEET"] {
                 if sheet == "custom" { self.model.sheet = .editCustom(nil) }
+                else if sheet == "manager" { self.model.sheet = .manager }
+                else if sheet == "stats" { self.model.sheet = .manager }
                 else if sheet == "whatsnew" { self.model.showWhatsNew = true }
                 else if sheet.hasPrefix("guide:") { self.model.showGuide = true }
                 else if sheet.hasPrefix("tip:") { self.model.tip = Tip(rawValue: String(sheet.dropFirst(4))) }
@@ -339,6 +342,17 @@ final class LauncherController {
             self.model.query = ""
             self.model.selection = nil
         }
+    }
+
+    /// An app's own shortcut: opens it, or hides it when it's already in front.
+    private func openFromShortcut(_ id: String) {
+        guard let app = model.app(id) else { return }
+        if app.custom == nil, let bundleID = app.bundleID,
+           let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first(where: \.isActive) {
+            running.hide()
+            return
+        }
+        model.launch(app)
     }
 
     private func launch(_ app: AppItem) {
@@ -579,6 +593,8 @@ final class LauncherController {
             model.escape()
         case kVK_Tab where !model.tagCandidates.isEmpty:
             model.completeTag(model.tagCandidates[0])
+        case kVK_Return where command && model.fallbackQuery != nil:
+            model.searchFinder()
         case kVK_Return, kVK_ANSI_KeypadEnter:
             model.activateSelection()
         case kVK_LeftArrow:

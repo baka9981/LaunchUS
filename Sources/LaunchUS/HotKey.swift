@@ -78,6 +78,41 @@ enum HotKeyCenter {
     }
 }
 
+/// Shortcuts that open one app each, set in the app's editor.
+@MainActor
+enum AppHotKeys {
+    /// Called with the app ID when its shortcut is pressed.
+    static var action: ((String) -> Void)?
+    /// Apps whose shortcut is taken (by another app, LaunchUS's own, or another app here).
+    private(set) static var failed: Set<String> = []
+    private static var keys: [String: HotKey] = [:]
+    private static var specs: [String: HotKeySpec] = [:]
+
+    static func update(_ new: [String: HotKeySpec]) {
+        guard new != specs else { return }
+        specs = new
+        apply()
+    }
+
+    /// While a shortcut is being recorded, so pressing an existing one records it instead.
+    static var paused = false {
+        didSet { if paused != oldValue { apply() } }
+    }
+
+    private static func apply() {
+        keys = [:]
+        failed = []
+        guard !paused else { return }
+        for (id, spec) in specs.sorted(by: { $0.key < $1.key }) {
+            if let key = HotKey(keyCode: spec.keyCode, modifiers: spec.modifiers, action: { action?(id) }) {
+                keys[id] = key
+            } else {
+                failed.insert(id)
+            }
+        }
+    }
+}
+
 enum HotKeyFormat {
     static let functionKeys: [Int: String] = [
         kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4", kVK_F5: "F5", kVK_F6: "F6",

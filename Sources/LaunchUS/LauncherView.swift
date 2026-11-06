@@ -201,6 +201,14 @@ struct LauncherView: View {
                         .zIndex(3)
                 }
 
+                if let text = model.fallbackQuery {
+                    FallbackCard(text: text, engine: model.settings.searchEngine.title, windowed: windowed,
+                                 web: { model.searchWeb() }, finder: { model.searchFinder() })
+                        .position(x: geo.size.width / 2, y: metrics.gridTop + metrics.cellSize.height * 0.6)
+                        .transition(.opacity)
+                        .zIndex(3)
+                }
+
                 if model.dragOutHint {
                     NoticeToast(text: String(localized: "拖到屏幕底边，可放到程序坞、访达或其他 App"), windowed: windowed)
                         .position(x: geo.size.width / 2, y: metrics.dotsY - 44)
@@ -238,7 +246,7 @@ struct LauncherView: View {
                 if let sheet = model.sheet {
                     Color.black.opacity(0.3)
                         .contentShape(Rectangle())
-                        .onTapGesture { model.sheet = nil }
+                        .onTapGesture { model.dismissSheet() }
                         .transition(.opacity)
                     SheetCard(model: model, sheet: sheet)
                         .id(sheet)
@@ -1108,6 +1116,50 @@ private struct CalculationCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(verbatim: "\(result.expression) \(result.display)"))
+    }
+}
+
+/// Search found nothing: search the web (↩) or Finder (⌘↩) for it instead.
+private struct FallbackCard: View {
+    let text: String
+    let engine: String
+    let windowed: Bool
+    let web: () -> Void
+    let finder: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Text("没有找到「\(text)」")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.75)))
+                .lineLimit(1).truncationMode(.middle)
+            HStack(spacing: 10) {
+                choice(String(localized: "用 \(engine) 搜索"), symbol: "globe", key: "↩", action: web)
+                choice(String(localized: "在访达中搜索"), symbol: "magnifyingglass", key: "⌘↩", action: finder)
+            }
+        }
+        .padding(.horizontal, 24).padding(.vertical, 18)
+        .frame(maxWidth: 560)
+        .background(windowed ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.black.opacity(0.35)),
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(windowed ? 0 : 0.18), lineWidth: 0.5))
+        .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
+    }
+
+    private func choice(_ title: String, symbol: String, key: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                Text(title).lineLimit(1)
+                Text(verbatim: key).foregroundStyle(windowed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.white.opacity(0.5)))
+            }
+            .font(.system(size: 13, weight: .medium))
+            .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.07)) : AnyShapeStyle(.white.opacity(0.14)), in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }
 

@@ -62,6 +62,8 @@ struct AppInfoCard: View {
     let model: LauncherModel
     let app: AppItem
 
+    /// Kept when going on to uninstall, so the App manager comes back after.
+    private var parent: LauncherSheet? { model.sheetParent }
     @State private var info: AppInfo?
     @State private var size: Int64?
 
@@ -84,10 +86,10 @@ struct AppInfoCard: View {
             HStack {
                 Button(String(localized: "在访达中显示")) { model.sheet = nil; model.reveal(app.url.path) }
                 if app.isRemovable {
-                    Button(String(localized: "卸载…")) { model.sheet = .confirmTrash(app.id) }
+                    Button(String(localized: "卸载…")) { model.sheet = .confirmTrash(app.id); model.sheetParent = parent }
                 }
                 Spacer()
-                Button(String(localized: "好")) { model.sheet = nil }.keyboardShortcut(.defaultAction)
+                Button(String(localized: "好")) { model.dismissSheet() }.keyboardShortcut(.defaultAction)
             }
             .controlSize(.large)
         }

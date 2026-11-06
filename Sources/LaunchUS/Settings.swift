@@ -7,6 +7,33 @@ enum DisplayMode: String, CaseIterable { case fullScreen, window }
 enum SortOrder: String, CaseIterable { case custom, name, recentlyAdded, recentlyUsed, mostUsed }
 enum BrowseStyle: String, CaseIterable { case paged, scroll }
 /// How fast the launcher's animations run.
+/// Where "search the web" goes when search finds nothing.
+enum SearchEngine: String, CaseIterable {
+    case google, bing, baidu, duckDuckGo
+
+    var title: String {
+        switch self {
+        case .google: "Google"
+        case .bing: "Bing"
+        case .baidu: String(localized: "百度")
+        case .duckDuckGo: "DuckDuckGo"
+        }
+    }
+
+    func url(for text: String) -> URL? {
+        var parts: URLComponents
+        switch self {
+        case .google: parts = URLComponents(string: "https://www.google.com/search")!; parts.queryItems = [URLQueryItem(name: "q", value: text)]
+        case .bing: parts = URLComponents(string: "https://www.bing.com/search")!; parts.queryItems = [URLQueryItem(name: "q", value: text)]
+        case .baidu: parts = URLComponents(string: "https://www.baidu.com/s")!; parts.queryItems = [URLQueryItem(name: "wd", value: text)]
+        case .duckDuckGo: parts = URLComponents(string: "https://duckduckgo.com/")!; parts.queryItems = [URLQueryItem(name: "q", value: text)]
+        }
+        // A "+" left as is reads as a space.
+        parts.percentEncodedQuery = parts.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        return parts.url
+    }
+}
+
 enum AnimationSpeed: String, CaseIterable {
     case standard, fast, off
 
@@ -191,7 +218,7 @@ extension MultiSelectKey {
 }
 
 /// A global shortcut: Carbon key code and modifiers, plus how to show it.
-struct HotKeySpec: Codable, Equatable {
+struct HotKeySpec: Codable, Hashable {
     var keyCode: Int
     var modifiers: Int
     var display: String
@@ -288,6 +315,7 @@ final class Settings {
     var targetScreen: TargetScreen { didSet { save(targetScreen.rawValue, "targetScreen") } }
     var returnHome: ReturnHome { didSet { save(returnHome.rawValue, "returnHome") } }
     var clickBackgroundToClose: Bool { didSet { save(clickBackgroundToClose, "clickBackgroundToClose") } }
+    var searchEngine: SearchEngine { didSet { save(searchEngine.rawValue, "searchEngine") } }
     /// Automatic layout backups kept; 0 is off.
     var autoBackupCount: Int { didSet { save(autoBackupCount, "autoBackupCount") } }
     /// Keep the layout in step with other Macs through iCloud Drive.
@@ -349,6 +377,7 @@ final class Settings {
         targetScreen = TargetScreen(rawValue: value("targetScreen", "")) ?? .dock
         returnHome = ReturnHome(rawValue: value("returnHome", 300)) ?? .fiveMinutes
         clickBackgroundToClose = value("clickBackgroundToClose", true)
+        searchEngine = SearchEngine(rawValue: value("searchEngine", "")) ?? .google
         autoBackupCount = min(50, max(0, value("autoBackupCount", 10)))
         iCloudSync = value("iCloudSync", false)
     }

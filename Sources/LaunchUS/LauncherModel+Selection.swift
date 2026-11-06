@@ -58,11 +58,33 @@ extension LauncherModel {
         showNotice(String(localized: "已复制 \(result.copyText)"))
     }
 
+    /// What's typed, when search found nothing: offered to the web or Finder instead.
+    var fallbackQuery: String? {
+        guard isSearching, spaceList == nil, calculation == nil, pages.allSatisfy(\.isEmpty) else { return nil }
+        let text = query.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty, AppSearch.parse(text).tags.isEmpty else { return nil }
+        return text
+    }
+
+    func searchWeb() {
+        guard let text = fallbackQuery, let url = settings.searchEngine.url(for: text) else { return }
+        close()
+        NSWorkspace.shared.open(url)
+    }
+
+    func searchFinder() {
+        guard let text = fallbackQuery else { return }
+        close()
+        NSWorkspace.shared.showSearchResults(forQueryString: text)
+    }
+
     func activateSelection() {
         if let pos = selection, isValid(pos) {
             activate(selectablePages[pos.page][pos.slot])
         } else if calculation != nil {
             copyCalculation()
+        } else if fallbackQuery != nil {
+            searchWeb()
         } else if isSearching, case .app(let app)? = pages.first?.first {
             launch(app)
         }
@@ -242,6 +264,19 @@ extension LauncherModel {
     }
     func close() { onClose?() }
 
+    /// Closes the card, back to the one it was opened from if any.
+    func dismissSheet() {
+        let parent = sheetParent
+        sheetParent = nil
+        sheet = parent
+    }
+
+    /// Opens a card about one app from the App manager, which comes back when it closes.
+    func openFromManager(_ child: LauncherSheet) {
+        sheet = child
+        sheetParent = .manager
+    }
+
     /// Click on empty space: leave the folder / jiggle mode first, then close the launcher.
     func backgroundTapped() {
         if showGuide {
@@ -251,7 +286,7 @@ extension LauncherModel {
         } else if showSettings {
             closeSettings()
         } else if sheet != nil {
-            sheet = nil
+            dismissSheet()
         } else if showHiddenApps {
             closeHiddenApps()
         } else if openFolderID != nil {
@@ -274,7 +309,7 @@ extension LauncherModel {
         } else if showSettings {
             closeSettings()
         } else if sheet != nil {
-            sheet = nil
+            dismissSheet()
         } else if showHiddenApps {
             closeHiddenApps()
         } else if isRenaming {

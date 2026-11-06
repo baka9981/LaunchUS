@@ -34,7 +34,17 @@ struct SheetCard: View {
     let sheet: LauncherSheet
 
     var body: some View {
-        if case .confirmTrash(let id) = sheet {
+        if case .manager = sheet {
+            AppManagerCard(model: model)
+                .frame(width: 760, height: 600)
+                .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .shadow(color: .black.opacity(0.3), radius: 30, y: 12)
+                .environment(\.windowedStyle, true)
+                .contentShape(Rectangle())
+                .onTapGesture {}
+        } else if case .confirmTrash(let id) = sheet {
             if let app = model.app(id) {
                 // A wider card for the file list.
                 UninstallCard(model: model, app: app)
@@ -58,7 +68,7 @@ struct SheetCard: View {
                 if let app = model.app(id) { AppEditor(model: model, app: app) }
             case .editSmartFolder(let id, let query):
                 SmartFolderEditor(model: model, folderID: id, initialQuery: query)
-            case .confirmTrash:
+            case .confirmTrash, .manager:
                 EmptyView()
             case .appInfo(let id):
                 if let app = model.app(id) { AppInfoCard(model: model, app: app) }
@@ -160,6 +170,7 @@ struct AppEditor: View {
     @State private var aliases = ""
     @State private var tags = ""
     @State private var dockTick = 0
+    @State private var shortcutTick = 0
     @FocusState private var focus: Int?
 
     private var originalName: String { model.catalog.apps.first { $0.id == app.id }?.name ?? app.name }
@@ -183,6 +194,22 @@ struct AppEditor: View {
                 if !others.isEmpty {
                     FlowChips(items: Array(others.prefix(16))) { tag in
                         tags = (LauncherModel.splitList(tags) + [tag]).joined(separator: ", ")
+                    }
+                }
+            }
+            FieldRow(label: String(localized: "快捷键（在任何地方按下就打开它，再按一次隐藏）")) {
+                HStack(spacing: 8) {
+                    let shortcut = model.meta(for: app.id).shortcut
+                    ShortcutRecorder(display: shortcut?.display, placeholder: String(localized: "点按后按下快捷键"), width: 180,
+                                     clear: { model.setShortcut(nil, for: app.id) },
+                                     record: { model.setShortcut($0, for: app.id) })
+                        .id(shortcutTick)
+                    if shortcut != nil {
+                        Button(String(localized: "清除")) { model.setShortcut(nil, for: app.id); shortcutTick += 1 }
+                            .controlSize(.small)
+                    }
+                    if AppHotKeys.failed.contains(app.id) {
+                        Text("已被占用，换一个").font(.system(size: 11)).foregroundStyle(.red)
                     }
                 }
             }
@@ -345,7 +372,7 @@ struct UninstallCard: View {
                     .toggleStyle(.checkbox)
                     .disabled(groups == nil)
                 Spacer()
-                Button { model.sheet = nil } label: { Text("取消").frame(width: 96) }
+                Button { model.dismissSheet() } label: { Text("取消").frame(width: 96) }
                     .keyboardShortcut(.cancelAction)
                 Button(action: uninstall) { Text(working ? String(localized: "正在移除…") : String(localized: "移到废纸篓")).frame(width: 120) }
                     .buttonStyle(.borderedProminent)

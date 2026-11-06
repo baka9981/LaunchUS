@@ -99,6 +99,7 @@ enum LauncherMenus {
             sub.add(String(localized: "文件夹移到最前"), symbol: "arrow.up.to.line") { model.moveAllFolders(toStart: true) }
             sub.add(String(localized: "文件夹移到最后"), symbol: "arrow.down.to.line") { model.moveAllFolders(toStart: false) }
             sub.addSeparator()
+            sub.add(String(localized: "App 管理…"), symbol: "square.stack.3d.up") { model.sheet = .manager }
             sub.add(String(localized: "整理布局…")) { model.openSettings(.organize) }
         }
         // Only the two view choices people switch back and forth; the rest is in settings.
