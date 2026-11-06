@@ -34,11 +34,27 @@ enum AIKey {
     private static let service = "local.launchus.LaunchUS.ai"
     private static let account = "apiKey"
     private static var cached: String?
+    private static var cachedIsSet: Bool?
 
     /// Debug snapshot and demo runs are signed differently and would ask for keychain access.
     private static var offKeychain: Bool {
         let env = ProcessInfo.processInfo.environment
         return env["LAUNCHUS_SNAPSHOT"] != nil || env["LAUNCHUS_DEMO"] != nil
+    }
+
+    /// Whether there is a key, without reading it: menus and search ask this on the main thread,
+    /// and reading the secret decrypts it in securityd (or asks for the password, when the app's
+    /// signature changed), stalling the launcher. Asking for attributes only does neither.
+    static var isSet: Bool {
+        if let cached { return !cached.isEmpty }
+        if let cachedIsSet { return cachedIsSet }
+        if offKeychain { return !(ProcessInfo.processInfo.environment["LAUNCHUS_AI_KEY"] ?? "").isEmpty }
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+                                    kSecAttrAccount as String: account, kSecReturnAttributes as String: true]
+        var result: AnyObject?
+        let found = SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess
+        cachedIsSet = found
+        return found
     }
 
     static var value: String {
@@ -56,6 +72,7 @@ enum AIKey {
         set {
             let text = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             cached = text
+            cachedIsSet = !text.isEmpty
             guard !offKeychain else { return }
             let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
                                        kSecAttrAccount as String: account]
@@ -171,7 +188,7 @@ struct AIClient: Sendable {
     @MainActor static var isConfigured: Bool {
         let settings = Settings.shared
         guard !settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
-        return !AIKey.value.isEmpty || !settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty
+        return AIKey.isSet || !settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     /// Named when the gateway can't be reached.

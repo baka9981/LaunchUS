@@ -59,6 +59,13 @@ struct GridMetrics: Equatable {
     /// How far the icon+label stack's centre sits below the icon's centre.
     var stackOffset: CGFloat { hideNames ? 0 : (labelGap + labelSize * 1.25) / 2 }
 
+    /// Whether `point` falls on a cell (icon and name) placed at `stack`, its `.position`.
+    func cellContains(_ point: CGPoint, stack: CGPoint, scale: CGFloat = 1) -> Bool {
+        let width = (cellSize.width - 8) * scale
+        let height = (iconSize + 16 + (hideNames ? 0 : labelGap + labelSize * 1.25)) * scale
+        return abs(point.x - stack.x) <= width / 2 && abs(point.y - stack.y) <= height / 2
+    }
+
     /// Icon centre of a home-grid slot, in launcher coordinates.
     func iconCenter(slot: Int) -> CGPoint {
         CGPoint(
@@ -459,6 +466,14 @@ struct PageGrid: View, Equatable {
             }
         }
         .frame(width: metrics.size.width, height: metrics.gridHeight, alignment: .topLeading)
+        .nativeContextMenu(at: { point in
+            // Empty space falls through to the background's menu.
+            let slot = entries.indices.first { slot in
+                let center = metrics.iconCenter(slot: slot)
+                return metrics.cellContains(point, stack: CGPoint(x: center.x, y: center.y - metrics.gridTop + metrics.stackOffset))
+            }
+            return slot.map { EntryView.menu(entries[$0], folderID: nil, model: model) }
+        })
     }
 }
 
@@ -685,11 +700,15 @@ struct EntryView: View {
         .accessibilityLabel(accessibilityLabel(isNew: isNew, running: running))
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { model.activate(entry) }
-        .nativeContextMenu {
-            picked && model.multiSelection.count > 1
-                ? LauncherMenus.selection(model)
-                : LauncherMenus.entry(entry, model: model, folderID: folderID)
-        }
+        // The right-click menu comes from the grid around it (`EntryView.menu`).
+    }
+
+    /// The right-click menu of a cell: the picked apps' when it's one of several picked.
+    static func menu(_ entry: GridEntry, folderID: String?, model: LauncherModel) -> NSMenu {
+        let picked: Bool = if case .app(let app) = entry { model.multiSelection.contains(app.id) } else { false }
+        return picked && model.multiSelection.count > 1
+            ? LauncherMenus.selection(model)
+            : LauncherMenus.entry(entry, model: model, folderID: folderID)
     }
 
     private var dropTarget: Bool { model.dropTargetID != nil && model.dropTargetID == entry.id }
@@ -964,6 +983,10 @@ struct FolderPanel: View {
                                       y: origin.midY + CGFloat(position / 3 - 1) * step)
                             : CGPoint(x: origin.midX, y: origin.midY)
                     let scale = expanded ? 1 : inTile ? miniScale : miniScale * 0.5
+                    // Apps scrolled or paged out of the panel aren't drawn: a big folder would
+                    // otherwise lay out every one of them on each frame of opening and closing.
+                    let open = CGPoint(x: slot.x + pageShift, y: slot.y - scrollShift)
+                    if inTile || grid.insetBy(dx: -grid.width, dy: -metrics.cellSize.height).contains(open) {
                     EntryView(
                         entry: .app(app), model: model, metrics: metrics, center: target, folderID: folder.id,
                         selected: model.selection == GridPos(page: page, slot: index), showsLabel: expanded
@@ -974,9 +997,21 @@ struct FolderPanel: View {
                     // The icon (not the cell with its label) lands on the target.
                     .position(x: target.x, y: target.y + metrics.stackOffset * scale)
                     .opacity(expanded || inTile ? 1 : 0)
+                    }
                 }
             }
             .frame(width: metrics.size.width, height: metrics.size.height, alignment: .topLeading)
+            .nativeContextMenu(at: { point in
+                // Only the panel's visible apps; other pages sit outside it.
+                guard expanded, grid.contains(point) else { return nil }
+                let hit = apps.indices.first { position in
+                    let slot = metrics.folderIconCenter(slot: position % perPage)
+                    let pageShift = model.folderScrolls ? 0 : CGFloat(position / perPage - model.folderPage) * grid.width + model.folderDragOffset
+                    let scrollShift = model.folderScrolls ? model.folderScrollOffset : 0
+                    return metrics.cellContains(point, stack: CGPoint(x: slot.x + pageShift, y: slot.y - scrollShift + metrics.stackOffset))
+                }
+                return hit.map { EntryView.menu(.app(apps[$0]), folderID: folder.id, model: model) }
+            })
             .mask(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: expanded ? metrics.folderCornerRadius : origin.width * 0.225,
                                  style: .continuous)
@@ -1106,8 +1141,15 @@ struct ScrollGrid: View {
                 .frame(width: metrics.size.width, height: CGFloat(rowCount) * metrics.cellSize.height, alignment: .topLeading)
                 .contentShape(Rectangle())
                 .onTapGesture { model.backgroundTapped() }
-                // This grid covers the background, so it needs the background's right-click menu too.
-                .nativeContextMenu { LauncherMenus.main(model) }
+                // This grid covers the background, so empty space shows the background's menu.
+                .nativeContextMenu(at: { point in
+                    let index = flat.indices.first { index in
+                        let x = metrics.gridOriginX + (CGFloat(index % metrics.columns) + 0.5) * metrics.cellSize.width
+                        let y = (CGFloat(index / metrics.columns) + 0.5) * metrics.cellSize.height
+                        return metrics.cellContains(point, stack: CGPoint(x: x, y: y + metrics.stackOffset))
+                    }
+                    return index.map { EntryView.menu(flat[$0].entry, folderID: nil, model: model) } ?? LauncherMenus.main(model)
+                })
             }
             .frame(width: metrics.size.width, height: height)
             .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.03),

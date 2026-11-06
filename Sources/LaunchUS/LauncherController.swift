@@ -44,6 +44,7 @@ final class LauncherController {
     private let running = RunningApps()
     private let dockBadges = DockBadges()
     private var lastDockBadges: [String: String] = [:]
+    private var hitchLog: HitchLog?
     /// Shows the ⌘ numbers after a short hold, so ⌘W and friends don't flash them.
     private var commandHold: DispatchWorkItem?
 
@@ -86,7 +87,11 @@ final class LauncherController {
         }
 
         configurePanel(for: targetScreen())
-        panel.contentView = NSHostingView(rootView: LauncherView(model: model, wallpaper: wallpaper))
+        panel.contentView = LauncherHostingView(rootView: LauncherView(model: model, wallpaper: wallpaper))
+        hitchLog = HitchLog(view: panel.contentView!) { [weak self] in
+            guard let model = self?.model else { return "" }
+            return "page \(model.currentPage) folder \(model.openFolderID != nil) query \(model.query.count)"
+        }
 
         let center = NotificationCenter.default
         center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
@@ -788,5 +793,17 @@ final class DragOutSource: NSObject, NSDraggingSource {
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
         MainActor.assumeIsolated { ended(operation) }
+    }
+}
+
+/// SwiftUI sets the arrow again each time the views under the pointer move: on every frame of
+/// showing, paging or searching. With a customized pointer (Accessibility › Display › Pointer)
+/// each set has the system draw the pointer image anew, a third of the main thread while paging.
+/// Setting the arrow when it's already the arrow changes nothing, so it's skipped; text fields
+/// keep their own I-beam.
+final class LauncherHostingView<Content: View>: NSHostingView<Content> {
+    override func cursorUpdate(with event: NSEvent) {
+        if NSCursor.current == NSCursor.arrow { return }
+        super.cursorUpdate(with: event)
     }
 }

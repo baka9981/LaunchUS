@@ -307,32 +307,53 @@ enum LauncherMenus {
 extension View {
     /// Shows an AppKit menu on right-click (or Control-click); other clicks pass through.
     func nativeContextMenu(_ make: @escaping () -> NSMenu?) -> some View {
+        overlay(NativeContextMenu(make: { _ in make() }))
+    }
+
+    /// One menu catcher for a whole grid: `make` gets the click in this view's coordinates
+    /// (top-left origin) and returns the menu for what's there, or nil to pass the click to
+    /// whatever lies beneath. Cheaper than a catcher per icon: each is an AppKit view that
+    /// moves on every frame while paging.
+    func nativeContextMenu(at make: @escaping (CGPoint) -> NSMenu?) -> some View {
         overlay(NativeContextMenu(make: make))
     }
 }
 
 private struct NativeContextMenu: NSViewRepresentable {
-    let make: () -> NSMenu?
+    let make: (CGPoint) -> NSMenu?
 
     func makeNSView(context: Context) -> ContextMenuView { ContextMenuView() }
     func updateNSView(_ view: ContextMenuView, context: Context) { view.make = make }
 }
 
 final class ContextMenuView: NSView {
-    var make: (() -> NSMenu?)?
+    var make: ((CGPoint) -> NSMenu?)?
+    /// Built while hit-testing the click, shown when it arrives.
+    private var pending: NSMenu?
+    /// The click `pending` was built for. While a menu is open the click stays the current
+    /// event, and AppKit keeps hit-testing; each answer is reused instead of building again.
+    private var tested: (time: TimeInterval, point: NSPoint, hit: Bool)?
+
+    override var isFlipped: Bool { true }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         guard let event = NSApp.currentEvent else { return nil }
         let menuClick = event.type == .rightMouseDown
             || (event.type == .leftMouseDown && event.modifierFlags.contains(.control))
-        return menuClick ? super.hitTest(point) : nil
+        guard menuClick, super.hitTest(point) != nil else { return nil }
+        if let tested, tested.time == event.timestamp, tested.point == point { return tested.hit ? self : nil }
+        pending = make?(convert(point, from: superview))
+        tested = (event.timestamp, point, pending != nil)
+        return pending == nil ? nil : self
     }
 
     override func rightMouseDown(with event: NSEvent) { show(event) }
     override func mouseDown(with event: NSEvent) { show(event) }
 
     private func show(_ event: NSEvent) {
-        guard let menu = make?() else { return }
+        let menu = pending ?? make?(convert(event.locationInWindow, from: nil))
+        pending = nil
+        guard let menu else { return }
         NSMenu.popUpContextMenu(menu, with: event, for: self)
     }
 }
