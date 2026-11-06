@@ -408,8 +408,13 @@ struct FrequentRow: View {
                                 .frame(width: 10, height: 10)
                                 .help(badge)
                                 .offset(x: -metrics.frequentIconSize * 0.08, y: metrics.frequentIconSize * 0.08)
+                        } else if model.frequentPinned.contains(app.id) {
+                            PinMark(size: max(13, metrics.frequentIconSize * 0.3))
+                                .offset(x: -metrics.frequentIconSize * 0.04, y: metrics.frequentIconSize * 0.04)
+                                .transition(.scale(scale: 0.5).combined(with: .opacity))
                         }
                     }
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: model.frequentPinned.contains(app.id))
                     .overlay(alignment: .bottom) {
                         if let number = model.frequentShortcutNumber(of: app) {
                             Text(verbatim: "⌘\(number)")
@@ -430,6 +435,7 @@ struct FrequentRow: View {
                     .onTapGesture { model.launch(app) }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(app.name)
+                    .accessibilityValue(model.frequentPinned.contains(app.id) ? String(localized: "已固定") : "")
                     .accessibilityAddTraits(.isButton)
                     .accessibilityAction { model.launch(app) }
                     .nativeContextMenu { LauncherMenus.frequent(app, model: model) }
@@ -445,6 +451,22 @@ struct FrequentRow: View {
                     .nativeContextMenu { LauncherMenus.frequent(nil, model: model) }
             }
         }
+    }
+}
+
+/// The little pin on apps pinned to the recent row.
+private struct PinMark: View {
+    let size: CGFloat
+
+    var body: some View {
+        Image(systemName: "pin.fill")
+            .font(.system(size: size * 0.5, weight: .bold))
+            .rotationEffect(.degrees(45))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+            .background(Circle().fill(Color.accentColor))
+            .overlay(Circle().strokeBorder(.white.opacity(0.6), lineWidth: 1))
+            .shadow(color: .black.opacity(0.25), radius: 1.5, y: 0.5)
     }
 }
 

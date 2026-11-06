@@ -258,6 +258,8 @@ final class LauncherModel {
     /// The recently-opened row: opened through LaunchNew first, then by the system's last-used
     /// date. Kept here rather than worked out in the view, which redraws as icons load.
     var frequentApps: [AppItem] = []
+    /// Apps pinned to the row, so their icons can show a pin.
+    var frequentPinned: Set<String> = []
     @ObservationIgnored var lastDragEnd = Date.distantPast
     @ObservationIgnored var profiles = LayoutProfiles.load()
     /// Bumped when profiles change, so menus and settings re-read them.

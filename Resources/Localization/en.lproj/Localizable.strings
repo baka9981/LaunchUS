@@ -514,3 +514,4 @@
 "长按图标或按住 ⌥ 进入编辑模式，按住 ⌘ 点击可以多选。右键选「编辑…」可以改名称、图标和标签，也可以移动或卸载。" = "Press and hold an icon, or hold ⌥, to start editing. ⌘-click to select several. Right-click › Edit… to change the name, icon and tags; you can also move or uninstall from there.";
 "液态玻璃" = "Liquid Glass";
 "文件夹、打开的文件夹和搜索栏透出并折射后面的内容；关掉则用烟灰玻璃" = "Folders, open folders and the search bar show and bend what's behind them. Turn off for smoked glass.";
+"已固定" = "Pinned";

@@ -87,9 +87,11 @@ extension LauncherModel {
         let apps = RecentLaunches.row(apps: visibleApps, recent: recentIDs, pinned: RecentLaunches.pinned,
                                       removed: RecentLaunches.removed, limit: columns, ownID: Bundle.main.bundleIdentifier)
         if apps != frequentApps { frequentApps = apps }
+        let pinned = Set(RecentLaunches.pinned)
+        if pinned != frequentPinned { frequentPinned = pinned }
     }
 
-    func isPinnedToFrequent(_ id: String) -> Bool { RecentLaunches.pinned.contains(id) }
+    func isPinnedToFrequent(_ id: String) -> Bool { frequentPinned.contains(id) }
 
     func setPinnedToFrequent(_ pin: Bool, _ id: String) {
         RecentLaunches.setPinned(pin, id)
