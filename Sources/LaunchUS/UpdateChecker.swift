@@ -201,6 +201,15 @@ enum Homebrew {
         return found
     }
 
+    /// `brew upgrade --cask <token>`. Casks that need an administrator password fail here
+    /// (there's no terminal to ask in); the caller offers the command to run in Terminal.
+    nonisolated static func upgrade(_ token: String) async -> Bool {
+        guard let brew = executable else { return false }
+        return await Task.detached(priority: .userInitiated) {
+            run(brew, ["upgrade", "--cask", token]) != nil
+        }.value
+    }
+
     private nonisolated static func run(_ path: String, _ arguments: [String]) -> Data? {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
@@ -213,6 +222,7 @@ enum Homebrew {
         let output = Pipe()
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
+        process.standardInput = FileHandle.nullDevice
         do { try process.run() } catch { return nil }
         let data = output.fileHandleForReading.readDataToEndOfFile()
         process.waitUntilExit()

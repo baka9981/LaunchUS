@@ -213,7 +213,19 @@ private struct ManagedAppList: View {
                 HStack(alignment: .firstTextBaseline) {
                     Text(section.title).font(.system(size: 20, weight: .bold))
                     Spacer()
-                    if section == .updates { updateButton }
+                    if section == .updates {
+                        let brewApps = apps.filter { if case .homebrew? = inventory.updates[$0.id]?.source { true } else { false } }
+                        if brewApps.count > 1, inventory.checking == nil {
+                            Button {
+                                Task { for app in brewApps { await ManagedAppRow.upgrade(app, model: model) } }
+                            } label: {
+                                Label(String(localized: "用 Homebrew 全部更新"), systemImage: "shippingbox")
+                            }
+                            .controlSize(.small)
+                            .disabled(!inventory.upgrading.isEmpty)
+                        }
+                        updateButton
+                    }
                 }
                 Text(subtitle)
                     .font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
@@ -349,7 +361,12 @@ private struct ManagedAppRow: View {
 
             Spacer(minLength: 8)
 
-            if let update = inventory.updates[app.id] {
+            if inventory.upgrading.contains(app.id) {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.mini)
+                    Text("正在更新…").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            } else if let update = inventory.updates[app.id] {
                 Button { open(update) } label: {
                     Text("更新到 \(update.version)").lineLimit(1)
                 }
@@ -408,20 +425,32 @@ private struct ManagedAppRow: View {
         switch update.source {
         case .appStore: String(localized: "在 App Store 中打开")
         case .sparkle: String(localized: "打开这个 App，用它自己的更新功能更新")
-        case .homebrew(let token): String(localized: "用 Homebrew 安装的。点按拷贝 brew upgrade --cask \(token)，在终端中运行")
+        case .homebrew(let token): String(localized: "用 Homebrew 更新（brew upgrade --cask \(token)）")
         }
     }
 
     private func open(_ update: AppUpdate) {
-        if case .homebrew(let token) = update.source {
-            let command = "brew upgrade --cask \(token)"
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(command, forType: .string)
-            model.showNotice(String(localized: "已拷贝「\(command)」，在终端中粘贴运行"))
+        if case .homebrew = update.source {
+            Task { await ManagedAppRow.upgrade(app, model: model) }
             return
         }
         model.close()
         NSWorkspace.shared.open(update.page ?? app.url)
+    }
+
+    /// Upgrades with Homebrew; when that fails (a cask that asks for a password), the
+    /// command is copied to run in Terminal instead.
+    static func upgrade(_ app: AppItem, model: LauncherModel) async {
+        guard case .homebrew(let token)? = AppInventory.shared.updates[app.id]?.source else { return }
+        let version = AppInventory.shared.updates[app.id]?.version ?? ""
+        if await AppInventory.shared.upgrade(app) {
+            model.showNotice(String(localized: "\(app.name) 已更新到 \(version)"))
+        } else {
+            let command = "brew upgrade --cask \(token)"
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(command, forType: .string)
+            model.showNotice(String(localized: "\(app.name) 没能自动更新，已拷贝「\(command)」，在终端中粘贴运行"))
+        }
     }
 
     static func relative(_ date: Date) -> String {

@@ -62,6 +62,36 @@ final class AppInventory {
         }
     }
 
+    nonisolated static var dryRun: Bool { ProcessInfo.processInfo.environment["LAUNCHUS_SNAPSHOT"] != nil }
+
+    /// Moves files to the Trash, then scans again. Returns how many couldn't be moved.
+    @discardableResult
+    func trash(_ urls: [URL]) async -> Int {
+        // Debug snapshot runs show the real UI on real data: never let a stray click there delete anything.
+        if Self.dryRun {
+            NSLog("LaunchUS dry run: would trash \(urls.count) items")
+            return 0
+        }
+        let failed = await Uninstaller.trash(urls, bundleID: nil)
+        cleaning = false
+        scanCleanup(force: true)
+        return failed.count
+    }
+
+    /// Casks being upgraded, by app ID.
+    private(set) var upgrading: Set<String> = []
+
+    /// Runs `brew upgrade --cask`; on success the update is gone from the list.
+    func upgrade(_ app: AppItem) async -> Bool {
+        guard !Self.dryRun else { return false }
+        guard case .homebrew(let token)? = updates[app.id]?.source, !upgrading.contains(app.id) else { return false }
+        upgrading.insert(app.id)
+        let ok = await Homebrew.upgrade(token)
+        upgrading.remove(app.id)
+        if ok { updates[app.id] = nil }
+        return ok
+    }
+
     private static func sizeKey(_ app: AppItem, _ info: AppInfo?) -> String {
         app.url.path + "|" + (info?.version ?? "")
     }

@@ -657,3 +657,24 @@
 "用 Homebrew 安装的。点按拷贝 brew upgrade --cask %@，在终端中运行" = "Installed with Homebrew. Click to copy brew upgrade --cask %@ and run it in Terminal.";
 "输入「100 usd to cny」换算货币。汇率来自欧洲央行（frankfurter.app），最多每 12 小时取一次，请求不带任何个人信息" = "Type “100 usd to cny” to convert currencies. Rates come from the European Central Bank (frankfurter.app), fetched at most every 12 hours; the request carries no personal information.";
 "重复的 App" = "Duplicate Apps";
+
+/* Cleanup actions, Homebrew upgrade */
+"%@ 已更新到 %@" = "%@ updated to %@";
+"%@ 没能自动更新，已拷贝「%@」，在终端中粘贴运行" = "%@ couldn't be updated automatically. Copied “%@”; paste it into Terminal to run it.";
+"%lld 个 App 装了不止一份。每组标出了建议保留的一份（版本最新、在「应用程序」里）" = "%lld apps are installed more than once. Each group marks the copy to keep (newest version, in Applications).";
+"%lld 个已卸载 App 留在资源库里的文件，共 %@" = "Files left in the Library by %lld removed apps, %@ in all";
+"全部只保留建议的一份" = "Keep Only Suggested Copies";
+"只保留建议的一份" = "Keep Suggested Only";
+"可以在废纸篓里找回" = "You can get them back from the Trash.";
+"多余的 %lld 份，共 %@" = "%lld extra copies, %@ in all";
+"已移到废纸篓" = "Moved to the Trash";
+"已选 %lld 项，共 %@" = "%lld selected, %@ in all";
+"建议保留" = "Keep";
+"把 %lld 个已卸载 App 的残留文件移到废纸篓？" = "Move the leftover files of %lld removed apps to the Trash?";
+"把 %lld 份多余的 App 移到废纸篓？" = "Move %lld extra app copies to the Trash?";
+"有 %lld 项无法移动，可能需要管理员权限" = "%lld items couldn't be moved; they may need an administrator.";
+"有 %lld 项无法移动，给 LaunchUS 完全磁盘访问权限后再试" = "%lld items couldn't be moved. Give LaunchUS Full Disk Access and try again.";
+"正在更新…" = "Updating…";
+"用 Homebrew 全部更新" = "Update All with Homebrew";
+"用 Homebrew 更新（brew upgrade --cask %@）" = "Update with Homebrew (brew upgrade --cask %@)";
+"部分文件受保护，移到废纸篓需要给 LaunchUS 完全磁盘访问权限" = "Some files are protected; moving them to the Trash needs Full Disk Access for LaunchUS.";

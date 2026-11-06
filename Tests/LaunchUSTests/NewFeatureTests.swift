@@ -59,6 +59,9 @@ struct CleanupTests {
         #expect(AppCleanup.bundleID(inName: "Some.Folder.Name") == nil)
         #expect(AppCleanup.bundleID(inName: ".GlobalPreferences.plist") == nil)
         #expect(AppCleanup.bundleID(inName: "org.swift.swiftpm") == nil)
+        #expect(AppCleanup.bundleID(inName: "group.com.example.Foo") == "com.example.Foo")
+        #expect(AppCleanup.bundleID(inName: "ABCDE12345.com.example.Foo") == "com.example.Foo")
+        #expect(AppCleanup.bundleID(inName: "com.example.Foo.0A1B2C3D-0000-1111-2222-333344445555.plist") == "com.example.Foo")
     }
 
     @Test func vendorsWithSomethingInstalledAreNotLeftovers() {
@@ -66,6 +69,45 @@ struct CleanupTests {
         #expect(AppCleanup.isKnown("com.google.Keystone", installed: installed))
         #expect(AppCleanup.isKnown("com.google.Chrome.helper", installed: installed))
         #expect(!AppCleanup.isKnown("com.nonexistent-vendor-zz.Gone", installed: installed))
+    }
+
+    @Test func sharedFoldersNeedTheirCreatorGone() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        func group(_ name: String, creator: String?) throws -> URL {
+            let url = dir.appendingPathComponent(name)
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            if let creator {
+                (["MCMMetadataCreator": creator] as NSDictionary)
+                    .write(to: url.appendingPathComponent(".com.apple.containermanagerd.metadata.plist"), atomically: true)
+            }
+            return url
+        }
+        let installed: Set<String> = ["com.hegenberg.bettertouchtool"]
+        // Named after the developer, made by an installed app: keep.
+        let btt = try group("group.com.folivora.BTTShared", creator: "com.hegenberg.BetterTouchTool")
+        #expect(AppCleanup.isShared("group.com.folivora.BTTShared", place: "Group Containers", at: btt, installed: installed))
+        // Its app is gone: a leftover.
+        let gone = try group("group.com.example.gone", creator: "com.example.gone")
+        #expect(!AppCleanup.isShared("group.com.example.gone", place: "Group Containers", at: gone, installed: installed))
+        // No record of who made it, or a shared folder elsewhere: keep.
+        let unknown = try group("ABCDE12345.com.example.x", creator: nil)
+        #expect(AppCleanup.isShared("ABCDE12345.com.example.x", place: "Group Containers", at: unknown, installed: installed))
+        #expect(AppCleanup.isShared("group.com.example.gone", place: "Application Scripts", at: gone, installed: installed))
+        // Ordinary names aren't shared folders.
+        #expect(!AppCleanup.isShared("com.example.gone", place: "Containers", at: gone, installed: installed))
+    }
+
+    @Test func keepsTheNewestCopyPreferringApplications() {
+        let now = Date()
+        func copy(_ path: String, _ version: String, _ age: Double) -> DuplicateApp.Copy {
+            .init(url: URL(fileURLWithPath: path), version: version, size: 1, modified: now.addingTimeInterval(-age))
+        }
+        let a = DuplicateApp(bundleID: "x", name: "X", copies: [
+            copy("/Users/me/build/X.app", "1.2", 0), copy("/Applications/X.app", "1.2", 100), copy("/Users/me/old/X.app", "1.10", 500)])
+        #expect(a.keeper?.url.path == "/Users/me/old/X.app")
+        let b = DuplicateApp(bundleID: "y", name: "Y", copies: [copy("/Users/me/build/Y.app", "2", 0), copy("/Applications/Y.app", "2", 100)])
+        #expect(b.keeper?.url.path == "/Applications/Y.app")
     }
 
     @Test func onlyStandaloneCopiesCount() {
