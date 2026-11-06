@@ -42,6 +42,8 @@ enum AppScanner {
         [
             URL(fileURLWithPath: "/Applications"),
             URL(fileURLWithPath: "/System/Applications"),
+            // Safari: /Applications/Safari.app is a hidden link here, so the scan above skips it.
+            URL(fileURLWithPath: "/System/Cryptexes/App/System/Applications"),
             FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications"),
         ] + Settings.extraAppFolderPaths.map { URL(fileURLWithPath: $0) }
     }
@@ -53,6 +55,8 @@ enum AppScanner {
         let ownID = Bundle.main.bundleIdentifier
         var seen = Set<String>()
         var result: [AppItem] = []
+        // Debug aid for website pictures: LAUNCHUS_DEMO=1 lists only the apps every Mac ships with.
+        let demo = ProcessInfo.processInfo.environment["LAUNCHUS_DEMO"] != nil
 
         for root in roots {
             guard let enumerator = fm.enumerator(
@@ -69,6 +73,7 @@ enum AppScanner {
                 guard let target = appURL(url) else { continue }
                 guard let item = makeItem(at: target) else { continue }
                 if item.bundleID != nil, item.bundleID == ownID { continue }
+                if demo, !target.path.hasPrefix("/System/") { continue }
                 if seen.insert(item.id).inserted {
                     result.append(item)
                 }

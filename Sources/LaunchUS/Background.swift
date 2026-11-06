@@ -13,7 +13,9 @@ final class WallpaperProvider {
 
     func prepare(for screen: NSScreen, blur: Double) {
         let settings = Settings.shared
-        let chosen = settings.background == .image ? BackgroundImage.url(settings.backgroundImage) : nil
+        // Debug aid for website pictures: LAUNCHUS_WALLPAPER=/path.png stands in for the desktop picture.
+        let demo = ProcessInfo.processInfo.environment["LAUNCHUS_WALLPAPER"].map { URL(fileURLWithPath: $0) }
+        let chosen = demo ?? (settings.background == .image ? BackgroundImage.url(settings.backgroundImage) : nil)
         guard let url = chosen ?? NSWorkspace.shared.desktopImageURL(for: screen) else {
             image = nil
             key = nil

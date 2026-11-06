@@ -35,14 +35,16 @@ enum AIKey {
     private static let account = "apiKey"
     private static var cached: String?
 
+    /// Debug snapshot and demo runs are signed differently and would ask for keychain access.
+    private static var offKeychain: Bool {
+        let env = ProcessInfo.processInfo.environment
+        return env["LAUNCHUS_SNAPSHOT"] != nil || env["LAUNCHUS_DEMO"] != nil
+    }
+
     static var value: String {
         get {
             if let cached { return cached }
-            // Debug snapshot runs are signed differently and would ask for keychain access.
-            if let key = ProcessInfo.processInfo.environment["LAUNCHUS_AI_KEY"],
-               ProcessInfo.processInfo.environment["LAUNCHUS_SNAPSHOT"] != nil {
-                return key
-            }
+            if offKeychain { return ProcessInfo.processInfo.environment["LAUNCHUS_AI_KEY"] ?? "" }
             var result: AnyObject?
             let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
                                         kSecAttrAccount as String: account, kSecReturnData as String: true]
@@ -54,7 +56,7 @@ enum AIKey {
         set {
             let text = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
             cached = text
-            guard ProcessInfo.processInfo.environment["LAUNCHUS_SNAPSHOT"] == nil else { return }
+            guard !offKeychain else { return }
             let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
                                        kSecAttrAccount as String: account]
             SecItemDelete(base as CFDictionary)

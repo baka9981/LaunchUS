@@ -73,10 +73,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Debug aid: LAUNCHUS_GUIDE=1 shows the walkthrough at launch.
-        if firstRun || !UserDefaults.standard.bool(forKey: "didShowGuide")
-            || ProcessInfo.processInfo.environment["LAUNCHUS_GUIDE"] != nil {
+        // Debug aid: LAUNCHUS_GUIDE=1 shows the walkthrough at launch; LAUNCHUS_DEMO skips it.
+        let env = ProcessInfo.processInfo.environment
+        if (env["LAUNCHUS_DEMO"] == nil && (firstRun || !UserDefaults.standard.bool(forKey: "didShowGuide")))
+            || env["LAUNCHUS_GUIDE"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.launcher.openGuide() }
+        } else if env["LAUNCHUS_SNAPSHOT"] != nil || env["LAUNCHUS_SHOW"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.launcher.show() }
         }
     }
 
