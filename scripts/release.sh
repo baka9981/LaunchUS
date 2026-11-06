@@ -28,8 +28,7 @@ ZIP="$OUT/LaunchUS-$VERSION.zip"
 ditto -c -k --sequesterRsrc --keepParent build/LaunchUS.app "$ZIP"
 [[ -n "$NOTES" ]] && cp "$NOTES" "$OUT/LaunchUS-$VERSION.md"
 
-# The signing key keeps its keychain name from before the rename.
-.build/artifacts/sparkle/Sparkle/bin/generate_appcast --account LaunchNew \
+.build/artifacts/sparkle/Sparkle/bin/generate_appcast --account LaunchUS \
     --download-url-prefix "https://github.com/$GITHUB_REPO/releases/download/v$VERSION/" \
     --embed-release-notes "$OUT"
 
