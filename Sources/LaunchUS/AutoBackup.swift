@@ -11,7 +11,7 @@ enum AutoBackup {
 
     static var directory: URL { LayoutStore.directory.appendingPathComponent("Backups", isDirectory: true) }
     /// 0 turns automatic backups off.
-    static var limit: Int { UserDefaults.standard.object(forKey: "autoBackupCount") as? Int ?? 10 }
+    static var limit: Int { UserDefaults.app.object(forKey: "autoBackupCount") as? Int ?? 10 }
     nonisolated(unsafe) private static var pending: DispatchWorkItem?
     /// Tests take snapshots by hand.
     nonisolated(unsafe) static var schedulingEnabled = true

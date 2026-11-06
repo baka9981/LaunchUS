@@ -8,7 +8,7 @@ struct AITab: View {
     @State private var testing = false
     @State private var testResult: Result<String, Error>?
     /// Kept from the last 获取, so the menu is there next time.
-    @State private var models: [String] = UserDefaults.standard.stringArray(forKey: "aiModelList") ?? []
+    @State private var models: [String] = UserDefaults.app.stringArray(forKey: "aiModelList") ?? []
     @State private var fetching = false
     @State private var fetchError: String?
 
@@ -132,7 +132,7 @@ struct AITab: View {
 
     private func clearModels() {
         models = []
-        UserDefaults.standard.removeObject(forKey: "aiModelList")
+        UserDefaults.app.removeObject(forKey: "aiModelList")
     }
 
     private func fetchModels() {
@@ -142,7 +142,7 @@ struct AITab: View {
         Task {
             do {
                 models = try await client.models()
-                UserDefaults.standard.set(models, forKey: "aiModelList")
+                UserDefaults.app.set(models, forKey: "aiModelList")
                 if settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty, let first = models.first { settings.aiModel = first }
             } catch {
                 fetchError = error.localizedDescription

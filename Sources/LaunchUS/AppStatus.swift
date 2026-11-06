@@ -13,11 +13,11 @@ enum NewApps {
     private static let key = "newApps"
 
     static func load() -> State? {
-        UserDefaults.standard.data(forKey: key).flatMap { try? JSONDecoder().decode(State.self, from: $0) }
+        UserDefaults.app.data(forKey: key).flatMap { try? JSONDecoder().decode(State.self, from: $0) }
     }
 
     static func save(_ state: State) {
-        UserDefaults.standard.set(try? JSONEncoder().encode(state), forKey: key)
+        UserDefaults.app.set(try? JSONEncoder().encode(state), forKey: key)
     }
 
     /// The first time, everything already installed counts as known.

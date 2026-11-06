@@ -75,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Debug aid: LAUNCHUS_GUIDE=1 shows the walkthrough at launch; LAUNCHUS_DEMO skips it.
         let env = ProcessInfo.processInfo.environment
-        if (env["LAUNCHUS_DEMO"] == nil && (firstRun || !UserDefaults.standard.bool(forKey: "didShowGuide")))
+        if (env["LAUNCHUS_DEMO"] == nil && (firstRun || !UserDefaults.app.bool(forKey: "didShowGuide")))
             || env["LAUNCHUS_GUIDE"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.launcher.openGuide() }
         } else if env["LAUNCHUS_SNAPSHOT"] != nil || env["LAUNCHUS_SHOW"] != nil {
@@ -168,12 +168,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let model = launcher.model
         let key = "focusPreviousProfile"
         if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
-            if UserDefaults.standard.string(forKey: key) == nil {
-                UserDefaults.standard.set(model.currentProfile, forKey: key)
+            if UserDefaults.app.string(forKey: key) == nil {
+                UserDefaults.app.set(model.currentProfile, forKey: key)
             }
             if !model.switchProfile(named: name) { NSLog("LaunchUS: no layout named \(name)") }
-        } else if let previous = UserDefaults.standard.string(forKey: key) {
-            UserDefaults.standard.removeObject(forKey: key)
+        } else if let previous = UserDefaults.app.string(forKey: key) {
+            UserDefaults.app.removeObject(forKey: key)
             if model.profileNames.contains(previous) { model.switchProfile(previous) }
         }
     }

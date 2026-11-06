@@ -334,7 +334,7 @@ final class Settings {
     /// Whether the chat may look up and act on apps, folders and layouts.
     var aiToolAccess: AIToolAccess { didSet { save(aiToolAccess.rawValue, "aiToolAccess") } }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .app) {
         self.defaults = defaults
         let d = defaults
         func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
@@ -413,7 +413,7 @@ final class Settings {
 
     /// Read off the main actor by the app scanner.
     nonisolated static var extraAppFolderPaths: [String] {
-        UserDefaults.standard.stringArray(forKey: "extraAppFolders") ?? []
+        UserDefaults.app.stringArray(forKey: "extraAppFolders") ?? []
     }
 }
 

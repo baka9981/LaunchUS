@@ -48,12 +48,12 @@ enum WhatsNew {
 
     /// People upgrading from a build without the card count as having seen edition 0.
     static var isPending: Bool {
-        let defaults = UserDefaults.standard
+        let defaults = UserDefaults.app
         return defaults.bool(forKey: "didShowGuide") && defaults.integer(forKey: key) < edition
     }
 
     /// Also called after the walkthrough: new users already get the current features there.
-    static func markSeen() { UserDefaults.standard.set(edition, forKey: key) }
+    static func markSeen() { UserDefaults.app.set(edition, forKey: key) }
 }
 
 /// A hint shown once, at the moment it's useful.
@@ -61,13 +61,13 @@ enum Tip: String {
     case dragOut, frequentRow, launchItem
 
     private static let key = "shownTips"
-    nonisolated(unsafe) private static var shown = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+    nonisolated(unsafe) private static var shown = Set(UserDefaults.app.stringArray(forKey: key) ?? [])
 
     var wasShown: Bool { Self.shown.contains(rawValue) }
 
     func markShown() {
         Self.shown.insert(rawValue)
-        UserDefaults.standard.set(Array(Self.shown).sorted(), forKey: Self.key)
+        UserDefaults.app.set(Array(Self.shown).sorted(), forKey: Self.key)
     }
 
     /// Launches through LaunchUS before the frequent row is suggested.

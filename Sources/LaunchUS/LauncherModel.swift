@@ -329,8 +329,8 @@ final class LauncherModel {
     /// First run only: tag apps by their App Store category, so tags aren't empty to begin with.
     private func seedCategoryTagsIfNeeded() {
         let key = "didSeedCategoryTags"
-        guard !UserDefaults.standard.bool(forKey: key) else { return }
-        UserDefaults.standard.set(true, forKey: key)
+        guard !UserDefaults.app.bool(forKey: key) else { return }
+        UserDefaults.app.set(true, forKey: key)
         for app in catalog.apps {
             guard let tag = AppCategoryName.tagName(for: app.category) else { continue }
             var m = meta[app.id] ?? AppMeta()
@@ -822,7 +822,7 @@ final class LauncherModel {
     }
 
     func finishGuide() {
-        UserDefaults.standard.set(true, forKey: "didShowGuide")
+        UserDefaults.app.set(true, forKey: "didShowGuide")
         WhatsNew.markSeen()
         withAnimation(.easeOut(duration: 0.2)) { showGuide = false }
         focusRequest += 1
@@ -990,14 +990,14 @@ enum RecentLaunches {
     private static let removedKey = "frequentRemoved"
     private static let limit = 30
 
-    static func load() -> [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
-    static var pinned: [String] { UserDefaults.standard.stringArray(forKey: pinnedKey) ?? [] }
-    static var removed: Set<String> { Set(UserDefaults.standard.stringArray(forKey: removedKey) ?? []) }
+    static func load() -> [String] { UserDefaults.app.stringArray(forKey: key) ?? [] }
+    static var pinned: [String] { UserDefaults.app.stringArray(forKey: pinnedKey) ?? [] }
+    static var removed: Set<String> { Set(UserDefaults.app.stringArray(forKey: removedKey) ?? []) }
 
     static func record(_ id: String) {
         var ids = load().filter { $0 != id }
         ids.insert(id, at: 0)
-        UserDefaults.standard.set(Array(ids.prefix(limit)), forKey: key)
+        UserDefaults.app.set(Array(ids.prefix(limit)), forKey: key)
         LaunchHours.record(id)
         LaunchLog.record(id)
     }
@@ -1005,7 +1005,7 @@ enum RecentLaunches {
     static func setPinned(_ pin: Bool, _ id: String) {
         var ids = pinned.filter { $0 != id }
         if pin { ids.append(id) }
-        UserDefaults.standard.set(ids, forKey: pinnedKey)
+        UserDefaults.app.set(ids, forKey: pinnedKey)
         if pin { setRemoved(false, id) }
     }
 
@@ -1013,12 +1013,12 @@ enum RecentLaunches {
     static func setRemoved(_ remove: Bool, _ id: String) {
         var ids = removed
         if remove { ids.insert(id) } else { ids.remove(id) }
-        UserDefaults.standard.set(ids.sorted(), forKey: removedKey)
+        UserDefaults.app.set(ids.sorted(), forKey: removedKey)
         if remove { setPinned(false, id) }
     }
 
     static func reset() {
-        for key in [key, pinnedKey, removedKey] { UserDefaults.standard.removeObject(forKey: key) }
+        for key in [key, pinnedKey, removedKey] { UserDefaults.app.removeObject(forKey: key) }
     }
 
     /// The row: pinned apps first, then the ones opened here most recently, then the

@@ -26,9 +26,9 @@ enum ICloudSync {
     static var folder: URL { driveRoot.appendingPathComponent("LaunchUS", isDirectory: true) }
     static var fileURL: URL { folder.appendingPathComponent("sync.json") }
 
-    static var enabled: Bool { UserDefaults.standard.bool(forKey: "iCloudSync") && isAvailable }
+    static var enabled: Bool { UserDefaults.app.bool(forKey: "iCloudSync") && isAvailable }
     /// When this Mac last sent or received a layout.
-    static var lastSync: Date? { UserDefaults.standard.object(forKey: "iCloudLastSync") as? Date }
+    static var lastSync: Date? { UserDefaults.app.object(forKey: "iCloudLastSync") as? Date }
 
     /// Called with a newer layout from another Mac.
     @MainActor static var onRemoteChange: ((LayoutBackup) -> Void)?
@@ -48,16 +48,16 @@ enum ICloudSync {
     @MainActor private static var watcher: FolderWatcher?
 
     private static var deviceID: String {
-        if let id = UserDefaults.standard.string(forKey: "syncDeviceID") { return id }
+        if let id = UserDefaults.app.string(forKey: "syncDeviceID") { return id }
         let id = UUID().uuidString
-        UserDefaults.standard.set(id, forKey: "syncDeviceID")
+        UserDefaults.app.set(id, forKey: "syncDeviceID")
         return id
     }
 
     /// Modified date of the newest remote layout taken over, so it's applied once.
     private static var lastApplied: Date {
-        get { UserDefaults.standard.object(forKey: "iCloudLastApplied") as? Date ?? .distantPast }
-        set { UserDefaults.standard.set(newValue, forKey: "iCloudLastApplied") }
+        get { UserDefaults.app.object(forKey: "iCloudLastApplied") as? Date ?? .distantPast }
+        set { UserDefaults.app.set(newValue, forKey: "iCloudLastApplied") }
     }
 
     /// Turning sync on takes over a layout already in iCloud from another Mac; otherwise this
@@ -100,7 +100,7 @@ enum ICloudSync {
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try encoder.encode(payload).write(to: fileURL, options: .atomic)
-            UserDefaults.standard.set(Date(), forKey: "iCloudLastSync")
+            UserDefaults.app.set(Date(), forKey: "iCloudLastSync")
         } catch {
             NSLog("LaunchUS: iCloud upload failed: \(error)")
         }
@@ -111,7 +111,7 @@ enum ICloudSync {
     @MainActor static func checkRemote() -> Bool {
         guard enabled, let payload = read(), payload.deviceID != deviceID, payload.modified > lastApplied else { return false }
         lastApplied = payload.modified
-        UserDefaults.standard.set(Date(), forKey: "iCloudLastSync")
+        UserDefaults.app.set(Date(), forKey: "iCloudLastSync")
         var backup = LayoutBackup(pages: payload.pages, meta: payload.meta, custom: payload.custom)
         backup.profile = payload.profile ?? ""
         onRemoteChange?(backup)

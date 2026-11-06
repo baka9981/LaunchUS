@@ -126,11 +126,11 @@ enum LaunchLog {
 
     /// Day ("2026-11-06") → app ID → launches.
     static func load() -> [String: [String: Int]] {
-        (UserDefaults.standard.dictionary(forKey: key) as? [String: [String: Int]]) ?? [:]
+        (UserDefaults.app.dictionary(forKey: key) as? [String: [String: Int]]) ?? [:]
     }
 
     static func record(_ id: String, at date: Date = Date()) {
-        UserDefaults.standard.set(adding(id, at: date, to: load()), forKey: key)
+        UserDefaults.app.set(adding(id, at: date, to: load()), forKey: key)
     }
 
     static func adding(_ id: String, at date: Date, to log: [String: [String: Int]]) -> [String: [String: Int]] {
@@ -145,7 +145,7 @@ enum LaunchLog {
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
-    static func reset() { UserDefaults.standard.removeObject(forKey: key) }
+    static func reset() { UserDefaults.app.removeObject(forKey: key) }
 
     /// Launches per app over the last `days` days (today included), most first.
     static func top(_ log: [String: [String: Int]], days: Int, now: Date = Date()) -> [(id: String, count: Int)] {

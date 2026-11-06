@@ -78,13 +78,13 @@ enum LaunchHours {
     private static let cap = 60
 
     static func load() -> [String: [Int]] {
-        (UserDefaults.standard.dictionary(forKey: key) as? [String: [Int]]) ?? [:]
+        (UserDefaults.app.dictionary(forKey: key) as? [String: [Int]]) ?? [:]
     }
 
     static func record(_ id: String, at date: Date = Date()) {
         var all = load()
         all[id] = adding(Calendar.current.component(.hour, from: date), to: all[id])
-        UserDefaults.standard.set(all, forKey: key)
+        UserDefaults.app.set(all, forKey: key)
     }
 
     static func adding(_ hour: Int, to counts: [Int]?) -> [Int] {
@@ -94,5 +94,5 @@ enum LaunchHours {
         return counts
     }
 
-    static func reset() { UserDefaults.standard.removeObject(forKey: key) }
+    static func reset() { UserDefaults.app.removeObject(forKey: key) }
 }
