@@ -247,11 +247,6 @@ final class LauncherModel {
         }
     }
 
-    func rescanApps() {
-        showNotice(String(localized: "正在扫描…"), for: 30)
-        settingsActions.rescan { [weak self] result in self?.showNotice(result.message) }
-    }
-
     init(catalog: AppCatalog, settings: Settings? = nil) {
         self.catalog = catalog
         self.settings = settings ?? .shared
@@ -772,13 +767,6 @@ final class LauncherModel {
             m.displayName = name.isEmpty || name == original ? nil : name
             m.aliases = Self.cleaned(aliases)
             m.tags = Self.cleaned(tags)
-        }
-        refresh()
-    }
-
-    func toggleTag(_ tag: String, for id: String) {
-        setMeta(id) { m in
-            if let i = m.tags.firstIndex(of: tag) { m.tags.remove(at: i) } else { m.tags.append(tag) }
         }
         refresh()
     }

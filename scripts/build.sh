@@ -32,7 +32,7 @@ for lproj in Resources/Localization/*.lproj; do
     ditto "$lproj" "$APP/Contents/Resources/$(basename "$lproj")"
 done
 if [[ -f "$INTENTS_DIR/LaunchUS.swiftconstvalues" ]]; then
-    ls "$PWD"/Sources/LaunchUS/*.swift > "$INTENTS_DIR/sources.txt"
+    find "$PWD/Sources/LaunchUS" -name "*.swift" | sort > "$INTENTS_DIR/sources.txt"
     echo "$INTENTS_DIR/LaunchUS.swiftconstvalues" > "$INTENTS_DIR/constvals.txt"
     TOOLCHAIN="$(cd "$(dirname "$(xcrun --find swiftc)")/../.." && pwd)"
     MIN_OS="$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" Resources/Info.plist)"

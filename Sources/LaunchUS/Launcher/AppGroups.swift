@@ -36,10 +36,6 @@ extension LauncherModel {
         updateFrequentApps()
         onOpenGroup?(apps)
     }
-
-    func setFolderShortcut(_ spec: HotKeySpec?, for folderID: String) {
-        setShortcut(spec, for: Self.folderShortcutPrefix + folderID)
-    }
 }
 
 /// Sets the shortcut that opens every app in a folder.

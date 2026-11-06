@@ -19,14 +19,6 @@ enum LoginItem {
 enum Permissions {
     /// Accessibility is needed to take over the F4 / Launchpad key.
     static var accessibility: Bool { AXIsProcessTrusted() }
-
-    static func openTrackpadSettings() {
-        open("x-apple.systempreferences:com.apple.Trackpad-Settings.extension")
-    }
-
-    private static func open(_ url: String) {
-        if let url = URL(string: url) { NSWorkspace.shared.open(url) }
-    }
 }
 
 /// Swallows the F4 key and toggles the launcher instead: the Launchpad key on older Apple

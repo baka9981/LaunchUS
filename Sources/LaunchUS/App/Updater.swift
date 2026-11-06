@@ -33,8 +33,6 @@ final class Updater: NSObject, SPUStandardUserDriverDelegate {
         set { controller?.updater.automaticallyChecksForUpdates = newValue }
     }
 
-    var lastCheck: Date? { controller?.updater.lastUpdateCheckDate }
-
     // MARK: SPUStandardUserDriverDelegate
 
     /// LaunchUS has no Dock icon by default; let Sparkle remind gently instead of

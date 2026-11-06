@@ -13,6 +13,21 @@ swift test --parallel       # 单元测试
 
 界面文字以简体中文为键，新增文字要同时写进 `Resources/Localization/{en,ja,zh-Hant}.lproj/Localizable.strings`。
 
+## 代码结构
+
+`Sources/LaunchUS/` 按功能分目录（SwiftPM 会递归收集，加文件不用改配置）：
+
+| 目录 | 内容 |
+|---|---|
+| `App/` | 启动入口和全局部件：`AppDelegate`、`launchus://` 链接、快捷指令、全局快捷键和触发方式、权限、Sparkle 更新、安装位置、诊断、卡顿记录 |
+| `Launcher/` | 启动台本身：窗口（`LauncherController`）、界面（`LauncherView`、`Controls`、`Menus`）、状态（`LauncherModel` 和它按主题拆开的扩展）、文件夹分组、隐藏 App、整理模式、壁纸、Dock 角标 |
+| `Layout/` | 布局数据：`layout.json`、布局方案、自动备份、iCloud 同步、导入系统启动台、自定义项目 |
+| `Apps/` | 已安装的 App：扫描和图标、新装标记、信息卡、App 管理、重复清理、卸载、App 更新检查 |
+| `Search/` | 搜索框：匹配、文件搜索、计算器、系统设置面板、空格列表 |
+| `AI/` | AI 聊天（网关、界面、出错说明、工具、历史）和 MCP 服务器 |
+| `Settings/` | 设置项（`Settings`、`UserDefaults.app`）和设置窗口 |
+| `Onboarding/` | 首次引导和新功能提示 |
+
 ## 调试
 
 ```bash
