@@ -49,7 +49,9 @@ extension LauncherModel {
     }
 
     /// The search field read as a sum or unit conversion, if it is one.
-    var calculation: Calculator.Result? { isSearching ? Calculator.evaluate(query) : nil }
+    var calculation: Calculator.Result? {
+        isSearching ? Calculator.evaluate(query, rates: settings.currencyRates ? CurrencyRates.shared.table : nil) : nil
+    }
 
     func copyCalculation() {
         guard let result = calculation else { return }
@@ -70,6 +72,22 @@ extension LauncherModel {
         guard let text = fallbackQuery, let url = settings.searchEngine.url(for: text) else { return }
         close()
         NSWorkspace.shared.open(url)
+    }
+
+    func openFile(_ file: FoundFile) {
+        close()
+        NSWorkspace.shared.open(file.url)
+    }
+
+    func revealFile(_ file: FoundFile) {
+        close()
+        NSWorkspace.shared.activateFileViewerSelecting([file.url])
+    }
+
+    func searchFilesInFinder() {
+        let text = query.trimmingCharacters(in: .whitespaces)
+        close()
+        NSWorkspace.shared.showSearchResults(forQueryString: text)
     }
 
     func searchFinder() {

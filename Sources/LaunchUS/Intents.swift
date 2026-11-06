@@ -73,6 +73,48 @@ struct SwitchLayoutIntent: AppIntent {
     }
 }
 
+struct OpenAppGroupIntent: AppIntent {
+    static let title: LocalizedStringResource = "打开 App 组"
+    static let description = IntentDescription("一次打开指定名称的文件夹里的全部 App")
+
+    @Parameter(title: "文件夹名称")
+    var name: String
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("打开 \(\.$name) 里的全部 App")
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        LaunchUS.perform(.openAll(name))
+        return .result()
+    }
+}
+
+/// Settings › Focus › a Focus › Focus filters › LaunchUS: use a layout while that Focus is on.
+/// When the Focus ends, the system runs it again with no layout, and the earlier one comes back.
+struct LaunchUSFocusFilter: SetFocusFilterIntent {
+    static let title: LocalizedStringResource = "LaunchUS 布局"
+    static let description = IntentDescription("专注模式打开时换成指定的布局方案，关闭后换回原来的")
+
+    @Parameter(title: "布局名称")
+    var layout: String?
+
+    var displayRepresentation: DisplayRepresentation {
+        if let layout, !layout.isEmpty {
+            DisplayRepresentation(title: "使用布局「\(layout)」")
+        } else {
+            DisplayRepresentation(title: "不更换布局")
+        }
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        (NSApp.delegate as? AppDelegate)?.focusLayout(layout)
+        return .result()
+    }
+}
+
 struct LaunchUSShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(intent: OpenLauncherIntent(), phrases: ["打开 \(.applicationName)", "Open \(.applicationName)"],

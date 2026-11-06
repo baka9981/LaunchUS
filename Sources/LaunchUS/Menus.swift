@@ -141,6 +141,11 @@ enum LauncherMenus {
         case .app(let app):
             let meta = model.meta(for: app.id)
             menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.launch(app) }
+            if model.runningIDs.contains(app.id) {
+                menu.add(String(localized: "退出"), symbol: "xmark.circle") { RunningApps.quit(app, force: false) }
+                // Hold ⌥ for Force Quit, as in the Dock.
+                menu.addAlternate(String(localized: "强制退出"), symbol: "xmark.octagon") { RunningApps.quit(app, force: true) }
+            }
             if app.custom == nil || app.custom == .file {
                 menu.add(String(localized: "在访达中显示"), symbol: "folder") { model.reveal(app.url.path) }
             }
@@ -176,8 +181,12 @@ enum LauncherMenus {
             } else {
                 menu.add(String(localized: "卸载…"), symbol: "trash", enabled: app.isRemovable) { model.sheet = .confirmTrash(app.id) }
             }
-        case .folder(let folder, _):
+        case .folder(let folder, let apps):
             menu.add(String(localized: "打开"), symbol: "folder") { model.openFolder(folder.id) }
+            menu.add(String(localized: "全部打开"), symbol: "square.stack.3d.forward.dottedline", enabled: !apps.isEmpty) {
+                model.openAll(folder.id)
+            }
+            menu.add(String(localized: "快捷键…"), symbol: "command") { model.sheet = .folderShortcut(folder.id) }
             menu.add(String(localized: "重命名"), symbol: "pencil") { model.startRenaming(folder: folder.id) }
             menu.addSubmenu(String(localized: "颜色"), symbol: "paintpalette") { sub in
                 sub.add(String(localized: "无"), checked: folder.color == nil) { model.setFolderColor(folder.id, nil) }

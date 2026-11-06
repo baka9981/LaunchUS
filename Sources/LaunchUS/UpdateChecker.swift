@@ -2,7 +2,7 @@ import AppKit
 
 /// A newer version of an installed app.
 struct AppUpdate: Equatable {
-    enum Source: Equatable { case sparkle, appStore }
+    enum Source: Equatable { case sparkle, appStore, homebrew(String) }
     let version: String
     let source: Source
     /// The App Store page; Sparkle apps update themselves once opened.
@@ -152,5 +152,70 @@ private final class AppcastReader: NSObject, XMLParserDelegate {
         default: break
         }
         text = ""
+    }
+}
+
+/// Homebrew casks with a newer version, by the app they install. Read only: runs
+/// `brew outdated` and `brew info` with auto-update off, never `brew upgrade`.
+enum Homebrew {
+    struct Cask: Sendable { let token: String; let version: String }
+
+    nonisolated static var executable: String? {
+        ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"].first { FileManager.default.isExecutableFile(atPath: $0) }
+    }
+
+    /// App file name ("LibreOffice.app") → the outdated cask that installed it.
+    nonisolated static func outdated() async -> [String: Cask] {
+        guard let brew = executable else { return [:] }
+        return await Task.detached(priority: .utility) {
+            guard let data = run(brew, ["outdated", "--cask", "--json=v2"]),
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let casks = json["casks"] as? [[String: Any]], !casks.isEmpty else { return [:] }
+            let versions = Dictionary(casks.compactMap { cask -> (String, String)? in
+                guard let name = cask["name"] as? String, let version = cask["current_version"] as? String else { return nil }
+                return (name, version)
+            }, uniquingKeysWith: { a, _ in a })
+            guard let info = run(brew, ["info", "--cask", "--json=v2"] + versions.keys.sorted()) else { return [:] }
+            return apps(inInfo: info, versions: versions)
+        }.value
+    }
+
+    nonisolated static func apps(inInfo data: Data, versions: [String: String]) -> [String: Cask] {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let casks = json["casks"] as? [[String: Any]] else { return [:] }
+        var found: [String: Cask] = [:]
+        for cask in casks {
+            guard let token = cask["token"] as? String, let version = versions[token],
+                  let artifacts = cask["artifacts"] as? [[String: Any]] else { continue }
+            for artifact in artifacts {
+                guard let list = artifact["app"] as? [Any] else { continue }
+                // ["Foo.app"], or ["Foo.app", {"target": "Bar.app"}] when it's renamed on install.
+                let target = list.compactMap { ($0 as? [String: Any])?["target"] as? String }.first
+                    ?? (artifact["target"] as? String)
+                guard let name = target ?? list.first as? String else { continue }
+                // Commas separate a cask's version from its build ("21.0.13,9"); show the version.
+                let shown = version.split(separator: ",").first.map(String.init) ?? version
+                found[(name as NSString).lastPathComponent] = Cask(token: token, version: shown)
+            }
+        }
+        return found
+    }
+
+    private nonisolated static func run(_ path: String, _ arguments: [String]) -> Data? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: path)
+        process.arguments = arguments
+        var environment = ProcessInfo.processInfo.environment
+        environment["HOMEBREW_NO_AUTO_UPDATE"] = "1"
+        environment["HOMEBREW_NO_ANALYTICS"] = "1"
+        environment["HOMEBREW_NO_ENV_HINTS"] = "1"
+        process.environment = environment
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = FileHandle.nullDevice
+        do { try process.run() } catch { return nil }
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return process.terminationStatus == 0 ? data : nil
     }
 }

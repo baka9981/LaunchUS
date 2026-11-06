@@ -15,6 +15,11 @@ final class AppInventory {
     private(set) var lastChecked: Date?
     /// Apps that could be checked, after the last check.
     private(set) var checkable = 0
+    /// Duplicate apps and leftovers of removed ones; nil until scanned.
+    private(set) var duplicates: [DuplicateApp]?
+    private(set) var leftovers: [Leftover]?
+    private(set) var cleaning = false
+    @ObservationIgnored private var known: [AppItem] = []
 
     /// Sizes are kept per app and version, so an updated app is measured again.
     @ObservationIgnored private var sizeKeys: [String: String] = [:]
@@ -24,6 +29,7 @@ final class AppInventory {
         guard !scanning else { return }
         scanning = true
         let apps = apps.filter { $0.custom == nil }
+        known = apps
         Task {
             let read = await Task.detached(priority: .userInitiated) {
                 Dictionary(apps.map { ($0.id, AppInfo.read($0.url)) }, uniquingKeysWith: { a, _ in a })
@@ -41,6 +47,21 @@ final class AppInventory {
         }
     }
 
+    func scanCleanup(force: Bool = false) {
+        guard !cleaning, force || duplicates == nil else { return }
+        cleaning = true
+        let apps = known
+        let installed = Set(apps.compactMap { $0.bundleID?.lowercased() })
+        Task {
+            let result = await Task.detached(priority: .utility) {
+                (AppCleanup.duplicates(of: apps), AppCleanup.leftovers(installed: installed))
+            }.value
+            duplicates = result.0
+            leftovers = result.1
+            cleaning = false
+        }
+    }
+
     private static func sizeKey(_ app: AppItem, _ info: AppInfo?) -> String {
         app.url.path + "|" + (info?.version ?? "")
     }
@@ -52,10 +73,16 @@ final class AppInventory {
         checking = (0, targets.count)
         updates = [:]
         Task {
+            async let brew = Homebrew.outdated()
             await UpdateChecker.check(targets) { [weak self] id, update in
                 guard let self else { return }
                 if let update { updates[id] = update }
                 checking?.done += 1
+            }
+            // Homebrew fills in what the apps' own feeds didn't report.
+            for (fileName, cask) in await brew {
+                guard let app = apps.first(where: { $0.url.lastPathComponent == fileName }), updates[app.id] == nil else { continue }
+                updates[app.id] = AppUpdate(version: cask.version, source: .homebrew(cask.token))
             }
             checking = nil
             lastChecked = Date()

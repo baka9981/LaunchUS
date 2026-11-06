@@ -9,13 +9,82 @@ enum Calculator {
         let display: String
         /// The answer to copy: plain digits, no grouping.
         let copyText: String
+        /// Where the answer comes from, e.g. the date of an exchange rate.
+        var note: String? = nil
     }
 
-    static func evaluate(_ query: String) -> Result? {
+    /// `rates`: units of each currency per euro, when currency conversion is on.
+    static func evaluate(_ query: String, rates: CurrencyRates.Table? = nil) -> Result? {
         let text = query.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty, text.count <= 200, text.contains(where: \.isNumber) else { return nil }
         if let conversion = convert(text) { return conversion }
+        if let rates, let money = convertCurrency(text, rates: rates) { return money }
         return arithmetic(text)
+    }
+
+    // MARK: - Currency
+
+    /// Names and symbols people type for the common currencies, besides the ISO codes.
+    static let currencyNames: [String: String] = [
+        "$": "USD", "us$": "USD", "美元": "USD", "美金": "USD", "刀": "USD",
+        "¥": "CNY", "￥": "CNY", "rmb": "CNY", "人民币": "CNY", "元": "CNY", "块": "CNY",
+        "€": "EUR", "欧元": "EUR", "£": "GBP", "英镑": "GBP",
+        "日元": "JPY", "円": "JPY", "日币": "JPY", "港币": "HKD", "港元": "HKD", "hk$": "HKD",
+        "韩元": "KRW", "₩": "KRW", "台币": "TWD", "新台币": "TWD", "nt$": "TWD",
+        "澳元": "AUD", "a$": "AUD", "加元": "CAD", "c$": "CAD", "瑞郎": "CHF", "瑞士法郎": "CHF",
+        "新加坡元": "SGD", "新元": "SGD", "s$": "SGD", "泰铢": "THB", "卢比": "INR", "₹": "INR",
+        "卢布": "RUB", "₽": "RUB", "澳门元": "MOP", "新西兰元": "NZD", "林吉特": "MYR", "比索": "MXN",
+        "瑞典克朗": "SEK", "挪威克朗": "NOK", "丹麦克朗": "DKK", "里拉": "TRY", "雷亚尔": "BRL", "兰特": "ZAR",
+    ]
+
+    private static func currencyCode(_ name: String, rates: CurrencyRates.Table) -> String? {
+        let code = currencyNames[name] ?? name.uppercased()
+        return code.count == 3 && rates.rates[code] != nil ? code : nil
+    }
+
+    /// `100 usd to cny`, `$100 in eur`, `100美元换人民币`.
+    static func convertCurrency(_ text: String, rates: CurrencyRates.Table) -> Result? {
+        let lower = text.lowercased()
+        for separator in separators {
+            guard let range = lower.range(of: separator) else { continue }
+            let left = lower[..<range.lowerBound].trimmingCharacters(in: .whitespaces)
+            let right = lower[range.upperBound...].trimmingCharacters(in: .whitespaces)
+            guard let target = currencyCode(right, rates: rates),
+                  let (number, source) = splitCurrency(left, rates: rates),
+                  let from = rates.rates[source], let to = rates.rates[target], from > 0 else { continue }
+            let value = number / from * to
+            guard value.isFinite else { return nil }
+            return Result(expression: "\(format(number, grouped: true)) \(source) =",
+                          display: "\(money(value, grouped: true)) \(target)",
+                          copyText: money(value, grouped: false),
+                          note: String(localized: "汇率 \(rates.date) · 欧洲央行"))
+        }
+        return nil
+    }
+
+    private static func splitCurrency(_ text: String, rates: CurrencyRates.Table) -> (Double, String)? {
+        let names = (Array(currencyNames.keys) + rates.rates.keys.map { $0.lowercased() }).sorted { $0.count > $1.count }
+        for name in names {
+            let rest: String
+            if text.hasSuffix(name) { rest = String(text.dropLast(name.count)) }
+            else if text.hasPrefix(name) { rest = String(text.dropFirst(name.count)) }
+            else { continue }
+            let numberPart = rest.trimmingCharacters(in: .whitespaces)
+            guard !numberPart.isEmpty, let code = currencyCode(name, rates: rates) else { continue }
+            if let plain = Double(numberPart.replacingOccurrences(of: ",", with: "")) { return (plain, code) }
+            var parser = Parser(numberPart)
+            if let value = parser.parse() { return (value, code) }
+        }
+        return nil
+    }
+
+    /// Two decimals, or more for small amounts so they don't show as 0.00.
+    static func money(_ value: Double, grouped: Bool) -> String {
+        let style = FloatingPointFormatStyle<Double>.number
+            .precision(abs(value) >= 1 || value == 0 ? .fractionLength(2) : .significantDigits(1...4))
+            .grouping(grouped ? .automatic : .never)
+            .locale(Locale(identifier: "en_US"))
+        return value.formatted(style)
     }
 
     // MARK: - Arithmetic

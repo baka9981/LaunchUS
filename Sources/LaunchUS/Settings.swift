@@ -316,6 +316,10 @@ final class Settings {
     var returnHome: ReturnHome { didSet { save(returnHome.rawValue, "returnHome") } }
     var clickBackgroundToClose: Bool { didSet { save(clickBackgroundToClose, "clickBackgroundToClose") } }
     var searchEngine: SearchEngine { didSet { save(searchEngine.rawValue, "searchEngine") } }
+    /// Show matching files and folders from Spotlight under the app results.
+    var searchFiles: Bool { didSet { save(searchFiles, "searchFiles") } }
+    /// Fetch exchange rates so "100 usd to cny" works. Off until asked: it goes online.
+    var currencyRates: Bool { didSet { save(currencyRates, "currencyRates") } }
     /// Automatic layout backups kept; 0 is off.
     var autoBackupCount: Int { didSet { save(autoBackupCount, "autoBackupCount") } }
     /// Keep the layout in step with other Macs through iCloud Drive.
@@ -378,6 +382,8 @@ final class Settings {
         returnHome = ReturnHome(rawValue: value("returnHome", 300)) ?? .fiveMinutes
         clickBackgroundToClose = value("clickBackgroundToClose", true)
         searchEngine = SearchEngine(rawValue: value("searchEngine", "")) ?? .google
+        searchFiles = value("searchFiles", true)
+        currencyRates = value("currencyRates", false)
         autoBackupCount = min(50, max(0, value("autoBackupCount", 10)))
         iCloudSync = value("iCloudSync", false)
     }

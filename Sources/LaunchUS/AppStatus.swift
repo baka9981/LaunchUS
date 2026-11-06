@@ -54,6 +54,20 @@ final class RunningApps {
         onChange?(Self.current())
     }
 
+    /// The running copies of an app, found the same way `current()` names them.
+    static func instances(of app: AppItem) -> [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications.filter { running in
+            (running.bundleIdentifier ?? running.bundleURL?.path) == app.id
+        }
+    }
+
+    /// Asks the app to quit (it may still ask to save), or ends it at once.
+    static func quit(_ app: AppItem, force: Bool) {
+        for running in instances(of: app) {
+            _ = force ? running.forceTerminate() : running.terminate()
+        }
+    }
+
     static func current() -> Set<String> {
         Set(NSWorkspace.shared.runningApplications.compactMap { app in
             guard app.activationPolicy == .regular else { return nil }

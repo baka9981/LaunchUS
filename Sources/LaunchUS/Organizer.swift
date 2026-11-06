@@ -80,6 +80,8 @@ struct SheetCard: View {
                 if let app = model.app(id) { IconPicker(model: model, app: app) }
             case .newProfile:
                 ProfileEditor(model: model)
+            case .folderShortcut(let id):
+                FolderShortcutCard(model: model, folderID: id)
             case .message(let title, let text, let revealPath):
                 MessageCard(model: model, title: title, text: text, revealPath: revealPath)
             }

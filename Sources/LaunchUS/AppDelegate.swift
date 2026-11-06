@@ -137,6 +137,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             catalog.reload(force: true)
         case "hiddenDotEntrance", "hiddenSlotEntrance", "hiddenSlotPage":
             launcher.model.refresh()
+        case "currencyRates":
+            if settings.currencyRates { CurrencyRates.shared.refreshIfNeeded() }
         case "showFrequent":
             launcher.model.settingsChanged()
         case "showBadges":
@@ -157,6 +159,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 continue
             }
             run(command)
+        }
+    }
+
+    /// A Focus filter turned on (with a layout name) or off (nil): switch to it, then back.
+    func focusLayout(_ name: String?) {
+        let model = launcher.model
+        let key = "focusPreviousProfile"
+        if let name, !name.trimmingCharacters(in: .whitespaces).isEmpty {
+            if UserDefaults.standard.string(forKey: key) == nil {
+                UserDefaults.standard.set(model.currentProfile, forKey: key)
+            }
+            if !model.switchProfile(named: name) { NSLog("LaunchUS: no layout named \(name)") }
+        } else if let previous = UserDefaults.standard.string(forKey: key) {
+            UserDefaults.standard.removeObject(forKey: key)
+            if model.profileNames.contains(previous) { model.switchProfile(previous) }
         }
     }
 
@@ -182,6 +199,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launcher.openSettings(tab: tab)
         case .profile(let name):
             if !model.switchProfile(named: name) { NSLog("LaunchUS: no layout named \(name)") }
+        case .openAll(let name):
+            if let folder = model.folder(named: name) { model.openAll(folder.id) }
+            else { NSLog("LaunchUS: no folder named \(name)") }
         }
     }
 

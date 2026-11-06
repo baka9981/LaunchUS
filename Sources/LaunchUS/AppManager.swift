@@ -9,7 +9,7 @@ struct AppManagerCard: View {
     let model: LauncherModel
 
     enum Section: Hashable, CaseIterable {
-        case all, intel, updates, stale, stats
+        case all, intel, updates, stale, duplicates, leftovers, stats
 
         var title: String {
             switch self {
@@ -17,6 +17,8 @@ struct AppManagerCard: View {
             case .intel: "Intel"
             case .updates: String(localized: "有更新")
             case .stale: String(localized: "很久没打开")
+            case .duplicates: String(localized: "重复的 App")
+            case .leftovers: String(localized: "残留文件")
             case .stats: String(localized: "使用统计")
             }
         }
@@ -27,6 +29,8 @@ struct AppManagerCard: View {
             case .intel: "cpu"
             case .updates: "arrow.down.circle"
             case .stale: "moon.zzz"
+            case .duplicates: "square.on.square"
+            case .leftovers: "archivebox"
             case .stats: "chart.bar.xaxis"
             }
         }
@@ -37,13 +41,24 @@ struct AppManagerCard: View {
             case .intel: .orange
             case .updates: .green
             case .stale: .indigo
+            case .duplicates: .teal
+            case .leftovers: .brown
             case .stats: .pink
             }
         }
     }
 
     // Debug aid: LAUNCHUS_SHEET=stats opens on the statistics.
-    @State private var section = ProcessInfo.processInfo.environment["LAUNCHUS_SHEET"] == "stats" ? Section.stats : .all
+    @State private var section = Self.debugSection
+
+    private static var debugSection: Section {
+        switch ProcessInfo.processInfo.environment["LAUNCHUS_SHEET"] {
+        case "stats": .stats
+        case "duplicates": .duplicates
+        case "leftovers": .leftovers
+        default: .all
+        }
+    }
     private var inventory: AppInventory { .shared }
 
     private var apps: [AppItem] {
@@ -52,7 +67,7 @@ struct AppManagerCard: View {
 
     func matches(_ app: AppItem, _ section: Section) -> Bool {
         switch section {
-        case .all, .stats: true
+        case .all, .stats, .duplicates, .leftovers: true
         case .intel: inventory.infos[app.id]?.architecture == .intel
         case .updates: inventory.updates[app.id] != nil
         case .stale: LauncherModel.isStale(app, recent: model.recentIDs)
@@ -66,6 +81,10 @@ struct AppManagerCard: View {
             Group {
                 if section == .stats {
                     UsageStatsView(model: model)
+                } else if section == .duplicates {
+                    DuplicateAppsView(model: model)
+                } else if section == .leftovers {
+                    LeftoversView(model: model)
                 } else {
                     ManagedAppList(model: model, section: section,
                                    apps: apps.filter { matches($0, section) }, allApps: apps)
@@ -74,7 +93,10 @@ struct AppManagerCard: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .onAppear { inventory.scan(apps) }
+        .onAppear {
+            inventory.scan(apps)
+            inventory.scanCleanup()
+        }
     }
 
     private var sidebar: some View {
@@ -87,6 +109,9 @@ struct AppManagerCard: View {
             ForEach([Section.all, .intel, .updates, .stale], id: \.self) { item in
                 sidebarItem(item, count: apps.filter { matches($0, item) }.count)
             }
+            Divider().padding(.vertical, 8).padding(.horizontal, 10)
+            sidebarItem(.duplicates, count: inventory.duplicates?.count)
+            sidebarItem(.leftovers, count: inventory.leftovers?.count)
             Divider().padding(.vertical, 8).padding(.horizontal, 10)
             sidebarItem(.stats, count: nil)
             Spacer()
@@ -116,7 +141,7 @@ struct AppManagerCard: View {
                 if let count {
                     Text("\(count)").font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
                 }
-                if item == .updates, inventory.checking != nil {
+                if item == .updates && inventory.checking != nil || (item == .duplicates || item == .leftovers) && inventory.cleaning {
                     ProgressView().controlSize(.mini)
                 }
             }
@@ -250,7 +275,7 @@ private struct ManagedAppList: View {
                       systemImage: "arrow.clockwise")
             }
             .controlSize(.small)
-            .help(String(localized: "向使用 Sparkle 的 App 各自的更新服务器和 App Store 查询最新版本，只查询，不会自动更新"))
+            .help(String(localized: "向使用 Sparkle 的 App 各自的更新服务器、App Store 和 Homebrew 查询最新版本，只查询，不会自动更新"))
         }
     }
 
@@ -276,7 +301,7 @@ private struct ManagedAppList: View {
             }
             .font(.system(size: 13)).foregroundStyle(.secondary)
             if section == .updates, inventory.lastChecked == nil, inventory.checking == nil {
-                Text("只查询使用 Sparkle 自动更新的 App 和从 App Store 安装的 App，不会自动更新")
+                Text("只查询使用 Sparkle 自动更新的 App、从 App Store 和 Homebrew 安装的 App，不会自动更新")
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
             }
         }
@@ -331,8 +356,7 @@ private struct ManagedAppRow: View {
                 .controlSize(.small)
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
-                .help(update.source == .appStore ? String(localized: "在 App Store 中打开")
-                      : String(localized: "打开这个 App，用它自己的更新功能更新"))
+                .help(help(for: update))
             }
 
             if hovering {
@@ -380,7 +404,22 @@ private struct ManagedAppRow: View {
         .help(help)
     }
 
+    private func help(for update: AppUpdate) -> String {
+        switch update.source {
+        case .appStore: String(localized: "在 App Store 中打开")
+        case .sparkle: String(localized: "打开这个 App，用它自己的更新功能更新")
+        case .homebrew(let token): String(localized: "用 Homebrew 安装的。点按拷贝 brew upgrade --cask \(token)，在终端中运行")
+        }
+    }
+
     private func open(_ update: AppUpdate) {
+        if case .homebrew(let token) = update.source {
+            let command = "brew upgrade --cask \(token)"
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(command, forType: .string)
+            model.showNotice(String(localized: "已拷贝「\(command)」，在终端中粘贴运行"))
+            return
+        }
         model.close()
         NSWorkspace.shared.open(update.page ?? app.url)
     }

@@ -624,3 +624,36 @@
 "超过 3 个月没打开" = "Not opened in over 3 months";
 "重新检查" = "Check Again";
 "需要 Rosetta 才能运行，留意开发者是否已推出 Apple 芯片版本" = "These need Rosetta; check whether the developer offers an Apple silicon version";
+
+/* App groups, file search, cleanup, currency, Focus */
+"%lld 个 App 装了不止一份。留下一份，其余可以在访达中拖到废纸篓" = "%lld apps are installed more than once. Keep one copy; drag the others to the Trash in Finder.";
+"%lld 个已卸载 App 的文件，共 %@。LaunchUS 只列出，不会删除，确认没用后可以在访达中删掉" = "Files from %lld removed apps, %@ in all. LaunchUS only lists them and never deletes anything; once you're sure they're unneeded, delete them in Finder.";
+"%lld 项" = "%lld items";
+"LaunchUS 布局" = "LaunchUS Layout";
+"一次打开指定名称的文件夹里的全部 App" = "Opens every app in the folder with this name at once";
+"不更换布局" = "Don't change the layout";
+"专注模式打开时换成指定的布局方案，关闭后换回原来的" = "Switches to a layout while this Focus is on, and back when it ends";
+"也可以在快捷指令里用「打开 App 组」，或链接 launchus://openall?name=%@" = "You can also use “Open App Group” in Shortcuts, or the link launchus://openall?name=%@";
+"使用布局「%@」" = "Use layout “%@”";
+"全部打开" = "Open All";
+"只查询使用 Sparkle 自动更新的 App、从 App Store 和 Homebrew 安装的 App，不会自动更新" = "Only apps that update with Sparkle, or were installed from the App Store or Homebrew, are checked. Nothing is updated automatically.";
+"向使用 Sparkle 的 App 各自的更新服务器、App Store 和 Homebrew 查询最新版本，只查询，不会自动更新" = "Asks each Sparkle app's update server, the App Store and Homebrew for the latest version. Only checks; nothing is updated automatically.";
+"在 App 下面列出聚焦找到的文件和文件夹" = "List files and folders Spotlight finds below the apps";
+"在任何地方按下快捷键，就打开这个文件夹里的全部 %lld 个 App" = "Press the shortcut anywhere to open all %lld apps in this folder";
+"在访达中查看全部" = "Show All in Finder";
+"已拷贝「%@」，在终端中粘贴运行" = "Copied “%@”. Paste it into Terminal to run it.";
+"强制退出" = "Force Quit";
+"快捷键…" = "Shortcut…";
+"打开 App 组" = "Open App Group";
+"拷贝路径" = "Copy Path";
+"按住 ⌘ 点按：在访达中显示" = "⌘-click to show in Finder";
+"搜索文件" = "Search Files";
+"文件" = "Files";
+"残留文件" = "Leftover Files";
+"汇率 %@ · 欧洲央行" = "Rates of %@ · ECB";
+"汇率换算" = "Currency Conversion";
+"没有找到已卸载 App 的残留文件" = "No leftover files from removed apps";
+"没有装了两份的 App" = "No app is installed twice";
+"用 Homebrew 安装的。点按拷贝 brew upgrade --cask %@，在终端中运行" = "Installed with Homebrew. Click to copy brew upgrade --cask %@ and run it in Terminal.";
+"输入「100 usd to cny」换算货币。汇率来自欧洲央行（frankfurter.app），最多每 12 小时取一次，请求不带任何个人信息" = "Type “100 usd to cny” to convert currencies. Rates come from the European Central Bank (frankfurter.app), fetched at most every 12 hours; the request carries no personal information.";
+"重复的 App" = "Duplicate Apps";

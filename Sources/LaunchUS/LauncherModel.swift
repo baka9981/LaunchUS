@@ -36,6 +36,8 @@ enum LauncherSheet: Hashable {
     case confirmDeleteCustom(String)
     case chooseIcon(String)
     case newProfile
+    /// The global shortcut that opens every app in a folder.
+    case folderShortcut(String)
     /// The App manager: sizes, chips, updates and usage statistics.
     case manager
     case message(title: String, text: String, revealPath: String?)
@@ -220,6 +222,8 @@ final class LauncherModel {
     @ObservationIgnored var onLaunch: ((AppItem) -> Void)?
     /// Opens files dropped on an app icon with that app.
     @ObservationIgnored var onOpenFiles: (([URL], AppItem) -> Void)?
+    /// Opens several apps at once (a folder's "全部打开").
+    @ObservationIgnored var onOpenGroup: (([AppItem]) -> Void)?
     /// The app icon a file drag is hovering over, highlighted until the drop.
     var dropTargetID: String?
     @ObservationIgnored var onClose: (() -> Void)?
@@ -422,7 +426,7 @@ final class LauncherModel {
         }
     }
 
-    private func search(_ query: String) -> [AppItem] { search(query, includeHidden: false) }
+    func search(_ query: String) -> [AppItem] { search(query, includeHidden: false) }
 
     private func search(_ query: String, includeHidden: Bool) -> [AppItem] {
         // Hidden apps can optionally still be found by search (but never in smart folders).

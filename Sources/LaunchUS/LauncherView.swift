@@ -209,6 +209,15 @@ struct LauncherView: View {
                         .zIndex(3)
                 }
 
+                if let files = fileResults(metrics) {
+                    FileResultsCard(files: files.list, text: model.query, windowed: windowed,
+                                    open: { model.openFile($0) }, reveal: { model.revealFile($0) },
+                                    showAll: { model.searchFilesInFinder() })
+                        .position(x: geo.size.width / 2, y: files.y)
+                        .transition(.opacity)
+                        .zIndex(3)
+                }
+
                 if model.dragOutHint {
                     NoticeToast(text: String(localized: "拖到屏幕底边，可放到程序坞、访达或其他 App"), windowed: windowed)
                         .position(x: geo.size.width / 2, y: metrics.dotsY - 44)
@@ -301,10 +310,35 @@ struct LauncherView: View {
         }
         .ignoresSafeArea()
         .onChange(of: model.focusRequest) { _, _ in searchFocused = true }
+        .task(id: model.isPresented && model.settings.searchFiles && model.spaceList == nil ? model.query : "") {
+            let text = model.isPresented && model.settings.searchFiles && model.spaceList == nil ? model.query : ""
+            if text.isEmpty { FileSearch.shared.stop(); return }
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled else { return }
+            FileSearch.shared.search(text)
+        }
         .transaction { model.settings.animationSpeed.adjust(&$0) }
     }
 
     static let space = "launcher"
+
+    /// Spotlight's files, placed under the search results when there is room for them.
+    private func fileResults(_ metrics: GridMetrics) -> (list: [FoundFile], y: CGFloat)? {
+        let search = FileSearch.shared
+        guard model.isSearching, model.settings.searchFiles, model.calculation == nil, model.openFolderID == nil,
+              !search.results.isEmpty, search.text == model.query.trimmingCharacters(in: .whitespaces) else { return nil }
+        let height = CGFloat(search.results.count) * 39 + 44
+        let top: CGFloat
+        if model.fallbackQuery != nil {
+            top = metrics.gridTop + metrics.cellSize.height * 0.6 + 64
+        } else {
+            guard model.pages.count == 1, let first = model.pages.first else { return nil }
+            let rows = (first.count + metrics.columns - 1) / metrics.columns
+            top = metrics.gridTop + CGFloat(rows) * metrics.cellSize.height + 16
+        }
+        guard top + height < metrics.dotsY - 20 else { return nil }
+        return (search.results, top + height / 2)
+    }
 
     /// Whether a drag on empty space should pick apps rather than turn pages.
     private var wantsMarquee: Bool {
@@ -1103,7 +1137,7 @@ private struct CalculationCard: View {
                     .monospacedDigit()
                     .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
                     .lineLimit(1).minimumScaleFactor(0.4)
-                Text("按 ↩ 或点按复制结果")
+                Text(result.note.map { "\($0) · " + String(localized: "按 ↩ 或点按复制结果") } ?? String(localized: "按 ↩ 或点按复制结果"))
                     .font(.system(size: 12))
                     .foregroundStyle(windowed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.white.opacity(0.55)))
             }

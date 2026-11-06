@@ -53,6 +53,7 @@ final class LauncherController {
         model.onLaunch = { [weak self] app in self?.launch(app) }
         AppHotKeys.action = { [weak self] id in self?.openFromShortcut(id) }
         model.onOpenFiles = { [weak self] urls, app in self?.open(urls, with: app) }
+        model.onOpenGroup = { [weak self] apps in self?.openGroup(apps) }
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
         PermissionHelper.shared.hideLauncher = { [weak self] in
             if self?.isVisible == true { self?.hide(restoreFocus: true) }
@@ -167,6 +168,7 @@ final class LauncherController {
         configurePanel(for: screen)
         wallpaper.prepare(for: screen, blur: settings.blur)
         catalog.reload()
+        if settings.currencyRates { CurrencyRates.shared.refreshIfNeeded() }
         model.prepareForShow()
 
         // A non-activating panel takes the keyboard even when the app can't become active
@@ -277,7 +279,7 @@ final class LauncherController {
             if let sheet = env["LAUNCHUS_SHEET"] {
                 if sheet == "custom" { self.model.sheet = .editCustom(nil) }
                 else if sheet == "manager" { self.model.sheet = .manager }
-                else if sheet == "stats" { self.model.sheet = .manager }
+                else if ["stats", "duplicates", "leftovers"].contains(sheet) { self.model.sheet = .manager }
                 else if sheet == "whatsnew" { self.model.showWhatsNew = true }
                 else if sheet.hasPrefix("guide:") { self.model.showGuide = true }
                 else if sheet.hasPrefix("tip:") { self.model.tip = Tip(rawValue: String(sheet.dropFirst(4))) }
@@ -346,6 +348,10 @@ final class LauncherController {
 
     /// An app's own shortcut: opens it, or hides it when it's already in front.
     private func openFromShortcut(_ id: String) {
+        if id.hasPrefix(LauncherModel.folderShortcutPrefix) {
+            model.openAll(String(id.dropFirst(LauncherModel.folderShortcutPrefix.count)))
+            return
+        }
         guard let app = model.app(id) else { return }
         if app.custom == nil, let bundleID = app.bundleID,
            let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first(where: \.isActive) {
@@ -372,6 +378,22 @@ final class LauncherController {
             if let error { NSLog("LaunchUS: failed to open \(app.url.path): \(error)") }
         }
         hide(restoreFocus: false)
+    }
+
+    /// Opens each app without bringing it forward, except the last, so they don't fight for focus.
+    private func openGroup(_ apps: [AppItem]) {
+        for (index, app) in apps.enumerated() {
+            if let item = model.customItem(app.id) {
+                CustomLauncher.open(item)
+                continue
+            }
+            let config = NSWorkspace.OpenConfiguration()
+            config.activates = index == apps.count - 1
+            NSWorkspace.shared.openApplication(at: app.url, configuration: config) { _, error in
+                if let error { NSLog("LaunchUS: failed to open \(app.url.path): \(error)") }
+            }
+        }
+        if isVisible { hide(restoreFocus: false) }
     }
 
     private func open(_ urls: [URL], with app: AppItem) {

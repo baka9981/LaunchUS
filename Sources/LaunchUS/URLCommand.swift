@@ -5,6 +5,7 @@ import Foundation
 ///     launchus://open                 launchus://toggle            launchus://close
 ///     launchus://search?q=微信         launchus://folder?name=工具   launchus://page?n=2
 ///     launchus://settings?tab=general  launchus://profile?name=工作
+///     launchus://openall?name=写代码      (every app in that folder)
 enum URLCommand: Equatable {
     case open, toggle, close
     case search(String)
@@ -14,6 +15,8 @@ enum URLCommand: Equatable {
     case settings(SettingsTab?)
     /// Switches to a named layout.
     case profile(String)
+    /// Opens every app in a named folder.
+    case openAll(String)
 
     static let scheme = "launchus"
 
@@ -39,6 +42,9 @@ enum URLCommand: Equatable {
         case "profile", "layout":
             guard let profile = query["name"] else { return nil }
             self = .profile(profile)
+        case "openall", "group":
+            guard let folder = query["name"], !folder.isEmpty else { return nil }
+            self = .openAll(folder)
         case "settings":
             self = .settings(query["tab"].flatMap { SettingsTab.named($0) })
         default:

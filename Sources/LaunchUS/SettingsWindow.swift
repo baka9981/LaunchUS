@@ -330,6 +330,12 @@ struct GeneralTab: View {
                 Row(title: String(localized: "网页搜索"), info: String(localized: "搜索没有结果时，按 ↩ 用它搜索；按 ⌘↩ 在访达中搜索")) {
                     MenuPicker(selection: $settings.searchEngine, options: SearchEngine.allCases, title: \.title)
                 }
+                Row(title: String(localized: "搜索文件"), info: String(localized: "在 App 下面列出聚焦找到的文件和文件夹")) {
+                    Toggle("", isOn: $settings.searchFiles).toggleStyle(.switch).labelsHidden()
+                }
+                Row(title: String(localized: "汇率换算"), info: String(localized: "输入「100 usd to cny」换算货币。汇率来自欧洲央行（frankfurter.app），最多每 12 小时取一次，请求不带任何个人信息")) {
+                    Toggle("", isOn: $settings.currencyRates).toggleStyle(.switch).labelsHidden()
+                }
             }
         }
         .onReceive(poll) { _ in

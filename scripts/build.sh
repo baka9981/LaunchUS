@@ -11,7 +11,7 @@ CONFIG="${1:-release}"
 # appintentsmetadataprocessor turns them into Metadata.appintents, as Xcode would.
 INTENTS_DIR="$(mktemp -d)"
 cat > "$INTENTS_DIR/protocols.json" <<'JSON'
-["AppIntent","EntityQuery","AppEntity","TransientEntity","AppEnum","AppShortcutProviding","AppShortcutsProvider","AnyResolverProviding","AppIntentsPackage","DynamicOptionsProvider","_IntentValueRepresentable","_AssistantIntentsProvider","_GenerativeFunctionExtractable","IntentValueQuery","Resolver"]
+["AppIntent","SetFocusFilterIntent","EntityQuery","AppEntity","TransientEntity","AppEnum","AppShortcutProviding","AppShortcutsProvider","AnyResolverProviding","AppIntentsPackage","DynamicOptionsProvider","_IntentValueRepresentable","_AssistantIntentsProvider","_GenerativeFunctionExtractable","IntentValueQuery","Resolver"]
 JSON
 # Release builds compile the module as a whole, so one file holds every value.
 INTENT_FLAGS=()
