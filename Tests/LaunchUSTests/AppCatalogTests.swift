@@ -157,10 +157,10 @@ struct AppCatalogTests {
         #expect(AppearanceMode.dark.nsAppearance?.name == .darkAqua)
     }
 
-    @Test func darkIconRendersForASystemApp() throws {
+    @Test(arguments: [false, true]) func systemIconRendersForASystemApp(dark: Bool) throws {
         let path = "/System/Applications/Notes.app"
         try #require(FileManager.default.fileExists(atPath: path))
-        let image = try #require(DarkIcon.image(bundle: path, pixels: 64))
+        let image = try #require(SystemIcon.image(bundle: path, pixels: 64, dark: dark))
         #expect(image.width >= 64)
     }
 

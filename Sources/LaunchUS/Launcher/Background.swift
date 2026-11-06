@@ -125,10 +125,27 @@ struct BackgroundView: View {
 }
 
 /// Window mode's frosted panel, following the system's light or dark appearance.
+/// Window mode's backdrop: the same Liquid Glass as the system Apps window, bright and clear with
+/// its lit edge, rather than the flat grey of a visual-effect material.
 struct WindowGlass: View {
     var body: some View {
-        VisualEffectBackground(material: .popover)
+        LiquidGlassBackground(cornerRadius: LauncherView.windowCornerRadius)
             .contentShape(Rectangle())
+    }
+}
+
+private struct LiquidGlassBackground: NSViewRepresentable {
+    let cornerRadius: CGFloat
+
+    func makeNSView(context: Context) -> NSGlassEffectView {
+        let view = NSGlassEffectView()
+        view.cornerRadius = cornerRadius
+        view.style = .regular
+        return view
+    }
+
+    func updateNSView(_ view: NSGlassEffectView, context: Context) {
+        view.cornerRadius = cornerRadius
     }
 }
 

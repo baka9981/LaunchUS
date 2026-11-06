@@ -84,13 +84,13 @@ struct WindowHeader: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: chatting ? "sparkles" : text.isEmpty ? "square.grid.3x3" : "magnifyingglass")
-                .font(.system(size: 22, weight: .regular))
-                .foregroundStyle(.secondary)
-                .frame(width: 28)
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(.primary.opacity(0.8))
+                .frame(width: 26)
             ZStack(alignment: .leading) {
                 if text.isEmpty && !composing {
                     Text(chatting ? "继续问…" : "应用程序")
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(chatting ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary.opacity(0.8)))
                         .allowsHitTesting(false)
                 }
                 TextField("", text: $text)
@@ -98,7 +98,7 @@ struct WindowHeader: View {
                     .textFieldStyle(.plain)
                     .focused(focused)
             }
-            .font(.system(size: 26, weight: .regular))
+            .font(.system(size: 24, weight: .regular))
             .trackingComposition($composing)
             if !text.isEmpty {
                 Button { text = "" } label: {
@@ -115,38 +115,52 @@ struct WindowHeader: View {
             }
             .fixedSize()
         }
-        .padding(.horizontal, 8)
     }
 }
 
-/// Window mode's category tabs (全部 / 开发工具 / 社交 …).
+/// Window mode's category tabs, the system Apps window's groups spread across the width.
+/// No "all" tab: clicking the picked one again shows everything.
 struct CategoryBar: View {
     let model: LauncherModel
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
-                tab(String(localized: "全部"), key: nil)
-                ForEach(model.categoryTabs, id: \.key) { tab($0.title, key: $0.key) }
+        let tabs = model.categoryTabs
+        // Spread out when they fit (they do in Chinese); otherwise a row that scrolls.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 9) {
+                ForEach(tabs, id: \.key) { tab($0.title, key: $0.key).frame(maxWidth: .infinity) }
             }
-            .padding(.horizontal, 2)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(tabs, id: \.key) { tab($0.title, key: $0.key) }
+                }
+            }
         }
     }
 
-    private func tab(_ title: String, key: String?) -> some View {
+    private func tab(_ title: String, key: String) -> some View {
         let selected = model.categoryFilter == key
         return Button {
-            withAnimation(.easeOut(duration: 0.15)) { model.categoryFilter = key }
+            withAnimation(.easeOut(duration: 0.15)) { model.categoryFilter = selected ? nil : key }
         } label: {
             Text(title)
-                .font(.system(size: 14, weight: selected ? .semibold : .regular))
-                .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
-                .padding(.horizontal, 14)
-                .frame(height: 28)
-                .background(Color.primary.opacity(selected ? 0.1 : 0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .font(.system(size: 15, weight: selected ? .semibold : .regular))
+                .foregroundStyle(selected ? AnyShapeStyle(.primary) : AnyShapeStyle(.primary.opacity(0.8)))
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, 12)
+                .frame(maxWidth: .infinity)
+                .frame(height: 26)
+                // A light veil with a hairline shadow, like the system Apps window's tabs: faint on dark glass, an outlined chip on light.
+                .background {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(selected ? Color.primary.opacity(0.14) : Color.white.opacity(0.28))
+                        .shadow(color: .black.opacity(selected ? 0 : 0.12), radius: 1, y: 0.5)
+                }
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

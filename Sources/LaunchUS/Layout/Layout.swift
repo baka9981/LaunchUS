@@ -221,6 +221,41 @@ enum AppCategoryName {
         category.flatMap { names[$0] }
     }
 
+    /// The broad groups of the system Apps window's category tabs, in its order.
+    enum Group: String, CaseIterable {
+        case developer, utilities, social, productivity, creativity, entertainment, photoVideo, reading, other
+
+        var title: String {
+            switch self {
+            case .developer: String(localized: "开发者工具")
+            case .utilities: String(localized: "工具")
+            case .social: String(localized: "社交")
+            case .productivity: String(localized: "效率与财务")
+            case .creativity: String(localized: "创意")
+            case .entertainment: String(localized: "娱乐")
+            case .photoVideo: String(localized: "照片与视频")
+            case .reading: String(localized: "信息与阅读")
+            case .other: String(localized: "其他")
+            }
+        }
+    }
+
+    static func group(for category: String?) -> Group {
+        guard let category = category?.replacingOccurrences(of: "public.app-category.", with: "") else { return .other }
+        if category.hasSuffix("games") { return .entertainment }
+        switch category {
+        case "developer-tools": return .developer
+        case "utilities": return .utilities
+        case "social-networking": return .social
+        case "productivity", "business", "finance": return .productivity
+        case "graphics-design": return .creativity
+        case "entertainment", "music", "sports": return .entertainment
+        case "photography", "video": return .photoVideo
+        case "news", "reference", "education", "weather", "books", "magazines": return .reading
+        default: return .other
+        }
+    }
+
     private static let names: [String: String] = [
         "public.app-category.developer-tools": String(localized: "开发工具"),
         "public.app-category.productivity": String(localized: "效率"),

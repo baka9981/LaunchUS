@@ -16,32 +16,35 @@ struct GridMetrics: Equatable {
     /// Room for the recently-opened row between the search field and the grid.
     var frequentRow = false
 
-    var searchCenterY: CGFloat { windowed ? 38 : (size.height * 0.0615).rounded() }
+    var searchCenterY: CGFloat { windowed ? 28 : (size.height * 0.0615).rounded() }
     var searchSize: CGSize {
-        windowed ? CGSize(width: size.width - 40, height: 48)
+        windowed ? CGSize(width: size.width - 40, height: 44)
             : CGSize(width: max(240, size.width * 0.14).rounded(), height: max(32, size.height * 0.033).rounded())
     }
-    /// Window mode: centre of the category tabs under the header.
-    var categoryBarY: CGFloat { 96 }
+    /// Window mode: the line under the header, and the centre of the category tabs below it.
+    var headerLineY: CGFloat { 56 }
+    var categoryBarY: CGFloat { 80 }
     /// Vertical centre of the page dots.
     var dotsY: CGFloat { windowed ? size.height - 18 : size.height * 0.929 }
-    var gridWidth: CGFloat { windowed ? size.width - 40 : size.width * 0.875 }
+    var gridWidth: CGFloat { windowed ? size.width - 48 : size.width * 0.875 }
     var gridOriginX: CGFloat { (size.width - gridWidth) / 2 }
     /// Height taken by the recently-opened row; the grid moves down and its rows get shorter.
-    var frequentHeight: CGFloat { frequentRow ? (windowed ? 56 : (size.height * 0.075).rounded()) : 0 }
+    /// Window mode makes it a full row of named icons over a line, like the system Apps window.
+    var frequentHeight: CGFloat { frequentRow ? (windowed ? 116 : (size.height * 0.075).rounded()) : 0 }
     /// Centre of the recently-opened row.
     var frequentCenterY: CGFloat { gridTop - frequentHeight / 2 }
-    var frequentIconSize: CGFloat { (frequentHeight * (windowed ? 0.86 : 0.8)).rounded() }
+    var frequentIconSize: CGFloat { windowed ? min(iconSize, 64) : (frequentHeight * 0.8).rounded() }
     var cellSize: CGSize {
+        // Window mode scrolls in rows as tall as the system Apps window's; pages fit their rows.
         let height = windowed
-            ? ((size.height - gridTop - (paged ? 34 : 8)) / CGFloat(rows)).rounded(.down)
+            ? (paged ? ((size.height - gridTop - 34) / CGFloat(rows)).rounded(.down) : 102)
             : (size.height * 0.159 * 5 - frequentHeight) / CGFloat(rows)
         return CGSize(width: gridWidth / CGFloat(columns), height: height)
     }
     /// Centre of the first row's icons; the grid view starts half a row above it.
     var firstIconCenterY: CGFloat { size.height * 0.177 }
     var gridTop: CGFloat {
-        (windowed ? 124 : (firstIconCenterY - size.height * 0.159 * 5 / CGFloat(rows) / 2).rounded()) + frequentHeight
+        (windowed ? 100 : (firstIconCenterY - size.height * 0.159 * 5 / CGFloat(rows) / 2).rounded()) + frequentHeight
     }
     var gridHeight: CGFloat { cellSize.height * CGFloat(rows) }
     /// Frame of the icon image. macOS icons leave ~10% transparent margin on each side,
@@ -50,10 +53,10 @@ struct GridMetrics: Equatable {
     var iconSize: CGFloat {
         let s = iconScale
         return windowed
-            ? min(80 * s, cellSize.width * min(0.6 * s, 0.85), cellSize.height * min(0.66 * s, hideNames ? 0.9 : 0.8)).rounded()
+            ? min(84 * s, cellSize.width * min(0.68 * s, 0.85), cellSize.height * min(0.75 * s, hideNames ? 0.9 : 0.8)).rounded()
             : min(size.width * 0.075 * s, cellSize.width * min(0.62 * s, 0.9), cellSize.height * min(0.72 * s, hideNames ? 0.95 : 0.84)).rounded()
     }
-    var labelSize: CGFloat { windowed ? 12 : 13 }
+    var labelSize: CGFloat { 13 }
     /// Space between the icon frame and the label (the icon's own margin adds ~10% more).
     var labelGap: CGFloat { (iconSize * 0.02).rounded() }
     /// How far the icon+label stack's centre sits below the icon's centre.
@@ -145,10 +148,10 @@ struct LauncherView: View {
                             .offset(y: metrics.searchCenterY - metrics.searchSize.height / 2)
                         Rectangle().fill(.primary.opacity(0.1))
                             .frame(width: metrics.searchSize.width, height: 1)
-                            .offset(y: 66)
+                            .offset(y: metrics.headerLineY)
                         CategoryBar(model: model)
-                            .frame(width: metrics.gridWidth, height: 30)
-                            .offset(y: metrics.categoryBarY - 15)
+                            .frame(width: metrics.searchSize.width, height: 26)
+                            .offset(y: metrics.categoryBarY - 13)
                             .opacity(model.isSearching ? 0 : 1)
                     } else {
                         SearchField(text: $model.query, focused: $searchFocused, chatting: false) { LauncherMenus.main(model, includeSearchItems: true) }
@@ -337,14 +340,6 @@ struct LauncherView: View {
             }
             .animation(.easeOut(duration: 0.18), value: model.sheet)
             .clipShape(RoundedRectangle(cornerRadius: windowed ? LauncherView.windowCornerRadius : 0, style: .continuous))
-            .overlay {
-                if windowed {
-                    RoundedRectangle(cornerRadius: LauncherView.windowCornerRadius, style: .continuous)
-                        .strokeBorder(.white.opacity(0.35), lineWidth: 1)
-                        .opacity(model.shownAmount)
-                        .allowsHitTesting(false)
-                }
-            }
             .environment(\.windowedStyle, windowed)
             .coordinateSpace(.named(LauncherView.space))
             .onAppear { model.screenSize = geo.size }
@@ -484,8 +479,43 @@ struct FrequentRow: View {
 
     var body: some View {
         let apps = model.frequentApps
-        HStack(spacing: max(8, metrics.frequentIconSize * 0.3)) {
-            ForEach(apps) { app in
+        if metrics.windowed {
+            // Grid-sized cells with names, then a line between them and the rest.
+            VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    ForEach(apps) { app in
+                        VStack(spacing: metrics.labelGap + 4) {
+                            icon(app)
+                            Text(app.name)
+                                .font(.system(size: metrics.labelSize))
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .frame(maxWidth: metrics.cellSize.width - 8)
+                        }
+                        .frame(width: metrics.cellSize.width)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(maxHeight: .infinity)
+                Rectangle().fill(.primary.opacity(apps.isEmpty ? 0 : 0.1)).frame(height: 1).padding(.horizontal, 10)
+            }
+        } else {
+            HStack(spacing: max(8, metrics.frequentIconSize * 0.3)) {
+                ForEach(apps) { app in icon(app) }
+            }
+            .padding(.horizontal, 14)
+            .frame(height: metrics.frequentHeight * 0.96)
+            .background {
+                if !apps.isEmpty {
+                    Capsule().fill(.white.opacity(0.1))
+                        .overlay(Capsule().strokeBorder(.white.opacity(0.14), lineWidth: 0.75))
+                        .nativeContextMenu { LauncherMenus.frequent(nil, model: model) }
+                }
+            }
+        }
+    }
+
+    private func icon(_ app: AppItem) -> some View {
                 EntryIcon(entry: .app(app), icons: model.catalog.icons, size: metrics.frequentIconSize)
                     .overlay(alignment: .topTrailing) {
                         if let badge = model.badge(.app(app)) {
@@ -525,17 +555,6 @@ struct FrequentRow: View {
                     .accessibilityAction { model.launch(app) }
                     .nativeContextMenu { LauncherMenus.frequent(app, model: model) }
                     .modifier(FileDrop(entry: .app(app), model: model, targetID: "frequent:" + app.id))
-            }
-        }
-        .padding(.horizontal, 14)
-        .frame(height: metrics.frequentHeight * 0.96)
-        .background {
-            if !apps.isEmpty {
-                Capsule().fill(metrics.windowed ? Color.primary.opacity(0.05) : .white.opacity(0.1))
-                    .overlay(Capsule().strokeBorder(metrics.windowed ? Color.primary.opacity(0.06) : .white.opacity(0.14), lineWidth: 0.75))
-                    .nativeContextMenu { LauncherMenus.frequent(nil, model: model) }
-            }
-        }
     }
 }
 
@@ -788,6 +807,7 @@ struct EntryIcon: View {
     var mergeTarget = false
     /// The folder is open: its apps are flying out of (or back into) the tile, so the tile is empty.
     var contentsOut = false
+    @Environment(\.windowedStyle) private var windowed
 
     var body: some View {
         let tile = size * 0.8
@@ -802,6 +822,8 @@ struct EntryIcon: View {
                 if let icon = icons[app.id] ?? (SettingsPanes.isPane(app.id) ? icons[SettingsPanes.settingsAppID] : nil) {
                     Image(decorative: icon, scale: 2).resizable().interpolation(.high)
                         .frame(width: size, height: size)
+                        // Window mode: the soft shadow all round that the system Apps window gives its icons.
+                        .shadow(color: .black.opacity(windowed ? 0.16 : 0), radius: size * 0.05, y: size * 0.025)
                         .scaleEffect(mergeTarget ? 0.82 : 1)
                 } else {
                     RoundedRectangle(cornerRadius: tile * 0.225, style: .continuous).fill(.white.opacity(0.12))
@@ -1121,7 +1143,7 @@ struct ScrollGrid: View {
         let rowCount = max(1, (flat.count + metrics.columns - 1) / metrics.columns)
         let height = metrics.size.height - metrics.gridTop - metrics.size.height * 0.03
         ScrollViewReader { proxy in
-            ScrollView(.vertical, showsIndicators: false) {
+            ScrollView(.vertical, showsIndicators: metrics.windowed) {
                 ZStack(alignment: .topLeading) {
                     Color.clear.frame(width: 1, height: 1).id("top")
                     ForEach(Array(flat.enumerated()), id: \.element.entry.id) { index, item in

@@ -135,13 +135,21 @@ final class LauncherController {
     private func frame(on screen: NSScreen) -> NSRect {
         guard settings.displayMode == .window else { return screen.frame }
         let v = screen.visibleFrame
-        // About the size of the system Apps window, a little above centre.
-        let w = min(v.width * 0.54, 940).rounded(), h = min(v.height * 0.76, w * 0.7).rounded()
+        // The system Apps window's size and proportions (844 × 576 on a 1728-point-wide screen), a little above centre.
+        let w = min(v.width * 0.49, 860).rounded(), h = min(v.height * 0.8, w / 1.465).rounded()
         return NSRect(x: (v.midX - w / 2).rounded(), y: (v.midY - h / 2 + v.height * 0.03).rounded(), width: w, height: h)
     }
 
     private func configurePanel(for screen: NSScreen) {
         let windowed = settings.displayMode == .window
+        // A titled (but chrome-less) window gets the system's large window shadow; borderless ones only a thin one.
+        // Full screen stays borderless so it can cover the menu bar.
+        panel.styleMask = windowed ? [.titled, .fullSizeContentView, .nonactivatingPanel] : [.borderless, .fullSizeContentView, .nonactivatingPanel]
+        if windowed {
+            panel.titlebarAppearsTransparent = true
+            panel.titleVisibility = .hidden
+            for button in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] { panel.standardWindowButton(button)?.isHidden = true }
+        }
         panel.setFrame(frame(on: screen), display: false)
         panel.hasShadow = windowed
         // Full screen covers the menu bar and Dock, unless the Dock should stay on top.

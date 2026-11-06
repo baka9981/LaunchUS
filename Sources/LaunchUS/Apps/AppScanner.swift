@@ -202,7 +202,8 @@ enum IconRenderer {
             NSGraphicsContext.current?.restoreGraphicsState()
         } else if path.hasPrefix(CustomIcons.directory.path + "/"), let image = NSImage(contentsOfFile: path) {
             image.draw(in: full)
-        } else if dark, let image = DarkIcon.image(bundle: path, pixels: px) {
+        } else if let image = SystemIcon.image(bundle: path, pixels: px, dark: dark) {
+            // IconServices draws apps the way the Dock and the system Apps window do: the lit glass edge and brighter face.
             ctx.draw(image, in: full)
         } else {
             NSWorkspace.shared.icon(forFile: path).draw(in: full)
@@ -290,12 +291,12 @@ enum CalendarIcon {
     }
 }
 
-/// The dark version of an app's icon, drawn by IconServices the way the Dock does.
+/// An app's icon drawn by IconServices the way the Dock does, light or dark.
 /// Its classes are private, so each step checks they still answer and gives nil otherwise.
-enum DarkIcon {
+enum SystemIcon {
     private static let loaded: Bool = dlopen("/System/Library/PrivateFrameworks/IconServices.framework/IconServices", RTLD_NOW) != nil
 
-    static func image(bundle path: String, pixels: Int) -> CGImage? {
+    static func image(bundle path: String, pixels: Int, dark: Bool) -> CGImage? {
         guard loaded, path.hasSuffix(".app") || path.hasSuffix(".app/"),
               let iconClass = NSClassFromString("ISBundleIcon") as? NSObject.Type,
               let descriptorClass = NSClassFromString("ISImageDescriptor") as? NSObject.Type else { return nil }
@@ -319,7 +320,7 @@ enum DarkIcon {
         let points = CGFloat(pixels) / 2
         guard let descriptor = makeDescriptor(blankDescriptor, initDescriptor, CGSize(width: points, height: points), 2)?
             .takeRetainedValue() else { return nil }
-        descriptor.setValue(1, forKey: "appearance")  // 0 light, 1 dark
+        descriptor.setValue(dark ? 1 : 0, forKey: "appearance")
         _ = icon.perform(prepare, with: [descriptor])
         guard let image = icon.perform(imageFor, with: descriptor)?.takeUnretainedValue() as? NSObject,
               image.responds(to: cgImage) else { return nil }

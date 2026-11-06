@@ -172,17 +172,13 @@ final class LauncherModel {
     }
 
     static func categoryKey(_ app: AppItem) -> String {
-        AppCategoryName.tagName(for: app.category) == nil ? "other" : app.category!
+        AppCategoryName.group(for: app.category).rawValue
     }
 
-    /// Categories present among the visible apps, biggest first, "其他" last.
+    /// The system Apps window's groups that have apps, in its order.
     var categoryTabs: [(key: String, title: String)] {
-        var counts: [String: Int] = [:]
-        for app in visibleApps { counts[Self.categoryKey(app), default: 0] += 1 }
-        let named = counts.keys.filter { $0 != "other" }
-            .sorted { counts[$0]! != counts[$1]! ? counts[$0]! > counts[$1]! : $0 < $1 }
-            .map { (key: $0, title: AppCategoryName.tagName(for: $0) ?? $0) }
-        return named + (counts["other"] != nil ? [(key: "other", title: String(localized: "其他"))] : [])
+        let present = Set(visibleApps.map(Self.categoryKey))
+        return AppCategoryName.Group.allCases.filter { present.contains($0.rawValue) }.map { (key: $0.rawValue, title: $0.title) }
     }
     @ObservationIgnored private var lastHidden = Date.distantPast
 
