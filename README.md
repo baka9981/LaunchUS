@@ -33,7 +33,7 @@ macOS 26 replaced Launchpad with the Apps window. LaunchNew brings back the full
 | 🔎 **Smarter search** | Pinyin & initials (`wx` → WeChat), aliases, `#tags`, smart folders; math and unit conversion (`128*3`, `5 km in mi`) |
 | 📂 **Drop files on icons** | Drop files on an app icon to open them with that app, just like the Dock |
 | 🧩 **Custom items** | Websites, files, folders and shell scripts that live on the grid like apps |
-| 🎨 **Make it yours** | Change any icon, your own background picture, icon size, animation speed, Liquid Glass folders, window or full-screen mode, rows & columns; the grid turns on its side on portrait displays |
+| 🎨 **Make it yours** | Change any icon, your own background picture, icon size, animation speed, Dark Mode (follows the Mac, with apps’ own dark icons), Liquid Glass folders and search bar, window or full-screen mode, rows & columns; the grid turns on its side on portrait displays |
 | 🗂 **Layouts** | Separate pages for work and play — switch from the menu, a link or Shortcuts |
 | 🔔 **Live status** | Dock badges, running indicators, a recent-apps row — ⌘1–⌘9 opens its apps, right-click to pin |
 | 🧹 **Clean uninstall** | Removes the app and its leftovers in `~/Library`, straight to the Trash |
@@ -62,7 +62,7 @@ See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for tests, debugging and releases
 
 ## Privacy
 
-LaunchNew has no accounts, no analytics and no network access other than checking for updates. Your layout stays in `~/Library/Application Support/LaunchNew`, and other apps’ data — including the system Launchpad database — is only ever read, never written.
+LaunchNew has no accounts, no analytics and no network access other than checking for updates. Your layout stays in `~/Library/Application Support/LaunchNew`, and other apps’ data — including the system Launchpad database — is only ever read, never written. The one exception: clicking **Add to Dock** in **Edit…** adds that app to your Dock.
 
 ## Free
 
