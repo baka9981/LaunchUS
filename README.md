@@ -54,7 +54,7 @@ Requires macOS 26 or later.
 
 ## AI chat & MCP
 
-- **AI chat**: in **Settings › AI**, enter your gateway address and API key, then click **Fetch** to pick a model. When a search finds nothing, press **↩** (or click **Ask AI**) to chat; **⇥** searches the web instead, **⌘N** starts a new chat, **Esc** leaves. Right-click empty space for **AI Chat** too.
+- **AI chat**: in **Settings › AI**, enter your gateway address and API key, then click **Fetch** to pick a model. When a search finds nothing, press **↩** (or click **Ask AI**) to chat; **⇥** searches the web, **⌘N** starts a new chat, **Esc** leaves. Right-click empty space for **AI Chat** too.
 - **Letting AI use LaunchUS**: by default look-ups run at once, while opening or moving apps, making folders, switching layouts and the like ask first (or for the whole chat); quitting an app always asks. You can switch it to look-ups only, or off.
 - **MCP**: in Claude Code run the line below; the JSON for other clients is in **Settings › AI**:
 

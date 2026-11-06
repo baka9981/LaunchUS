@@ -748,7 +748,7 @@
 "让 AI 操作 LaunchUS" = "Let AI Use LaunchUS";
 "退出「%@」" = "Quit “%@”";
 "选择模型" = "Choose Model";
-"配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；网页搜索改为按 ⇥。" = "Once a gateway is set up, press ↩ or click “Ask AI” when a search finds nothing to chat right in the launcher; web search moves to ⇥.";
+"配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；按 ⇥ 搜索网页。" = "Once a gateway is set up, press ↩ or click “Ask AI” when a search finds nothing to chat right in the launcher; press ⇥ to search the web.";
 
 /* AI arranging, chat menu, search section */
 "AI 聊天" = "AI Chat";

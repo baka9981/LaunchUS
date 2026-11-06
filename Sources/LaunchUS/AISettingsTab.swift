@@ -107,7 +107,7 @@ struct AITab: View {
                             in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {
                 Text("在搜索框里和 AI 聊天").font(.system(size: 14, weight: .semibold))
-                Text("配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；网页搜索改为按 ⇥。")
+                Text("配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；按 ⇥ 搜索网页。")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
