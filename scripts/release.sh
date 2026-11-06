@@ -24,16 +24,17 @@ BUILD=$(( $(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST") + 1 ))
 OUT="releases/v$VERSION"
 rm -rf "$OUT"
 mkdir -p "$OUT"
-ZIP="$OUT/LaunchNew-$VERSION.zip"
-ditto -c -k --sequesterRsrc --keepParent build/LaunchNew.app "$ZIP"
-[[ -n "$NOTES" ]] && cp "$NOTES" "$OUT/LaunchNew-$VERSION.md"
+ZIP="$OUT/LaunchUS-$VERSION.zip"
+ditto -c -k --sequesterRsrc --keepParent build/LaunchUS.app "$ZIP"
+[[ -n "$NOTES" ]] && cp "$NOTES" "$OUT/LaunchUS-$VERSION.md"
 
+# The signing key keeps its keychain name from before the rename.
 .build/artifacts/sparkle/Sparkle/bin/generate_appcast --account LaunchNew \
     --download-url-prefix "https://github.com/$GITHUB_REPO/releases/download/v$VERSION/" \
     --embed-release-notes "$OUT"
 
 # After the appcast, so updates keep coming from the zip.
-DMG="$OUT/LaunchNew-$VERSION.dmg"
+DMG="$OUT/LaunchUS-$VERSION.dmg"
 ./scripts/dmg.sh "$DMG"
 
 echo

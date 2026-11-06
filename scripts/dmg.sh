@@ -1,5 +1,5 @@
 #!/bin/bash
-# Wraps build/LaunchNew.app in a drag-to-install disk image:
+# Wraps build/LaunchUS.app in a drag-to-install disk image:
 #   ./scripts/dmg.sh <out.dmg>
 # The window shows the app, an arrow and Applications on a drawn background.
 # Laying out the window drives Finder, so macOS may ask once to allow that.
@@ -7,8 +7,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 OUT="${1:?usage: dmg.sh <out.dmg>}"
-APP=build/LaunchNew.app
-VOLUME=LaunchNew
+APP=build/LaunchUS.app
+VOLUME=LaunchUS
 [[ -d "$APP" ]] || { echo "Build the app first (scripts/build.sh release)." >&2; exit 1; }
 
 WORK=$(mktemp -d)
@@ -17,7 +17,7 @@ trap 'hdiutil detach "/Volumes/$VOLUME" -quiet 2>/dev/null || true; rm -rf "$WOR
 # Contents: the app, a link to Applications and the hidden background.
 STAGE="$WORK/stage"
 mkdir -p "$STAGE/.background"
-ditto "$APP" "$STAGE/LaunchNew.app"
+ditto "$APP" "$STAGE/LaunchUS.app"
 ln -s /Applications "$STAGE/Applications"
 swift scripts/dmg-background.swift "$WORK"
 tiffutil -cathidpicheck "$WORK/background.png" "$WORK/background@2x.png" -out "$STAGE/.background/background.tiff" 2>/dev/null
@@ -44,7 +44,7 @@ tell application "Finder"
         set icon size of opts to 128
         set text size of opts to 13
         set background picture of opts to file ".background:background.tiff"
-        set position of item "LaunchNew.app" of container window to {170, 200}
+        set position of item "LaunchUS.app" of container window to {170, 200}
         set position of item "Applications" of container window to {490, 200}
         close
         open
@@ -65,7 +65,7 @@ rm -f "$OUT"
 hdiutil convert -quiet "$WORK/rw.dmg" -format ULFO -o "$OUT"
 
 # Same identity as the app, when the local signing certificate exists.
-if security find-identity -p codesigning | grep -q "LaunchNew Local Signing"; then
-    codesign --force --sign "LaunchNew Local Signing" "$OUT"
+if security find-identity -p codesigning | grep -q "LaunchUS Local Signing"; then
+    codesign --force --sign "LaunchUS Local Signing" "$OUT"
 fi
 echo "Wrote $OUT"

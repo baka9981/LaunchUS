@@ -21,7 +21,7 @@ func draw(scale: CGFloat) -> Data {
         .draw(fromCenter: NSPoint(x: width / 2, y: 215), radius: 0, toCenter: NSPoint(x: width / 2, y: 215), radius: 300, options: [])
 
     // Title.
-    let title = NSAttributedString(string: "LaunchNew", attributes: [
+    let title = NSAttributedString(string: "LaunchUS", attributes: [
         .font: NSFont.systemFont(ofSize: 26, weight: .bold),
         .foregroundColor: NSColor(white: 0.12, alpha: 1),
     ])

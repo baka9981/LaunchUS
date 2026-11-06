@@ -1,21 +1,21 @@
 <div align="center">
 
-<img src="docs/images/icon.png" width="128" alt="LaunchNew">
+<img src="docs/images/icon.png" width="128" alt="LaunchUS">
 
-# LaunchNew
+# LaunchUS
 
 **經典啟動台，回到 macOS 26。永久免費。**
 
-[![Release](https://img.shields.io/github/v/release/baka9981/LaunchNew?style=flat-square&color=0A84FF)](https://github.com/baka9981/LaunchNew/releases/latest)
+[![Release](https://img.shields.io/github/v/release/baka9981/LaunchUS?style=flat-square&color=0A84FF)](https://github.com/baka9981/LaunchUS/releases/latest)
 ![macOS](https://img.shields.io/badge/macOS-26%2B-111?style=flat-square&logo=apple)
 ![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)
-[![Downloads](https://img.shields.io/github/downloads/baka9981/LaunchNew/total?style=flat-square&color=34C759)](https://github.com/baka9981/LaunchNew/releases)
+[![Downloads](https://img.shields.io/github/downloads/baka9981/LaunchUS/total?style=flat-square&color=34C759)](https://github.com/baka9981/LaunchUS/releases)
 [![License](https://img.shields.io/badge/license-MIT-8E8E93?style=flat-square)](LICENSE)
-[![Website](https://img.shields.io/badge/%E5%AE%98%E7%B6%B2-baka9981.github.io-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://baka9981.github.io/LaunchNew/)
+[![Website](https://img.shields.io/badge/%E5%AE%98%E7%B6%B2-baka9981.github.io-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://baka9981.github.io/LaunchUS/)
 
 <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
 
-🌐 <a href="https://baka9981.github.io/LaunchNew/"><b>官網</b></a>
+🌐 <a href="https://baka9981.github.io/LaunchUS/"><b>官網</b></a>
 
 <img src="docs/images/whats-new.png" width="49%" alt="新功能"> <img src="docs/images/guide.png" width="49%" alt="使用引導">
 
@@ -23,7 +23,7 @@
 
 ## 為什麼做它
 
-macOS 26 用「應用程式」視窗取代了啟動台。LaunchNew 把熟悉的全螢幕網格找回來——翻頁、檔案夾、拖動整理、打字搜尋——再補上啟動台從來沒有的功能。
+macOS 26 用「應用程式」視窗取代了啟動台。LaunchUS 把熟悉的全螢幕網格找回來——翻頁、檔案夾、拖動整理、打字搜尋——再補上啟動台從來沒有的功能。
 
 ## 功能
 
@@ -39,12 +39,12 @@ macOS 26 用「應用程式」視窗取代了啟動台。LaunchNew 把熟悉的�
 | 🧹 **乾淨解除安裝** | 連同 `~/Library` 裡的殘留一起移到垃圾桶 |
 | 🕸 **久未開啓的 App** | 超過 3 個月沒打開的 App 可以淡化，也能一次選取，統一移進資料夾或隱藏 |
 | 🔒 **隱私安全** | 隱藏 App（Touch ID 驗證）、自動備份佈局、可選 iCloud 同步 |
-| ⚡️ **捷徑與連結** | 打開檔案夾、搜尋、切換佈局；支援 `launchnew://` |
+| ⚡️ **捷徑與連結** | 打開檔案夾、搜尋、切換佈局；支援 `launchus://` |
 | 🔄 **自動更新** | 透過 Sparkle 推送簽署更新 |
 
 ## 安裝
 
-1. 從 [最新版本](https://github.com/baka9981/LaunchNew/releases/latest) 下載 **LaunchNew-x.y.z.dmg**，打開後把 LaunchNew 拖到「應用程式」。
+1. 從 [最新版本](https://github.com/baka9981/LaunchUS/releases/latest) 下載 **LaunchUS-x.y.z.dmg**，打開後把 LaunchUS 拖到「應用程式」。
 2. 首次打開如果提示無法驗證開發者：打開 **系統設定 › 隱私權與安全性**，點 **強制打開**。
 3. 按 **⌥Space** 打開。右鍵空白處或按 **⌘,** 進入設定。
 
@@ -53,8 +53,8 @@ macOS 26 用「應用程式」視窗取代了啟動台。LaunchNew 把熟悉的�
 ## 從原始碼建置
 
 ```bash
-git clone https://github.com/baka9981/LaunchNew.git
-cd LaunchNew
+git clone https://github.com/baka9981/LaunchUS.git
+cd LaunchUS
 ./scripts/run.sh
 ```
 
@@ -62,11 +62,11 @@ cd LaunchNew
 
 ## 隱私
 
-沒有帳號、沒有統計，除了檢查更新不連網。佈局儲存在 `~/Library/Application Support/LaunchNew`；其他 App 的資料（包括系統啟動台資料庫）只讀不寫；唯一的例外是你在「編輯…」裡點「添加到Dock」時，會把這個 App 加進 Dock。
+沒有帳號、沒有統計，除了檢查更新不連網。佈局儲存在 `~/Library/Application Support/LaunchUS`；其他 App 的資料（包括系統啟動台資料庫）只讀不寫；唯一的例外是你在「編輯…」裡點「添加到Dock」時，會把這個 App 加進 Dock。
 
 ## 免費
 
-LaunchNew 完全免費：沒有 Pro 版、沒有訂閱、沒有廣告。
+LaunchUS 完全免費：沒有 Pro 版、沒有訂閱、沒有廣告。
 
 
 ## 授權

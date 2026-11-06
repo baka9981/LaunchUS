@@ -9,8 +9,8 @@
 "1 分钟后" = "After 1 minute";
 "5 分钟后" = "After 5 minutes";
 "HTTP 存储" = "HTTP Storage";
-"LaunchNew" = "LaunchNew";
-"LaunchNew 布局 %@.json" = "LaunchNew Layout %@.json";
+"LaunchUS" = "LaunchUS";
+"LaunchUS 布局 %@.json" = "LaunchUS Layout %@.json";
 "×" = "×";
 "上一步" = "Back";
 "上次使用" = "Last Used";
@@ -33,7 +33,7 @@
 "全部" = "All";
 "关" = "Off";
 "关于" = "About";
-"关于 LaunchNew" = "About LaunchNew";
+"关于 LaunchUS" = "About LaunchUS";
 "关闭" = "Close";
 "关闭启动台后重新隐藏" = "Hide again when the launcher closes";
 "关闭时，下次需要重新通过入口打开" = "Next time, open them through an entrance again";
@@ -84,7 +84,7 @@
 "容器" = "Group Containers";
 "导入" = "Import";
 "导入失败" = "Import Failed";
-"导入或导出 LaunchNew 的布局、文件夹、名称、别名、标签和隐藏设置，用于备份或在设备之间迁移" = "Import or export LaunchNew’s layout, folders, names, aliases, tags and hidden apps, as a backup or to move to another Mac";
+"导入或导出 LaunchUS 的布局、文件夹、名称、别名、标签和隐藏设置，用于备份或在设备之间迁移" = "Import or export LaunchUS’s layout, folders, names, aliases, tags and hidden apps, as a backup or to move to another Mac";
 "导入这个布局备份？" = "Import this layout backup?";
 "导出" = "Export";
 "导出失败" = "Export Failed";
@@ -120,7 +120,7 @@
 "打开启动台" = "Open Launcher";
 "打开启动台（%@）" = "Open Launcher (%@)";
 "打开设置" = "Open Settings";
-"把 LaunchNew 拖进「%@」列表" = "Drag LaunchNew into the “%@” list";
+"把 LaunchUS 拖进「%@」列表" = "Drag LaunchUS into the “%@” list";
 "把一个 App 拖到另一个上面就会建立文件夹。拖到屏幕边缘可以翻到别的页面。" = "Drop one app onto another to make a folder. Drag to the edge of the screen to move to another page.";
 "抖动时显示 ✕" = "Show ✕ while jiggling";
 "抖动模式（长按或按住 ⌥）下，可删除的 App 左上角显示 ✕" = "In jiggle mode (long press or hold ⌥), removable apps show ✕ in the top-left corner";
@@ -176,7 +176,7 @@
 "标签（用逗号分隔）" = "Tags (comma-separated)";
 "检查更新…" = "Check for Updates…";
 "模糊壁纸" = "Blurred wallpaper";
-"欢迎使用 LaunchNew" = "Welcome to LaunchNew";
+"欢迎使用 LaunchUS" = "Welcome to LaunchUS";
 "正在查找相关文件…" = "Finding related files…";
 "正在移除…" = "Removing…";
 "每次更改布局后自动备份，保留最近 %lld 份" = "Back up after every layout change, keeping the latest %lld";
@@ -197,7 +197,7 @@
 "版本 %@" = "Version %@";
 "现在重启" = "Restart Now";
 "生活" = "Lifestyle";
-"用键盘上的启动台键（F4）打开 LaunchNew" = "Open LaunchNew with the Launchpad key (F4) on the keyboard";
+"用键盘上的启动台键（F4）打开 LaunchUS" = "Open LaunchUS with the Launchpad key (F4) on the keyboard";
 "界面" = "Interface";
 "社交" = "Social";
 "移出文件夹" = "Remove from Folder";
@@ -248,14 +248,14 @@
 "辅助功能" = "Accessibility";
 "运动" = "Sports";
 "退出" = "Quit";
-"退出 LaunchNew" = "Quit LaunchNew";
+"退出 LaunchUS" = "Quit LaunchUS";
 "选择…" = "Choose…";
 "选择包含 App 的文件夹" = "Choose a folder that contains apps";
 "通用" = "General";
-"部分数据受系统保护，大小可能偏小，也可能无法移除。点「打开设置」，把浮窗里的 LaunchNew 拖进「完全磁盘访问权限」列表并打开开关，即可完整清理。" = "Some data is protected by macOS: its size may be too low and it may not be removable. Click Open Settings and drag LaunchNew from the floating panel into the Full Disk Access list, then turn it on to clean up everything.";
+"部分数据受系统保护，大小可能偏小，也可能无法移除。点「打开设置」，把浮窗里的 LaunchUS 拖进「完全磁盘访问权限」列表并打开开关，即可完整清理。" = "Some data is protected by macOS: its size may be too low and it may not be removable. Click Open Settings and drag LaunchUS from the floating panel into the Full Disk Access list, then turn it on to clean up everything.";
 "重做" = "Redo";
 "重启" = "Restart";
-"重启 LaunchNew 后生效" = "Takes effect after LaunchNew restarts";
+"重启 LaunchUS 后生效" = "Takes effect after LaunchUS restarts";
 "重命名" = "Rename";
 "重新扫描" = "Rescan";
 "重新扫描应用" = "Rescan Apps";
@@ -267,8 +267,8 @@
 "隐形圆点" = "Invisible dot";
 "隐形空位" = "Invisible slot";
 "隐藏" = "Hide";
-"隐藏 LaunchNew" = "Hide LaunchNew";
-"隐藏后，可以再次打开 LaunchNew.app 或在启动台的 ⋯ 菜单里进入设置" = "When hidden, open LaunchNew.app again or use the ⋯ menu in the launcher to reach Settings";
+"隐藏 LaunchUS" = "Hide LaunchUS";
+"隐藏后，可以再次打开 LaunchUS.app 或在启动台的 ⋯ 菜单里进入设置" = "When hidden, open LaunchUS.app again or use the ⋯ menu in the launcher to reach Settings";
 "隐藏的 App" = "Hidden Apps";
 "隐藏的应用" = "Hidden Apps";
 "隐藏程序坞" = "Hide Dock";
@@ -285,7 +285,7 @@
 "点击验证" = "Click to Unlock";
 "图标样式" = "Icon Style";
 "点按菜单栏图标即可打开或关闭启动台" = "Click the menu bar icon to open or close the launcher";
-"LaunchNew 诊断信息 %@.txt" = "LaunchNew Diagnostics %@.txt";
+"LaunchUS 诊断信息 %@.txt" = "LaunchUS Diagnostics %@.txt";
 "iCloud 同步" = "iCloud Sync";
 "macOS 26 已移除启动台。如果旧 Mac 或时间机器备份里还有，可以在旧 Mac 的「终端」里运行下面的命令，把数据库拷到桌面，再选择这个文件：\n\n%@" = "macOS 26 removed Launchpad. If an older Mac or a Time Machine backup still has it, run this command in Terminal on the old Mac to copy the database to the Desktop, then choose that file:\n\n%@";
 "上次同步：%@" = "Last synced: %@";
@@ -344,7 +344,7 @@
 "App 超过一屏时上下滚动查看" = "Scroll up and down when a folder has more apps than fit";
 
 /* Launch items, icons, layouts, badges, recent row, background picture, Shortcuts */
-"也可以用链接切换：launchnew://profile?name=名称" = "You can also switch with a link: launchnew://profile?name=Name";
+"也可以用链接切换：launchus://profile?name=名称" = "You can also switch with a link: launchus://profile?name=Name";
 "从当前布局复制一份，之后两套各自调整，互不影响" = "Starts as a copy of the current layout; after that, each can be changed on its own";
 "例如：open ~/Downloads && say 完成" = "e.g. open ~/Downloads && say done";
 "例如：工作" = "e.g. Work";
@@ -353,7 +353,7 @@
 "删除" = "Delete";
 "删除启动项" = "Delete Item";
 "删除当前方案" = "Delete Current Layout";
-"只在 LaunchNew 里显示，不会修改 App 本身" = "Shown only in LaunchNew; the app itself isn’t changed";
+"只在 LaunchUS 里显示，不会修改 App 本身" = "Shown only in LaunchUS; the app itself isn’t changed";
 "可以像 App 一样放进文件夹、搜索和加标签" = "Can be put in folders, searched and tagged like an app";
 "命令" = "Command";
 "图片" = "Picture";
@@ -366,7 +366,7 @@
 "常用一行" = "Recent Apps Row";
 "当前方案" = "Current Layout";
 "恢复默认" = "Restore Default";
-"打开 LaunchNew" = "Open LaunchNew";
+"打开 LaunchUS" = "Open LaunchUS";
 "打开文件夹" = "Open Folder";
 "拖出图标" = "Drag Icons Out";
 "拖到屏幕底边，可放到程序坞、访达或其他 App" = "Drag to the bottom edge to drop on the Dock, Finder or another app";
@@ -389,7 +389,7 @@
 "显示程序坞上 App 的未读数，需要辅助功能权限" = "Shows the unread counts apps have on the Dock; needs Accessibility permission";
 "更换图标" = "Change Icon";
 "更换图标…" = "Change Icon…";
-"每套方案各自保存页面和文件夹，App 的名称、标签和隐藏设置共用。也可以用链接 launchnew://profile?name=名称 或快捷指令切换" = "Each layout keeps its own pages and folders; app names, tags and hidden apps are shared. You can also switch with the link launchnew://profile?name=Name or with Shortcuts";
+"每套方案各自保存页面和文件夹，App 的名称、标签和隐藏设置共用。也可以用链接 launchus://profile?name=名称 或快捷指令切换" = "Each layout keeps its own pages and folders; app names, tags and hidden apps are shared. You can also switch with the link launchus://profile?name=Name or with Shortcuts";
 "用 zsh 在后台运行，不会打开终端窗口" = "Runs in the background with zsh, without opening a Terminal window";
 "编辑启动项" = "Edit Item";
 "编辑启动项…" = "Edit Item…";
@@ -409,7 +409,7 @@
 "只删除这个启动项，网址、文件或脚本本身不受影响。" = "Only this item is removed. The website, file or script itself isn’t affected.";
 
 "长按图标或按住 ⌥ 进入编辑模式，按住 ⌘ 点击可以多选。右键可以重命名、加标签、更换图标、移动或卸载。" = "Long-press an icon or hold ⌥ to edit; ⌘-click to select several. Right-click to rename, tag, change the icon, move or uninstall.";
-"LaunchNew 新功能" = "What’s New in LaunchNew";
+"LaunchUS 新功能" = "What’s New in LaunchUS";
 "⋯ 菜单里可以新建启动项（网址、文件或脚本），也能切换多套布局方案。编辑时把图标拖到屏幕底边，可以放进程序坞或访达。" = "In the ⋯ menu, add items for websites, files or scripts, and switch between layouts. While editing, drag an icon to the bottom edge to drop it in the Dock or Finder.";
 "右键 App › 更换图标…" = "Right-click an app › Change Icon…";
 "好的" = "OK";
