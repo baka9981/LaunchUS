@@ -39,6 +39,46 @@ enum AnimationSpeed: String, CaseIterable {
     }
 }
 enum BackgroundKind: String, CaseIterable { case wallpaper, glass, image }
+/// Light or dark look for LaunchNew's cards, menus and window, apart from the Mac's own.
+enum AppearanceMode: String, CaseIterable {
+    case system, light, dark
+
+    var title: String {
+        switch self {
+        case .system: String(localized: "自动")
+        case .light: String(localized: "浅色")
+        case .dark: String(localized: "深色")
+        }
+    }
+
+    var nsAppearance: NSAppearance? {
+        switch self {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
+    }
+}
+/// When apps show the dark version of their icon, for those that have one.
+enum DarkIconMode: String, CaseIterable {
+    case auto, always, never
+
+    var title: String {
+        switch self {
+        case .auto: String(localized: "跟随外观")
+        case .always: String(localized: "始终")
+        case .never: String(localized: "从不")
+        }
+    }
+
+    func resolve(dark: Bool) -> Bool {
+        switch self {
+        case .auto: dark
+        case .always: true
+        case .never: false
+        }
+    }
+}
 enum HotCorner: String, CaseIterable { case off, topLeft, topRight, bottomLeft, bottomRight }
 enum TargetScreen: String, CaseIterable { case dock, mouse, active, main }
 enum ReturnHome: Int, CaseIterable {
@@ -204,6 +244,10 @@ final class Settings {
     /// Folder tiles and the open folder use liquid glass instead of the smoked glass look.
     var liquidGlass: Bool { didSet { save(liquidGlass, "liquidGlass") } }
     var animationSpeed: AnimationSpeed { didSet { save(animationSpeed.rawValue, "animationSpeed") } }
+    var appearance: AppearanceMode { didSet { save(appearance.rawValue, "appearance") } }
+    var darkIcons: DarkIconMode { didSet { save(darkIcons.rawValue, "darkIcons") } }
+    /// The background gets darker still when the look is dark.
+    var darkenBackground: Bool { didSet { save(darkenBackground, "darkenBackground") } }
     /// A blue dot before the names of newly installed apps, until they're first opened.
     var showNewDot: Bool { didSet { save(showNewDot, "showNewDot") } }
     /// A small dot under apps that are running.
@@ -281,6 +325,9 @@ final class Settings {
         fadeStale = value("fadeStale", false)
         liquidGlass = value("liquidGlass", true)
         animationSpeed = AnimationSpeed(rawValue: value("animationSpeed", "")) ?? .standard
+        appearance = AppearanceMode(rawValue: value("appearance", "")) ?? .system
+        darkIcons = DarkIconMode(rawValue: value("darkIcons", "")) ?? .auto
+        darkenBackground = value("darkenBackground", true)
         showNewDot = value("showNewDot", true)
         showRunningDot = value("showRunningDot", true)
         showBadges = value("showBadges", true)

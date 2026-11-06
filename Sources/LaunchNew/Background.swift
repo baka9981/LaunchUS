@@ -91,6 +91,13 @@ struct BackgroundView: View {
     /// How much of the frosted glass covers what's behind, 0…1.
     var glassStrength = 1.0
     var dim = 0.2
+    @Environment(\.colorScheme) private var colorScheme
+
+    /// The dark look darkens the background further, so icons and names stand out like in dark mode elsewhere.
+    private var shade: Double {
+        guard colorScheme == .dark, Settings.shared.darkenBackground else { return dim }
+        return min(0.8, dim + 0.25)
+    }
 
     var body: some View {
         ZStack {
@@ -109,7 +116,7 @@ struct BackgroundView: View {
                 VisualEffectBackground()
                     .opacity(glass ? glassStrength : 1)
             }
-            Color.black.opacity(dim)
+            Color.black.opacity(shade)
         }
         .contentShape(Rectangle())
     }

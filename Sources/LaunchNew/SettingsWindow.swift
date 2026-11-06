@@ -120,7 +120,6 @@ struct SettingsView: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .shadow(color: .black.opacity(0.3), radius: 30, y: 12)
-        .environment(\.colorScheme, .light)
     }
 }
 
@@ -396,6 +395,12 @@ struct AppearanceTab: View {
     var body: some View {
         SettingsSection(title: String(localized: "显示")) {
             Card {
+                Row(title: String(localized: "外观"), info: String(localized: "设置、菜单和窗口模式用浅色或深色；选「自动」时随 Mac 切换")) {
+                    Picker("", selection: $settings.appearance) {
+                        ForEach(AppearanceMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
                 Row(title: String(localized: "显示模式")) {
                     HStack(spacing: 14) {
                         ModeThumb(title: String(localized: "全屏"), windowed: false, selected: settings.displayMode == .fullScreen) { settings.displayMode = .fullScreen }
@@ -439,6 +444,9 @@ struct AppearanceTab: View {
             Card {
                 Row(title: String(localized: "液态玻璃"), info: String(localized: "文件夹、打开的文件夹和搜索栏透出并折射后面的内容；关掉则用烟灰玻璃")) {
                     Toggle("", isOn: $settings.liquidGlass).toggleStyle(.switch).labelsHidden()
+                }
+                Row(title: String(localized: "深色图标"), info: String(localized: "使用 App 自带的深色图标，就像深色模式下的程序坞；没有深色版本的 App 保持原样")) {
+                    MenuPicker(selection: $settings.darkIcons, options: DarkIconMode.allCases, title: \.title)
                 }
                 Row(title: String(localized: "常用一行"), info: String(localized: "在搜索栏下方显示最近打开的 App")) {
                     Toggle("", isOn: $settings.showFrequent).toggleStyle(.switch).labelsHidden()
@@ -496,6 +504,9 @@ struct AppearanceTab: View {
                 }
                 Row(title: String(localized: "暗度")) {
                     Slider(value: $settings.dim, in: 0...0.6).frame(width: 220)
+                }
+                Row(title: String(localized: "深色时加深背景"), info: String(localized: "外观为深色时，背景再暗一些，图标和名称更清楚")) {
+                    Toggle("", isOn: $settings.darkenBackground).toggleStyle(.switch).labelsHidden()
                 }
             }
         }

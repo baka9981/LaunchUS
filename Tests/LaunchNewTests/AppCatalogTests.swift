@@ -127,6 +127,43 @@ struct AppCatalogTests {
         #expect(catalog.icons["app"]?.width == 2, "A bundle ID at a new path must not reuse the old path's icon")
     }
 
+    @Test func darkIconsRedrawWithTheDarkPath() async {
+        let scanner = ControlledCatalogScanner([[app("app", path: "/x/app.app")]])
+        defer { scanner.finishAll() }
+        var starts = scanner.started.makeAsyncIterator()
+        let light = image(width: 1)
+        let dark = image(width: 2)
+        let catalog = AppCatalog(scan: { scanner.scan() },
+                                 renderIcon: { $0 == IconRenderer.darkPrefix + "/x/app.app" ? dark : light },
+                                 folderPaths: { [] })
+        catalog.reload()
+        #expect(await starts.next() == 0)
+        scanner.finish(0)
+        await waitUntil { catalog.icons["app"]?.width == 1 }
+
+        catalog.darkIcons = true
+        await waitUntil { catalog.icons["app"]?.width == 2 }
+        #expect(catalog.icons["app"]?.width == 2)
+        catalog.darkIcons = false
+        await waitUntil { catalog.icons["app"]?.width == 1 }
+        #expect(catalog.icons["app"]?.width == 1)
+    }
+
+    @Test func darkIconModes() {
+        #expect(DarkIconMode.auto.resolve(dark: true) && !DarkIconMode.auto.resolve(dark: false))
+        #expect(DarkIconMode.always.resolve(dark: false))
+        #expect(!DarkIconMode.never.resolve(dark: true))
+        #expect(AppearanceMode.system.nsAppearance == nil)
+        #expect(AppearanceMode.dark.nsAppearance?.name == .darkAqua)
+    }
+
+    @Test func darkIconRendersForASystemApp() throws {
+        let path = "/System/Applications/Notes.app"
+        try #require(FileManager.default.fileExists(atPath: path))
+        let image = try #require(DarkIcon.image(bundle: path, pixels: 64))
+        #expect(image.width >= 64)
+    }
+
     @Test func removedAppsDoNotKeepCachedIcons() async {
         let scanner = ControlledCatalogScanner([[app("app")], []])
         defer { scanner.finishAll() }

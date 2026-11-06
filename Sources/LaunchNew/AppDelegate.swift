@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var keyTap: LaunchpadKeyTap?
     private var pinch: TrackpadPinch?
     private var hotCorner: HotCornerWatcher!
+    private var appearanceWatch: NSKeyValueObservation?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let firstRun = !FileManager.default.fileExists(atPath: LayoutStore.layoutURL.path)
@@ -28,6 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Updater.shared.start()
         ICloudSync.onRemoteChange = { [weak self] backup in self?.launcher.model.applySynced(backup) }
         hotCorner = HotCornerWatcher { [weak self] in self?.launcher.toggle() }
+        // Before the first scan, so icons are drawn light or dark only once.
+        apply("appearance")
+        appearanceWatch = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.apply("darkIcons") }
+        }
         catalog.reload(force: true)
         AutoBackup.schedule()  // a starting point to go back to
         // After the first scan, so a layout from iCloud is reconciled against real apps.
@@ -109,6 +115,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.applicationIconImage = IconArt.image(settings.appIcon)
         case "dynamicCalendar":
             launcher.catalog.refreshDynamicIcons()
+        case "appearance":
+            NSApp.appearance = settings.appearance.nsAppearance
+            apply("darkIcons")
+        case "darkIcons":
+            let dark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            catalog.darkIcons = settings.darkIcons.resolve(dark: dark)
         case "columns", "rows", "sortOrder", "browseStyle", "folderBrowseStyle":
             launcher.model.settingsChanged()
         case "autoBackupCount":

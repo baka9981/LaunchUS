@@ -42,6 +42,13 @@ final class AppCatalog {
             loadMissingIcons()
         }
     }
+    /// Apps draw the dark version of their icon, for those that have one.
+    @ObservationIgnored var darkIcons = false {
+        didSet {
+            guard oldValue != darkIcons else { return }
+            refreshDynamicIcons()
+        }
+    }
     @ObservationIgnored private var loadingIcons: [String: IconSource] = [:]
     /// Apps from the last scan; `apps` adds the launch items to them.
     @ObservationIgnored private var scannedApps: [AppItem]
@@ -171,6 +178,13 @@ final class AppCatalog {
         calendarDay = CalendarIcon.today
         if Settings.shared.dynamicCalendar, sources[CalendarIcon.bundleID] != nil {
             sources[CalendarIcon.bundleID] = IconSource(path: CalendarIcon.prefix + calendarDay, modified: nil)
+        }
+        if darkIcons {
+            // Pictures and symbols the user picked have no dark version.
+            let custom = CustomIcons.directory.path + "/"
+            for (id, source) in sources where !source.path.hasPrefix(IconRenderer.symbolPrefix) && !source.path.hasPrefix(custom) {
+                sources[id] = IconSource(path: IconRenderer.darkPrefix + source.path, modified: source.modified)
+            }
         }
         for (id, path) in iconOverrides where sources[id] != nil {
             sources[id] = IconSource(path: path, modified: nil)

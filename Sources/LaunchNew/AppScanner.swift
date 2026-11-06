@@ -161,8 +161,13 @@ enum IconRenderer {
     static let pixelSize = 224
     /// Icon paths starting with this draw an SF Symbol on a coloured tile instead of a file's icon.
     static let symbolPrefix = "symbol:"
+    /// Icon paths starting with this draw the icon's dark version, where it has one.
+    static let darkPrefix = "dark:"
 
     static func render(path: String) -> CGImage? {
+        var path = path
+        let dark = path.hasPrefix(darkPrefix)
+        if dark { path.removeFirst(darkPrefix.count) }
         let px = pixelSize
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
               let ctx = CGContext(
@@ -177,7 +182,7 @@ enum IconRenderer {
         let tile = full.insetBy(dx: CGFloat(px) * 0.1, dy: CGFloat(px) * 0.1)
         let shape = NSBezierPath(roundedRect: tile, xRadius: tile.width * 0.225, yRadius: tile.width * 0.225)
         if path.hasPrefix(CalendarIcon.prefix) {
-            CalendarIcon.draw(String(path.dropFirst(CalendarIcon.prefix.count)), in: tile, shape: shape)
+            CalendarIcon.draw(String(path.dropFirst(CalendarIcon.prefix.count)), in: tile, shape: shape, dark: dark)
         } else if path.hasPrefix(symbolPrefix) {
             drawSymbol(String(path.dropFirst(symbolPrefix.count)), in: tile, shape: shape)
         } else if path.hasPrefix(CustomIcons.directory.path + "/"), !["icns", "app"].contains((path as NSString).pathExtension.lowercased()),
@@ -192,6 +197,8 @@ enum IconRenderer {
             NSGraphicsContext.current?.restoreGraphicsState()
         } else if path.hasPrefix(CustomIcons.directory.path + "/"), let image = NSImage(contentsOfFile: path) {
             image.draw(in: full)
+        } else if dark, let image = DarkIcon.image(bundle: path, pixels: px) {
+            ctx.draw(image, in: full)
         } else {
             NSWorkspace.shared.icon(forFile: path).draw(in: full)
         }
@@ -242,7 +249,7 @@ enum CalendarIcon {
     }
 
     /// Draws a white tile with the month in red and the day of the month below it.
-    static func draw(_ day: String, in tile: NSRect, shape: NSBezierPath) {
+    static func draw(_ day: String, in tile: NSRect, shape: NSBezierPath, dark: Bool = false) {
         let parts = day.split(separator: "-").compactMap { Int($0) }
         var components = DateComponents()
         if parts.count == 3 { (components.year, components.month, components.day) = (parts[0], parts[1], parts[2]) }
@@ -254,10 +261,11 @@ enum CalendarIcon {
         shadow.shadowBlurRadius = tile.width * 0.03
         shadow.shadowOffset = NSSize(width: 0, height: -tile.width * 0.012)
         shadow.set()
-        NSColor.white.setFill()
+        (dark ? NSColor(white: 0.1, alpha: 1) : .white).setFill()
         shape.fill()
         NSGraphicsContext.current?.restoreGraphicsState()
-        NSGradient(colors: [.white, NSColor(white: 0.93, alpha: 1)])?.draw(in: shape, angle: -90)
+        NSGradient(colors: dark ? [NSColor(white: 0.2, alpha: 1), NSColor(white: 0.08, alpha: 1)]
+                                : [.white, NSColor(white: 0.93, alpha: 1)])?.draw(in: shape, angle: -90)
 
         let month = DateFormatter()
         month.setLocalizedDateFormatFromTemplate("MMM")
@@ -270,9 +278,48 @@ enum CalendarIcon {
 
         let dayText = NSAttributedString(string: "\(Calendar.current.component(.day, from: date))", attributes: [
             .font: NSFont.systemFont(ofSize: tile.height * 0.5, weight: .light),
-            .foregroundColor: NSColor(white: 0.12, alpha: 1),
+            .foregroundColor: NSColor(white: dark ? 0.95 : 0.12, alpha: 1),
         ])
         let daySize = dayText.size()
         dayText.draw(at: NSPoint(x: tile.midX - daySize.width / 2, y: tile.minY + tile.height * 0.4 - daySize.height / 2))
+    }
+}
+
+/// The dark version of an app's icon, drawn by IconServices the way the Dock does.
+/// Its classes are private, so each step checks they still answer and gives nil otherwise.
+enum DarkIcon {
+    private static let loaded: Bool = dlopen("/System/Library/PrivateFrameworks/IconServices.framework/IconServices", RTLD_NOW) != nil
+
+    static func image(bundle path: String, pixels: Int) -> CGImage? {
+        guard loaded, path.hasSuffix(".app") || path.hasSuffix(".app/"),
+              let iconClass = NSClassFromString("ISBundleIcon") as? NSObject.Type,
+              let descriptorClass = NSClassFromString("ISImageDescriptor") as? NSObject.Type else { return nil }
+        let initIcon = NSSelectorFromString("initWithBundleURL:")
+        let initDescriptor = NSSelectorFromString("initWithSize:scale:")
+        let prepare = NSSelectorFromString("prepareImagesForImageDescriptors:")
+        let imageFor = NSSelectorFromString("imageForDescriptor:")
+        let cgImage = NSSelectorFromString("CGImage")
+        guard iconClass.instancesRespond(to: initIcon), iconClass.instancesRespond(to: prepare),
+              iconClass.instancesRespond(to: imageFor), descriptorClass.instancesRespond(to: initDescriptor),
+              descriptorClass.instancesRespond(to: NSSelectorFromString("setAppearance:")) else { return nil }
+
+        // alloc and init each hand over a reference, which init consumes and the caller then owns.
+        let alloc = NSSelectorFromString("alloc")
+        guard let blankIcon = (iconClass as AnyObject).perform(alloc)?.takeUnretainedValue(),
+              let icon = blankIcon.perform(initIcon, with: URL(fileURLWithPath: path) as NSURL)?
+                  .takeRetainedValue() as? NSObject,
+              let blankDescriptor = (descriptorClass as AnyObject).perform(alloc)?.takeUnretainedValue() else { return nil }
+        typealias InitDescriptor = @convention(c) (AnyObject, Selector, CGSize, CGFloat) -> Unmanaged<NSObject>?
+        let makeDescriptor = unsafeBitCast(class_getMethodImplementation(descriptorClass, initDescriptor), to: InitDescriptor.self)
+        let points = CGFloat(pixels) / 2
+        guard let descriptor = makeDescriptor(blankDescriptor, initDescriptor, CGSize(width: points, height: points), 2)?
+            .takeRetainedValue() else { return nil }
+        descriptor.setValue(1, forKey: "appearance")  // 0 light, 1 dark
+        _ = icon.perform(prepare, with: [descriptor])
+        guard let image = icon.perform(imageFor, with: descriptor)?.takeUnretainedValue() as? NSObject,
+              image.responds(to: cgImage) else { return nil }
+        typealias GetImage = @convention(c) (AnyObject, Selector) -> Unmanaged<CGImage>?
+        let get = unsafeBitCast(class_getMethodImplementation(type(of: image), cgImage), to: GetImage.self)
+        return get(image, cgImage)?.takeUnretainedValue()
     }
 }

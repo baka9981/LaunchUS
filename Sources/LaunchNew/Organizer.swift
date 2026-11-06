@@ -36,13 +36,12 @@ struct SheetCard: View {
     var body: some View {
         if case .confirmTrash(let id) = sheet {
             if let app = model.app(id) {
-                // A light, wider card for the file list.
+                // A wider card for the file list.
                 UninstallCard(model: model, app: app)
                     .frame(width: 560)
-                    .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(white: 0.99)))
-                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.black.opacity(0.08), lineWidth: 1))
+                    .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .controlBackgroundColor)))
+                    .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                     .shadow(color: .black.opacity(0.3), radius: 30, y: 12)
-                    .environment(\.colorScheme, .light)
                     .contentShape(Rectangle())
                     .onTapGesture {}
             }

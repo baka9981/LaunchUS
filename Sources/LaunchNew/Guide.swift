@@ -80,7 +80,6 @@ struct GuideView: View {
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(.primary.opacity(0.1), lineWidth: 1))
         .shadow(color: .black.opacity(0.25), radius: 30, y: 12)
-        .environment(\.colorScheme, .light)
     }
 
     private func go(_ delta: Int) {

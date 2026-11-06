@@ -515,3 +515,15 @@
 "液态玻璃" = "Liquid Glass";
 "文件夹、打开的文件夹和搜索栏透出并折射后面的内容；关掉则用烟灰玻璃" = "Folders, open folders and the search bar show and bend what's behind them. Turn off for smoked glass.";
 "已固定" = "Pinned";
+
+/* 外观：深色模式 */
+"使用 App 自带的深色图标，就像深色模式下的程序坞；没有深色版本的 App 保持原样" = "Uses each app's own dark icon, like the Dock in dark mode; apps without a dark version stay as they are";
+"外观为深色时，背景再暗一些，图标和名称更清楚" = "With the dark look, the background gets a little darker so icons and names stand out";
+"始终" = "Always";
+"浅色" = "Light";
+"深色" = "Dark";
+"深色图标" = "Dark icons";
+"深色时加深背景" = "Darker background when dark";
+"设置、菜单和窗口模式用浅色或深色；选「自动」时随 Mac 切换" = "Light or dark for settings, menus and window mode; Auto switches along with your Mac";
+"跟随外观" = "Match Appearance";
+"自动" = "Auto";
