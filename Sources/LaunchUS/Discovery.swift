@@ -23,8 +23,8 @@ enum WhatsNew {
         [
             Feature(symbol: "arrow.down.doc", title: String(localized: "拖文件到图标上"),
                     detail: String(localized: "用这个 App 打开，和程序坞一样")),
-            Feature(symbol: "plus.forwardslash.minus", title: String(localized: "计算与换算"),
-                    detail: String(localized: "在搜索栏输入 128*3 或 5 km in mi")),
+            Feature(symbol: "plus.forwardslash.minus", title: String(localized: "计算"),
+                    detail: String(localized: "在搜索栏输入 128*3，按 ↩ 复制结果")),
             Feature(symbol: "command", title: String(localized: "⌘1–9 打开常用 App"),
                     detail: String(localized: "常用一行的前 9 个，右键可以固定"),
                     action: { $0.finishWhatsNew(); $0.openSettings(.appearance) }),

@@ -2,35 +2,6 @@ import Foundation
 import Testing
 @testable import LaunchUS
 
-struct CurrencyTests {
-    let rates = CurrencyRates.Table(date: "2026-11-05", rates: ["EUR": 1, "USD": 1.1, "CNY": 7.7, "JPY": 165])
-
-    @Test func convertsCodesSymbolsAndChineseNames() throws {
-        let a = try #require(Calculator.evaluate("100 usd to cny", rates: rates))
-        #expect(a.display == "700.00 CNY")
-        #expect(a.copyText == "700.00")
-        #expect(a.note != nil)
-        #expect(Calculator.evaluate("$100 in eur", rates: rates)?.copyText == "90.91")
-        #expect(Calculator.evaluate("110美元换人民币", rates: rates)?.copyText == "770.00")
-        #expect(Calculator.evaluate("1 jpy to usd", rates: rates)?.copyText == "0.006667")
-    }
-
-    @Test func staysOffWithoutRatesAndLeavesUnitsAlone() {
-        #expect(Calculator.evaluate("100 usd to cny") == nil)
-        #expect(Calculator.evaluate("10 km to mi", rates: rates)?.display.hasSuffix("mi") == true)
-        #expect(Calculator.evaluate("100 xyz to cny", rates: rates) == nil)
-    }
-
-    @Test func parsesFrankfurter() throws {
-        let json = #"{"amount":1.0,"base":"EUR","date":"2026-11-05","rates":{"USD":1.0812,"CNY":7.71}}"#
-        let table = try #require(CurrencyRates.parse(Data(json.utf8)))
-        #expect(table.date == "2026-11-05")
-        #expect(table.rates["EUR"] == 1)
-        #expect(table.rates["USD"] == 1.0812)
-        #expect(CurrencyRates.parse(Data("{}".utf8)) == nil)
-    }
-}
-
 struct HomebrewTests {
     @Test func mapsCasksToTheirApps() {
         let json = #"""
@@ -136,5 +107,34 @@ struct OpenAllCommandTests {
         #expect(URLCommand(url: URL(string: "launchus://openall?name=%E5%B7%A5%E4%BD%9C")!) == .openAll("工作"))
         #expect(URLCommand(url: URL(string: "launchus://group?name=Dev")!) == .openAll("Dev"))
         #expect(URLCommand(url: URL(string: "launchus://openall")!) == nil)
+    }
+}
+
+struct AIChatTests {
+    @Test func buildsEndpoints() {
+        #expect(AIClient.endpoint(format: .openAI, base: "https://api.openai.com/v1/")?.absoluteString == "https://api.openai.com/v1/chat/completions")
+        #expect(AIClient.endpoint(format: .openAI, base: "http://localhost:11434/v1/chat/completions")?.absoluteString == "http://localhost:11434/v1/chat/completions")
+        #expect(AIClient.endpoint(format: .anthropic, base: "https://api.anthropic.com")?.absoluteString == "https://api.anthropic.com/v1/messages")
+        #expect(AIClient.endpoint(format: .anthropic, base: "https://gw.example.com/v1")?.absoluteString == "https://gw.example.com/v1/messages")
+    }
+
+    @Test func readsStreamDeltas() throws {
+        #expect(try AIClient.delta(in: #"data: {"choices":[{"delta":{"content":"Hi"}}]}"#, format: .openAI) == "Hi")
+        #expect(try AIClient.delta(in: "data: [DONE]", format: .openAI) == nil)
+        #expect(try AIClient.delta(in: #"data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Yo"}}"#, format: .anthropic) == "Yo")
+        #expect(try AIClient.delta(in: "event: ping", format: .anthropic) == nil)
+        #expect(throws: AIError.self) { try AIClient.delta(in: #"data: {"error":{"message":"bad key"}}"#, format: .openAI) }
+    }
+}
+
+struct MCPTests {
+    @Test func answersTheHandshakeAndListsTools() {
+        let reply = MCPServer.handle(["jsonrpc": "2.0", "id": 1, "method": "initialize", "params": [:]])
+        #expect((reply?["result"] as? [String: Any])?["protocolVersion"] as? String == MCPServer.protocolVersion)
+        #expect(MCPServer.handle(["jsonrpc": "2.0", "method": "notifications/initialized"]) == nil)
+        let tools = (MCPServer.handle(["jsonrpc": "2.0", "id": 2, "method": "tools/list"])?["result"] as? [String: Any])?["tools"] as? [[String: Any]]
+        #expect(tools?.count == MCPServer.tools.count)
+        let unknown = MCPServer.handle(["jsonrpc": "2.0", "id": 3, "method": "nope"])
+        #expect(unknown?["error"] != nil)
     }
 }

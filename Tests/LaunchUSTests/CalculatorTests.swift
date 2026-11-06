@@ -18,12 +18,4 @@ struct CalculatorTests {
         #expect(Calculator.evaluate("Xcode") == nil)
         #expect(Calculator.evaluate("3+") == nil)
     }
-
-    @Test func unitsConvert() {
-        #expect(Calculator.evaluate("10 km to mi")?.copyText == "6.21371192237")
-        #expect(Calculator.evaluate("100f to c").map { Double($0.copyText)! }.map { abs($0 - 37.7777777778) < 0.0001 } == true)
-        #expect(Calculator.evaluate("1 kg 换成 斤")?.copyText == "2")
-        #expect(Calculator.evaluate("2 km2 in m2")?.copyText == "2000000")
-        #expect(Calculator.evaluate("10 kg to km") == nil)
-    }
 }

@@ -108,6 +108,8 @@ final class LauncherModel {
         didSet { if spaceList != oldValue { spaceListChanged() } }
     }
     var isSearching: Bool { !query.isEmpty || spaceList != nil }
+    /// A conversation with AI in place of the apps; the search field writes its messages.
+    var chat: ChatSession?
     /// Hidden apps were verified for this session: they show in their panel and in search.
     private(set) var hiddenUnlocked = false
     var showHiddenApps = false
@@ -472,6 +474,7 @@ final class LauncherModel {
     }
 
     private func queryChanged() {
+        guard chat == nil else { return }  // writing a message, not searching
         let phrase = settings.hiddenPhrase.trimmingCharacters(in: .whitespaces)
         if !phrase.isEmpty, query.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(phrase) == .orderedSame {
             // Cleared on the next turn: set from inside the text field's own edit, the field
@@ -520,6 +523,7 @@ final class LauncherModel {
         sheet = resumeUninstall.map(LauncherSheet.confirmTrash)
         resumeUninstall = nil
         showSettings = false
+        exitChat()
         query = ""
         spaceList = nil
         selection = nil

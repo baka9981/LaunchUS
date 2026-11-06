@@ -131,7 +131,7 @@ struct LauncherView: View {
 
                 ZStack(alignment: .top) {
                     if windowed {
-                        WindowHeader(text: $model.query, focused: $searchFocused) { LauncherMenus.main(model, includeSearchItems: true) }
+                        WindowHeader(text: $model.query, focused: $searchFocused, chatting: model.chat != nil) { LauncherMenus.main(model, includeSearchItems: true) }
                             .frame(width: metrics.searchSize.width, height: metrics.searchSize.height)
                             .offset(y: metrics.searchCenterY - metrics.searchSize.height / 2)
                         Rectangle().fill(.primary.opacity(0.1))
@@ -142,7 +142,7 @@ struct LauncherView: View {
                             .offset(y: metrics.categoryBarY - 15)
                             .opacity(model.isSearching ? 0 : 1)
                     } else {
-                        SearchField(text: $model.query, focused: $searchFocused) { LauncherMenus.main(model, includeSearchItems: true) }
+                        SearchField(text: $model.query, focused: $searchFocused, chatting: model.chat != nil) { LauncherMenus.main(model, includeSearchItems: true) }
                             .frame(width: metrics.searchSize.width, height: metrics.searchSize.height)
                             .offset(y: metrics.searchCenterY - metrics.searchSize.height / 2)
                     }
@@ -161,7 +161,9 @@ struct LauncherView: View {
                         .offset(y: windowed ? metrics.categoryBarY - 12 : metrics.searchCenterY + metrics.searchSize.height / 2 + 10)
                         .zIndex(1)
 
-                    if settings.browseStyle == .scroll {
+                    if model.chat != nil {
+                        // The conversation takes the grid's place.
+                    } else if settings.browseStyle == .scroll {
                         ScrollGrid(model: model, metrics: metrics)
                             .offset(y: metrics.gridTop)
                     } else {
@@ -201,9 +203,20 @@ struct LauncherView: View {
                         .zIndex(3)
                 }
 
+                if let chat = model.chat {
+                    let top = metrics.gridTop + (windowed ? 0 : 6)
+                    let height = min(760, max(240, metrics.dotsY - 16 - top))
+                    ChatCard(chat: chat, windowed: windowed, height: height,
+                             newChat: { model.newChat() }, close: { model.exitChat() })
+                        .position(x: geo.size.width / 2, y: top + height / 2)
+                        .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                        .zIndex(3)
+                }
+
                 if let text = model.fallbackQuery {
                     FallbackCard(text: text, engine: model.settings.searchEngine.title, windowed: windowed,
-                                 web: { model.searchWeb() }, finder: { model.searchFinder() })
+                                 web: { model.searchWeb() }, finder: { model.searchFinder() },
+                                 ai: model.canAskAI ? { model.startChat() } : nil)
                         .position(x: geo.size.width / 2, y: metrics.gridTop + metrics.cellSize.height * 0.6)
                         .transition(.opacity)
                         .zIndex(3)
@@ -310,8 +323,8 @@ struct LauncherView: View {
         }
         .ignoresSafeArea()
         .onChange(of: model.focusRequest) { _, _ in searchFocused = true }
-        .task(id: model.isPresented && model.settings.searchFiles && model.spaceList == nil ? model.query : "") {
-            let text = model.isPresented && model.settings.searchFiles && model.spaceList == nil ? model.query : ""
+        .task(id: model.isPresented && model.settings.searchFiles && model.spaceList == nil && model.chat == nil ? model.query : "") {
+            let text = model.isPresented && model.settings.searchFiles && model.spaceList == nil && model.chat == nil ? model.query : ""
             if text.isEmpty { FileSearch.shared.stop(); return }
             try? await Task.sleep(for: .milliseconds(180))
             guard !Task.isCancelled else { return }
@@ -322,20 +335,13 @@ struct LauncherView: View {
 
     static let space = "launcher"
 
-    /// Spotlight's files, placed under the search results when there is room for them.
+    /// Spotlight's files, offered only when no app matched — under the web/Finder choices.
     private func fileResults(_ metrics: GridMetrics) -> (list: [FoundFile], y: CGFloat)? {
         let search = FileSearch.shared
-        guard model.isSearching, model.settings.searchFiles, model.calculation == nil, model.openFolderID == nil,
+        guard model.fallbackQuery != nil, model.settings.searchFiles, model.openFolderID == nil,
               !search.results.isEmpty, search.text == model.query.trimmingCharacters(in: .whitespaces) else { return nil }
         let height = CGFloat(search.results.count) * 39 + 44
-        let top: CGFloat
-        if model.fallbackQuery != nil {
-            top = metrics.gridTop + metrics.cellSize.height * 0.6 + 64
-        } else {
-            guard model.pages.count == 1, let first = model.pages.first else { return nil }
-            let rows = (first.count + metrics.columns - 1) / metrics.columns
-            top = metrics.gridTop + CGFloat(rows) * metrics.cellSize.height + 16
-        }
+        let top = metrics.gridTop + metrics.cellSize.height * 0.6 + 64
         guard top + height < metrics.dotsY - 20 else { return nil }
         return (search.results, top + height / 2)
     }
@@ -1137,12 +1143,12 @@ private struct CalculationCard: View {
                     .monospacedDigit()
                     .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
                     .lineLimit(1).minimumScaleFactor(0.4)
-                Text(result.note.map { "\($0) · " + String(localized: "按 ↩ 或点按复制结果") } ?? String(localized: "按 ↩ 或点按复制结果"))
+                Text("按 ↩ 或点按复制结果")
                     .font(.system(size: 12))
                     .foregroundStyle(windowed ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.white.opacity(0.55)))
             }
             .padding(.horizontal, 28).padding(.vertical, 18)
-            .frame(maxWidth: 520)
+            .frame(width: SearchCard.width)
             .background(windowed ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.black.opacity(0.35)),
                         in: RoundedRectangle(cornerRadius: 22, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(windowed ? 0 : 0.18), lineWidth: 0.5))
@@ -1153,6 +1159,11 @@ private struct CalculationCard: View {
     }
 }
 
+/// The cards under the search field (sum, nothing found, files, AI chat) share one width so they line up.
+enum SearchCard {
+    static let width: CGFloat = 580
+}
+
 /// Search found nothing: search the web (↩) or Finder (⌘↩) for it instead.
 private struct FallbackCard: View {
     let text: String
@@ -1160,6 +1171,8 @@ private struct FallbackCard: View {
     let windowed: Bool
     let web: () -> Void
     let finder: () -> Void
+    /// Set when AI is configured.
+    let ai: (() -> Void)?
 
     var body: some View {
         VStack(spacing: 14) {
@@ -1170,10 +1183,13 @@ private struct FallbackCard: View {
             HStack(spacing: 10) {
                 choice(String(localized: "用 \(engine) 搜索"), symbol: "globe", key: "↩", action: web)
                 choice(String(localized: "在访达中搜索"), symbol: "magnifyingglass", key: "⌘↩", action: finder)
+                if let ai {
+                    choice(String(localized: "问 AI"), symbol: "sparkles", key: "⇥", action: ai)
+                }
             }
         }
         .padding(.horizontal, 24).padding(.vertical, 18)
-        .frame(maxWidth: 560)
+        .frame(width: SearchCard.width)
         .background(windowed ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.black.opacity(0.35)),
                     in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(.white.opacity(windowed ? 0 : 0.18), lineWidth: 0.5))

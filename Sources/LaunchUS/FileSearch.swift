@@ -110,7 +110,7 @@ struct FileResultsCard: View {
             }
         }
         .padding(10)
-        .frame(width: 520)
+        .frame(width: SearchCard.width)
         .background(windowed ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.black.opacity(0.35)),
                     in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(.white.opacity(windowed ? 0 : 0.18), lineWidth: 0.5))

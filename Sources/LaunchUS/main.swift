@@ -14,6 +14,11 @@ if arguments.count == 3, arguments[1] == "--write-iconset" {
     exit(0)
 }
 
+// `LaunchUS --mcp`: serve AI tools over stdio, with no UI.
+if arguments.contains("--mcp") {
+    MainActor.assumeIsolated { MCPServer.run() }
+}
+
 // Before anything reads the settings: carry over what the app left under its old name.
 // Not while running from the installer disk, which first offers to move to /Applications.
 if !InstallLocation.isOnInstaller(Bundle.main.bundleURL) {

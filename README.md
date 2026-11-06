@@ -30,7 +30,7 @@ macOS 26 replaced Launchpad with the Apps window. LaunchUS brings back the full-
 | | |
 |---|---|
 | 🚀 **Feels like Launchpad** | Full-screen blurred grid, pages, folders, jiggle mode, ⌥Space / F4 / trackpad pinch / hot corner |
-| 🔎 **Smarter search** | Pinyin & initials (`wx` → WeChat), aliases, `#tags`, smart folders; math and unit conversion (`128*3`, `5 km in mi`) |
+| 🔎 **Smarter search** | Pinyin & initials (`wx` → WeChat), aliases, `#tags`, smart folders; math (`128*3`) |
 | 📂 **Drop files on icons** | Drop files on an app icon to open them with that app, just like the Dock |
 | 🧩 **Custom items** | Websites, files, folders and shell scripts that live on the grid like apps |
 | 🎨 **Make it yours** | Change any icon, your own background picture, icon size, animation speed, Dark Mode (follows the Mac, with apps’ own dark icons), Liquid Glass folders and search bar, window or full-screen mode, rows & columns; the grid turns on its side on portrait displays |

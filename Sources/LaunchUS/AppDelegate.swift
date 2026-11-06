@@ -137,8 +137,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             catalog.reload(force: true)
         case "hiddenDotEntrance", "hiddenSlotEntrance", "hiddenSlotPage":
             launcher.model.refresh()
-        case "currencyRates":
-            if settings.currencyRates { CurrencyRates.shared.refreshIfNeeded() }
         case "showFrequent":
             launcher.model.settingsChanged()
         case "showBadges":

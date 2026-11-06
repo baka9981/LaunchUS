@@ -318,12 +318,19 @@ final class Settings {
     var searchEngine: SearchEngine { didSet { save(searchEngine.rawValue, "searchEngine") } }
     /// Show matching files and folders from Spotlight under the app results.
     var searchFiles: Bool { didSet { save(searchFiles, "searchFiles") } }
-    /// Fetch exchange rates so "100 usd to cny" works. Off until asked: it goes online.
-    var currencyRates: Bool { didSet { save(currencyRates, "currencyRates") } }
     /// Automatic layout backups kept; 0 is off.
     var autoBackupCount: Int { didSet { save(autoBackupCount, "autoBackupCount") } }
     /// Keep the layout in step with other Macs through iCloud Drive.
     var iCloudSync: Bool { didSet { save(iCloudSync, "iCloudSync") } }
+
+    // AI
+    /// Which API the gateway speaks.
+    var aiFormat: AIFormat { didSet { save(aiFormat.rawValue, "aiFormat") } }
+    /// The gateway's base URL; empty uses the format's own.
+    var aiBaseURL: String { didSet { save(aiBaseURL, "aiBaseURL") } }
+    var aiModel: String { didSet { save(aiModel, "aiModel") } }
+    /// Optional instructions sent before every chat.
+    var aiSystemPrompt: String { didSet { save(aiSystemPrompt, "aiSystemPrompt") } }
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -383,9 +390,13 @@ final class Settings {
         clickBackgroundToClose = value("clickBackgroundToClose", true)
         searchEngine = SearchEngine(rawValue: value("searchEngine", "")) ?? .google
         searchFiles = value("searchFiles", true)
-        currencyRates = value("currencyRates", false)
         autoBackupCount = min(50, max(0, value("autoBackupCount", 10)))
         iCloudSync = value("iCloudSync", false)
+
+        aiFormat = AIFormat(rawValue: value("aiFormat", "")) ?? .openAI
+        aiBaseURL = value("aiBaseURL", "")
+        aiModel = value("aiModel", "")
+        aiSystemPrompt = value("aiSystemPrompt", "")
     }
 
     private func save(_ value: Any, _ key: String) {

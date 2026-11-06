@@ -168,7 +168,6 @@ final class LauncherController {
         configurePanel(for: screen)
         wallpaper.prepare(for: screen, blur: settings.blur)
         catalog.reload()
-        if settings.currencyRates { CurrencyRates.shared.refreshIfNeeded() }
         model.prepareForShow()
 
         // A non-activating panel takes the keyboard even when the app can't become active
@@ -273,6 +272,15 @@ final class LauncherController {
             if let query = env["LAUNCHUS_QUERY"] { self.model.query = query }
             // LAUNCHUS_SPACES=n: as if space was pressed n times in the empty field.
             for _ in 0..<(env["LAUNCHUS_SPACES"].flatMap(Int.init) ?? 0) { self.model.pressSpace() }
+            if env["LAUNCHUS_CHAT"] != nil {
+                let chat = ChatSession()
+                chat.load([
+                    ChatMessage(role: .user, text: "怎么用 Swift 读取一个文件的大小？"),
+                    ChatMessage(role: .assistant, text: "可以用 **FileManager** 读取文件属性：\n\n```swift\nlet attrs = try FileManager.default.attributesOfItem(atPath: path)\nlet size = attrs[.size] as? Int64 ?? 0\n```\n\n- `attributesOfItem` 返回字典\n- `.size` 是字节数"),
+                    ChatMessage(role: .user, text: "换成 URL 的写法呢"),
+                ])
+                self.model.chat = chat
+            }
             if let id = env["LAUNCHUS_UNINSTALL"] { self.model.sheet = .confirmTrash(id) }
             if let id = env["LAUNCHUS_EDIT"] { self.model.sheet = .editApp(id) }
             // LAUNCHUS_SHEET=custom | custom:<id> | manager | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name>
@@ -575,6 +583,19 @@ final class LauncherController {
             model.escape()
             return nil
         }
+        if model.chat != nil {
+            // Chatting: the field writes messages; ↩ sends, ⌘N starts over, Esc stops or leaves.
+            let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
+            switch Int(event.keyCode) {
+            case kVK_Escape: model.escape()
+            case kVK_Return where flags.isEmpty, kVK_ANSI_KeypadEnter where flags.isEmpty: model.sendChat()
+            case kVK_ANSI_N where flags == .command: model.newChat()
+            case kVK_ANSI_W where flags == .command: hide(restoreFocus: true)
+            case kVK_ANSI_Comma where flags == .command: openSettings()
+            default: return event
+            }
+            return nil
+        }
         commandChanged(false)
         // ⌘1…⌘9 open the numbered items; ⌃1…⌃9 go to that page.
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
@@ -615,6 +636,8 @@ final class LauncherController {
             model.escape()
         case kVK_Tab where !model.tagCandidates.isEmpty:
             model.completeTag(model.tagCandidates[0])
+        case kVK_Tab where model.canAskAI:
+            model.startChat()
         case kVK_Return where command && model.fallbackQuery != nil:
             model.searchFinder()
         case kVK_Return, kVK_ANSI_KeypadEnter:

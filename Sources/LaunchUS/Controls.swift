@@ -4,17 +4,19 @@ import SwiftUI
 struct SearchField: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
+    /// Chatting with AI: the field writes the next message.
+    var chatting = false
     /// Builds the "⋯" menu.
     let menu: () -> NSMenu
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
+            Image(systemName: chatting ? "sparkles" : "magnifyingglass")
                 .font(.system(size: 15))
                 .foregroundStyle(.white.opacity(0.75))
             ZStack(alignment: .leading) {
                 if text.isEmpty {
-                    Text("搜索应用")
+                    Text(chatting ? "继续问…" : "搜索应用")
                         .foregroundStyle(.white.opacity(0.5))
                         .allowsHitTesting(false)
                 }
@@ -73,17 +75,18 @@ extension EnvironmentValues {
 struct WindowHeader: View {
     @Binding var text: String
     var focused: FocusState<Bool>.Binding
+    var chatting = false
     let menu: () -> NSMenu
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: text.isEmpty ? "square.grid.3x3" : "magnifyingglass")
+            Image(systemName: chatting ? "sparkles" : text.isEmpty ? "square.grid.3x3" : "magnifyingglass")
                 .font(.system(size: 22, weight: .regular))
                 .foregroundStyle(.secondary)
                 .frame(width: 28)
             ZStack(alignment: .leading) {
                 if text.isEmpty {
-                    Text("应用程序")
+                    Text(chatting ? "继续问…" : "应用程序")
                         .foregroundStyle(.secondary)
                         .allowsHitTesting(false)
                 }

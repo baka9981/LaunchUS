@@ -105,7 +105,7 @@ struct GuideView: View {
         case 1: String(localized: "按 \(settings.hotKey.display) 打开。也可以在设置里打开触控板捏合（拇指和三指）、F4 键或触发角。")
         case 2: String(localized: "把一个 App 拖到另一个上面就会建立文件夹。拖到屏幕边缘可以翻到别的页面。")
         case 3: String(localized: "长按图标或按住 ⌥ 进入编辑模式，按住 ⌘ 点击可以多选。右键选「编辑…」可以改名称、图标和标签，也可以移动或卸载。")
-        case 4: String(localized: "直接打字即可搜索，支持拼音和首字母，比如输入「wx」找到微信。输入 # 按标签筛选，输入 128*3 或 5 km in mi 直接算出结果。")
+        case 4: String(localized: "直接打字即可搜索，支持拼音和首字母，比如输入「wx」找到微信。输入 # 按标签筛选，输入 128*3 直接算出结果。")
         case 5: String(localized: "⋯ 菜单里可以新建启动项（网址、文件或脚本），也能切换多套布局方案。编辑时把图标拖到屏幕底边，可以放进程序坞或访达。")
         default: String(localized: "右键 App 选择「隐藏」，它就不会出现在网格里。最后一个分页圆点后面藏着入口，验证后才能看到。入口和暗号可在设置 › App 中调整。")
         }

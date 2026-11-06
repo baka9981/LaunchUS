@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, appearance, organize, apps, advanced
+    case general, appearance, organize, apps, ai, advanced
     var id: String { rawValue }
 
     /// Tab names used by links (`launchus://settings?tab=`), including ones from older versions.
@@ -22,6 +22,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .appearance: String(localized: "外观")
         case .organize: String(localized: "整理")
         case .apps: "Apps"
+        case .ai: "AI"
         case .advanced: String(localized: "高级")
         }
     }
@@ -32,6 +33,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .appearance: "camera.filters"
         case .organize: "square.grid.3x3.topleft.filled"
         case .apps: "square.grid.2x2"
+        case .ai: "sparkles"
         case .advanced: "switch.2"
         }
     }
@@ -97,6 +99,7 @@ struct SettingsView: View {
                     case .appearance: AppearanceTab(model: model, settings: settings)
                     case .organize: OrganizeTab(model: model, settings: settings)
                     case .apps: AppsTab(model: model, settings: settings, actions: actions)
+                    case .ai: AITab(settings: settings)
                     case .advanced: AdvancedTab(model: model, settings: settings)
                     }
                 }
@@ -332,9 +335,6 @@ struct GeneralTab: View {
                 }
                 Row(title: String(localized: "搜索文件"), info: String(localized: "在 App 下面列出聚焦找到的文件和文件夹")) {
                     Toggle("", isOn: $settings.searchFiles).toggleStyle(.switch).labelsHidden()
-                }
-                Row(title: String(localized: "汇率换算"), info: String(localized: "输入「100 usd to cny」换算货币。汇率来自欧洲央行（frankfurter.app），最多每 12 小时取一次，请求不带任何个人信息")) {
-                    Toggle("", isOn: $settings.currencyRates).toggleStyle(.switch).labelsHidden()
                 }
             }
         }

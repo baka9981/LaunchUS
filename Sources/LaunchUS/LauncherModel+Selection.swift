@@ -48,9 +48,9 @@ extension LauncherModel {
         }
     }
 
-    /// The search field read as a sum or unit conversion, if it is one.
+    /// The search field read as a sum, if it is one.
     var calculation: Calculator.Result? {
-        isSearching ? Calculator.evaluate(query, rates: settings.currencyRates ? CurrencyRates.shared.table : nil) : nil
+        isSearching && chat == nil ? Calculator.evaluate(query) : nil
     }
 
     func copyCalculation() {
@@ -60,9 +60,43 @@ extension LauncherModel {
         showNotice(String(localized: "已复制 \(result.copyText)"))
     }
 
+    /// AI is set up and the search found nothing: the typed text can start a chat.
+    var canAskAI: Bool { fallbackQuery != nil && AIClient.isConfigured }
+
+    /// Starts a chat with what's typed as its first message.
+    func startChat() {
+        guard let text = fallbackQuery, AIClient.isConfigured else { return }
+        let session = ChatSession()
+        withAnimation(.easeOut(duration: 0.2)) { chat = session }
+        query = ""
+        session.send(text)
+    }
+
+    /// ↩ in the field while chatting.
+    func sendChat() {
+        guard let chat, !chat.isStreaming else { return }
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        query = ""
+        chat.send(text)
+    }
+
+    func newChat() {
+        chat?.reset()
+        query = ""
+    }
+
+    func exitChat() {
+        guard let chat else { return }
+        chat.stop()
+        withAnimation(.easeOut(duration: 0.2)) { self.chat = nil }
+        query = ""
+        refresh()
+    }
+
     /// What's typed, when search found nothing: offered to the web or Finder instead.
     var fallbackQuery: String? {
-        guard isSearching, spaceList == nil, calculation == nil, pages.allSatisfy(\.isEmpty) else { return nil }
+        guard chat == nil, isSearching, spaceList == nil, calculation == nil, pages.allSatisfy(\.isEmpty) else { return nil }
         let text = query.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty, AppSearch.parse(text).tags.isEmpty else { return nil }
         return text
@@ -338,6 +372,14 @@ extension LauncherModel {
             withAnimation(.easeOut(duration: 0.15)) { multiSelection = [] }
         } else if isEditing {
             isEditing = false
+        } else if let chat {
+            if chat.isStreaming {
+                chat.stop()
+            } else if !query.isEmpty {
+                query = ""
+            } else {
+                exitChat()
+            }
         } else if spaceList != nil {
             spaceList = nil
         } else if isSearching {
