@@ -11,14 +11,18 @@ enum RenameMigration {
     /// Runs once, before anything reads the settings.
     static func runIfNeeded() {
         guard Bundle.main.bundleIdentifier == "local.launchus.LaunchUS" else { return }
+        guard !UserDefaults.standard.bool(forKey: doneKey) else { return }
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let oldPreferences = UserDefaults.standard.persistentDomain(forName: oldBundleID)
+        var folderPairs = [(old: support.appendingPathComponent(oldFolderName, isDirectory: true), new: LayoutStore.directory)]
+        // Only look in iCloud Drive when the old app synced there: just checking asks for access.
+        if oldPreferences?["iCloudSync"] as? Bool == true {
+            folderPairs.append((ICloudSync.driveRoot.appendingPathComponent(oldFolderName, isDirectory: true), ICloudSync.folder))
+        }
         run(defaults: .standard,
-            oldPreferences: UserDefaults.standard.persistentDomain(forName: oldBundleID),
+            oldPreferences: oldPreferences,
             ownPreferences: UserDefaults.standard.persistentDomain(forName: "local.launchus.LaunchUS"),
-            folderPairs: [
-                (support.appendingPathComponent(oldFolderName, isDirectory: true), LayoutStore.directory),
-                (ICloudSync.driveRoot.appendingPathComponent(oldFolderName, isDirectory: true), ICloudSync.folder),
-            ])
+            folderPairs: folderPairs)
     }
 
     /// Copies the old preferences unless this app already has its own, and each old folder

@@ -15,7 +15,10 @@ if arguments.count == 3, arguments[1] == "--write-iconset" {
 }
 
 // Before anything reads the settings: carry over what the app left under its old name.
-RenameMigration.runIfNeeded()
+// Not while running from the installer disk, which first offers to move to /Applications.
+if !InstallLocation.isOnInstaller(Bundle.main.bundleURL) {
+    RenameMigration.runIfNeeded()
+}
 
 MainActor.assumeIsolated {
     let app = NSApplication.shared

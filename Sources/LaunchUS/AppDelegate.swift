@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var appearanceWatch: NSKeyValueObservation?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Opened from the installer disk: offer to move to /Applications and reopen from there.
+        if InstallLocation.checkAtLaunch() { return }
         let firstRun = !FileManager.default.fileExists(atPath: LayoutStore.layoutURL.path)
         launcher = LauncherController(catalog: catalog)
         launcher.model.settingsActions = SettingsActions(
@@ -147,6 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// `launchus://…` links.
     func application(_ application: NSApplication, open urls: [URL]) {
+        guard launcher != nil else { return }  // still asking about the install location
         for url in urls {
             guard let command = URLCommand(url: url) else {
                 NSLog("LaunchUS: unknown link \(url.absoluteString)")
@@ -183,7 +186,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Opening LaunchUS.app again (Finder, Dock, `open`) toggles the launcher.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        launcher.toggle()
+        launcher?.toggle()  // nil while quitting to reopen from /Applications
         return false
     }
 
@@ -245,6 +248,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Right-click on the Dock icon: every page, with folders as submenus.
     func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        guard launcher != nil else { return nil }
         let menu = NSMenu()
         let model = launcher.model
         let byID = Dictionary(model.visibleApps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })

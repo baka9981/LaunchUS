@@ -527,3 +527,9 @@
 "设置、菜单和窗口模式用浅色或深色；选「自动」时随 Mac 切换" = "Light or dark for settings, menus and window mode; Auto switches along with your Mac";
 "跟随外观" = "Match Appearance";
 "自动" = "Auto";
+"把 LaunchUS 移到「应用程序」文件夹？" = "Move LaunchUS to the Applications folder?";
+"LaunchUS 正在从安装盘上运行，推出安装盘后就打不开了。移过去后会从「应用程序」重新打开，并推出安装盘。" = "LaunchUS is running from the installer disk and stops working once the disk is ejected. After moving, it reopens from Applications and ejects the installer disk.";
+"移到「应用程序」" = "Move to Applications";
+"从这里运行" = "Run from Here";
+"没能移到「应用程序」" = "Couldn’t move to Applications";
+"请在安装盘窗口里把 LaunchUS 拖到「应用程序」文件夹，再从那里打开。" = "In the installer window, drag LaunchUS to the Applications folder, then open it from there.";
