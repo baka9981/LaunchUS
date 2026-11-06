@@ -206,6 +206,28 @@ struct Row<Trailing: View>: View {
     }
 }
 
+/// ⓘ after a setting's name: click for the explanation. Tooltips alone don't show
+/// in the launcher's panel, which never becomes the key window.
+struct InfoButton: View {
+    let text: String
+    @State private var shown = false
+
+    var body: some View {
+        Button { shown.toggle() } label: {
+            Image(systemName: "info.circle").font(.system(size: 12)).foregroundStyle(.secondary)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(text)
+        .popover(isPresented: $shown, arrowEdge: .bottom) {
+            Text(text).font(.system(size: 12))
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 260, alignment: .leading)
+                .padding(12)
+        }
+    }
+}
+
 struct MenuPicker<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [Value]
