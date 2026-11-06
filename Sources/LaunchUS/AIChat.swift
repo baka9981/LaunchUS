@@ -90,89 +90,6 @@ struct ChatMessage: Identifiable, Equatable {
     var state: ToolState = .done
 }
 
-/// How far the chat may act on LaunchUS.
-enum AIToolAccess: String, CaseIterable {
-    case off, readOnly, confirm
-
-    var title: String {
-        switch self {
-        case .off: String(localized: "关闭")
-        case .readOnly: String(localized: "只能查询")
-        case .confirm: String(localized: "操作前确认")
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .off: String(localized: "AI 只聊天，不碰你的 App")
-        case .readOnly: String(localized: "可以搜索和查看 App、文件夹、布局，不能打开或退出")
-        case .confirm: String(localized: "查询直接进行；打开 App、切换布局等每次先问你，退出 App 总要确认")
-        }
-    }
-}
-
-/// The MCP tools the built-in chat may use, and how each is shown and guarded.
-enum AITools {
-    /// Run without asking.
-    static let readOnly: Set<String> = ["search_apps", "list_apps", "running_apps", "list_folders", "list_layouts"]
-    /// Asked first, unless allowed for the whole chat.
-    static let actions: Set<String> = ["open_app", "open_group", "switch_layout", "quit_app"]
-    /// Asked every time.
-    static let risky: Set<String> = ["quit_app"]
-
-    static let context = """
-        You are the assistant inside LaunchUS, the user's Mac app launcher. Use the tools to look up \
-        and act on the user's apps, folders and layouts when that helps; actions are shown to the user, \
-        who may approve or decline them. If an action is declined, accept it. Keep answers short and \
-        answer in the user's language.
-        """
-
-    static func available(_ access: AIToolAccess) -> [MCPServer.Tool] {
-        let names: Set<String> = switch access {
-        case .off: []
-        case .readOnly: readOnly
-        case .confirm: readOnly.union(actions)
-        }
-        return MCPServer.tools.filter { names.contains($0.name) }
-    }
-
-    static func needsApproval(_ call: ToolCall, allowAll: Bool) -> Bool {
-        actions.contains(call.name) && (risky.contains(call.name) || !allowAll)
-    }
-
-    static func isForce(_ call: ToolCall) -> Bool { call.name == "quit_app" && call.input["force"] as? Bool == true }
-
-    static func title(_ call: ToolCall) -> String {
-        let input = call.input
-        let app = input["app"] as? String ?? ""
-        let name = input["name"] as? String ?? ""
-        switch call.name {
-        case "search_apps": return String(localized: "搜索 App「\(input["query"] as? String ?? "")」")
-        case "list_apps": return String(localized: "查看 App 列表")
-        case "running_apps": return String(localized: "查看正在运行的 App")
-        case "list_folders": return String(localized: "查看文件夹")
-        case "list_layouts": return String(localized: "查看布局")
-        case "open_app": return String(localized: "打开「\(app)」")
-        case "open_group": return String(localized: "打开「\(name)」里的所有 App")
-        case "switch_layout": return String(localized: "切换到布局「\(name)」")
-        case "quit_app": return isForce(call) ? String(localized: "强制退出「\(app)」") : String(localized: "退出「\(app)」")
-        default: return call.name
-        }
-    }
-
-    static func symbol(_ name: String) -> String {
-        switch name {
-        case "search_apps": "magnifyingglass"
-        case "list_apps", "list_folders": "square.grid.2x2"
-        case "running_apps": "app.badge"
-        case "list_layouts", "switch_layout": "rectangle.3.group"
-        case "open_app", "open_group": "arrow.up.forward.app"
-        case "quit_app": "xmark.app"
-        default: "wrench.and.screwdriver"
-        }
-    }
-}
-
 /// Reads a streamed answer line by line: text as it comes, tool calls at the end.
 struct StreamParser {
     let format: AIFormat
@@ -237,7 +154,9 @@ struct AIClient: Sendable {
     let key: String
     var system: String
 
-    @MainActor init(settings: Settings = .shared) {
+    @MainActor init() { self.init(settings: .shared) }
+
+    @MainActor init(settings: Settings) {
         format = settings.aiFormat
         let base = settings.aiBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         baseURL = base.isEmpty ? settings.aiFormat.defaultBaseURL : base
@@ -450,8 +369,8 @@ final class ChatSession {
     private(set) var allowAll = false
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var approval: CheckedContinuation<Bool, Never>?
-    /// Runs the tools that act on the launcher itself (layouts, groups); nil leaves a tool to the MCP server code.
-    @ObservationIgnored var local: (ToolCall) -> String? = { _ in nil }
+    /// Runs the tools that act on the launcher itself; nil hands the call to `MCPServer`.
+    @ObservationIgnored var local: (ToolCall) -> (text: String, ok: Bool)? = { _ in nil }
 
     var model: String { Settings.shared.aiModel }
     var isEmpty: Bool { messages.isEmpty }
@@ -545,7 +464,7 @@ final class ChatSession {
             messages[index].toolCalls = calls
             if calls.isEmpty { break }
             for call in calls {
-                await perform(call)
+                await perform(call, offered: Set(tools.map(\.name)))
                 guard !Task.isCancelled else { return }
             }
         }
@@ -553,8 +472,9 @@ final class ChatSession {
         messages.removeAll { $0.role == .assistant && $0.text.isEmpty && $0.toolCalls.isEmpty }
     }
 
-    private func perform(_ call: ToolCall) async {
-        let known = AITools.readOnly.contains(call.name) || AITools.actions.contains(call.name)
+    /// Runs one call. Only tools that were offered run, so a model can't reach past the access setting.
+    private func perform(_ call: ToolCall, offered: Set<String>) async {
+        let known = offered.contains(call.name)
         let asks = known && AITools.needsApproval(call, allowAll: allowAll)
         messages.append(ChatMessage(role: .tool, text: "", call: call, state: asks ? .asking : .running))
         let index = messages.count - 1
@@ -574,8 +494,8 @@ final class ChatSession {
             messages[index].state = .running
         }
         let outcome: (text: String, ok: Bool)
-        if let text = local(call) {
-            outcome = (text, !text.hasPrefix("No "))
+        if let result = local(call) {
+            outcome = result
         } else {
             outcome = await Task.detached {
                 do { return (try MCPServer.call(call.name, json: call.arguments), true) }
@@ -588,7 +508,7 @@ final class ChatSession {
     }
 
     /// Sends a short message and reports whether the gateway answered.
-    static func test(settings: Settings = .shared) async -> Result<String, Error> {
+    @MainActor static func test(settings: Settings) async -> Result<String, Error> {
         let client = AIClient(settings: settings)
         do {
             var answer = ""
@@ -600,420 +520,5 @@ final class ChatSession {
         } catch {
             return .failure(error)
         }
-    }
-}
-
-
-// MARK: - Card
-
-/// The conversation, under the search field where the apps were.
-struct ChatCard: View {
-    let chat: ChatSession
-    let windowed: Bool
-    let height: CGFloat
-    let newChat: () -> Void
-    let close: () -> Void
-
-    static let width: CGFloat = 680
-
-    private var primary: AnyShapeStyle { windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white) }
-    private var secondary: AnyShapeStyle { windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.6)) }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            header
-            Divider().opacity(windowed ? 1 : 0.4)
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16) {
-                        ForEach(chat.messages) { message in
-                            ChatBubble(chat: chat, message: message, windowed: windowed,
-                                       streaming: chat.isStreaming && message.id == chat.messages.last?.id)
-                                .id(message.id)
-                        }
-                        if chat.isStreaming, !chat.isAsking, chat.messages.last?.role != .assistant || chat.messages.last?.text.isEmpty == true {
-                            TypingDots(windowed: windowed)
-                        }
-                        if let error = chat.error {
-                            errorRow(error)
-                        }
-                        Color.clear.frame(height: 1).id("end")
-                    }
-                    .padding(.horizontal, 22).padding(.vertical, 18)
-                }
-                .scrollIndicators(.automatic)
-                .onChange(of: chat.messages.last?.text) { _, _ in proxy.scrollTo("end", anchor: .bottom) }
-                .onChange(of: chat.messages.count) { _, _ in
-                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo("end", anchor: .bottom) }
-                }
-                .onAppear { proxy.scrollTo("end", anchor: .bottom) }
-            }
-            footer
-        }
-        .frame(width: Self.width, height: height)
-        .background(windowed ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.black.opacity(0.4)),
-                    in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(.white.opacity(windowed ? 0 : 0.18), lineWidth: 0.5))
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .shadow(color: .black.opacity(0.25), radius: 20, y: 8)
-    }
-
-    private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing))
-                .frame(width: 26, height: 26)
-                .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.06)) : AnyShapeStyle(.white.opacity(0.12)), in: Circle())
-            Text(verbatim: chat.model.isEmpty ? "AI" : chat.model)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(primary)
-                .lineLimit(1)
-            Spacer()
-            headerButton("square.and.pencil", help: String(localized: "新对话"), action: newChat)
-                .disabled(chat.isEmpty)
-            headerButton("xmark", help: String(localized: "关闭"), action: close)
-        }
-        .padding(.horizontal, 16).padding(.vertical, 11)
-    }
-
-    private func headerButton(_ symbol: String, help: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(secondary)
-                .frame(width: 26, height: 26)
-                .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.06)) : AnyShapeStyle(.white.opacity(0.1)), in: Circle())
-                .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .accessibilityLabel(help)
-    }
-
-    private func errorRow(_ text: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Text(verbatim: text)
-                .font(.system(size: 12))
-                .foregroundStyle(primary)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Button(String(localized: "重试")) { chat.retry() }
-                .buttonStyle(.plain)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-        }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-    }
-
-    private var footer: some View {
-        HStack(spacing: 14) {
-            if chat.isStreaming {
-                Button { chat.stop() } label: {
-                    Label(String(localized: "停止"), systemImage: "stop.circle.fill")
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(primary)
-            }
-            Spacer()
-            Text(chat.isAsking ? "↩ 允许 · Esc 拒绝" : chat.isStreaming ? "Esc 停止" : "↩ 发送 · ⌘N 新对话 · Esc 退出")
-                .font(.system(size: 11))
-                .foregroundStyle(secondary)
-        }
-        .padding(.horizontal, 18).padding(.vertical, 9)
-        .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.03)) : AnyShapeStyle(.white.opacity(0.04)))
-    }
-}
-
-private struct ChatBubble: View {
-    let chat: ChatSession
-    let message: ChatMessage
-    let windowed: Bool
-    let streaming: Bool
-
-    var body: some View {
-        switch message.role {
-        case .user:
-            HStack {
-                Spacer(minLength: 80)
-                Text(verbatim: message.text)
-                    .font(.system(size: 13.5))
-                    .foregroundStyle(.white)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 14).padding(.vertical, 9)
-                    .background(Color.accentColor.gradient, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            }
-        case .tool:
-            if let call = message.call {
-                if message.state == .asking {
-                    ApprovalCard(chat: chat, call: call, windowed: windowed)
-                } else {
-                    ToolRow(call: call, state: message.state, result: message.text, windowed: windowed)
-                }
-            }
-        case .assistant:
-            if !message.text.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    MarkdownText(text: message.text, windowed: windowed)
-                    if !streaming {
-                        CopyButton(text: message.text, windowed: windowed, label: String(localized: "复制"))
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-}
-
-/// Paragraphs, lists and headings with inline markdown, and fenced code blocks.
-private struct MarkdownText: View {
-    let text: String
-    let windowed: Bool
-
-    enum Block: Hashable {
-        case text(String)
-        case heading(String)
-        case code(language: String, body: String)
-    }
-
-    static func blocks(_ text: String) -> [Block] {
-        var blocks: [Block] = []
-        var paragraph: [String] = []
-        var code: [String]?
-        var language = ""
-        func flush() {
-            let joined = paragraph.joined(separator: "\n").trimmingCharacters(in: .newlines)
-            if !joined.isEmpty { blocks.append(.text(joined)) }
-            paragraph = []
-        }
-        for line in text.components(separatedBy: "\n") {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if trimmed.hasPrefix("```") {
-                if let lines = code {
-                    blocks.append(.code(language: language, body: lines.joined(separator: "\n")))
-                    code = nil
-                } else {
-                    flush()
-                    language = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                    code = []
-                }
-            } else if code != nil {
-                code?.append(line)
-            } else if trimmed.hasPrefix("#") {
-                flush()
-                blocks.append(.heading(String(trimmed.drop(while: { $0 == "#" })).trimmingCharacters(in: .whitespaces)))
-            } else if trimmed.isEmpty {
-                flush()
-            } else {
-                paragraph.append(line)
-            }
-        }
-        if let lines = code { blocks.append(.code(language: language, body: lines.joined(separator: "\n"))) }
-        flush()
-        return blocks
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(Array(Self.blocks(text).enumerated()), id: \.offset) { _, block in
-                switch block {
-                case .text(let body):
-                    Text(Self.inline(body))
-                        .font(.system(size: 13.5))
-                        .lineSpacing(3)
-                        .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white.opacity(0.92)))
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                case .heading(let body):
-                    Text(Self.inline(body))
-                        .font(.system(size: 14.5, weight: .semibold))
-                        .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
-                        .textSelection(.enabled)
-                case .code(let language, let body):
-                    CodeBlock(language: language, code: body, windowed: windowed)
-                }
-            }
-        }
-    }
-
-    static func inline(_ text: String) -> AttributedString {
-        // Bullets read better as "•".
-        let lines = text.components(separatedBy: "\n").map { line -> String in
-            let indent = line.prefix(while: { $0 == " " })
-            let rest = line.dropFirst(indent.count)
-            if rest.hasPrefix("- ") || rest.hasPrefix("* ") { return indent + "• " + rest.dropFirst(2) }
-            return line
-        }.joined(separator: "\n")
-        return (try? AttributedString(markdown: lines, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
-            ?? AttributedString(lines)
-    }
-}
-
-private struct CodeBlock: View {
-    let language: String
-    let code: String
-    let windowed: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(verbatim: language.isEmpty ? "code" : language)
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.55)))
-                Spacer()
-                CopyButton(text: code, windowed: windowed, label: String(localized: "复制代码"))
-            }
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.05)) : AnyShapeStyle(.white.opacity(0.06)))
-            ScrollView(.horizontal) {
-                Text(verbatim: code)
-                    .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white.opacity(0.9)))
-                    .textSelection(.enabled)
-                    .padding(12)
-            }
-            .scrollIndicators(.never)
-        }
-        .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.05)) : AnyShapeStyle(.black.opacity(0.3)),
-                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-    }
-}
-
-private struct CopyButton: View {
-    let text: String
-    let windowed: Bool
-    let label: String
-    @State private var copied = false
-
-    var body: some View {
-        Button {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(text, forType: .string)
-            copied = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
-        } label: {
-            Label(copied ? String(localized: "已复制") : label, systemImage: copied ? "checkmark" : "doc.on.doc")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.55)))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-private struct TypingDots: View {
-    let windowed: Bool
-
-    var body: some View {
-        TimelineView(.animation) { context in
-            let t = context.date.timeIntervalSinceReferenceDate
-            HStack(spacing: 5) {
-                ForEach(0..<3) { i in
-                    Circle()
-                        .fill(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.7)))
-                        .frame(width: 6, height: 6)
-                        .opacity(0.35 + 0.65 * max(0, sin((t * 4) - Double(i) * 0.7)))
-                }
-            }
-            .padding(.vertical, 6)
-        }
-        .accessibilityLabel(String(localized: "正在回答"))
-    }
-}
-
-/// One tool the AI used, as a quiet line in the conversation.
-private struct ToolRow: View {
-    let call: ToolCall
-    let state: ChatMessage.ToolState
-    let result: String
-    let windowed: Bool
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Group {
-                switch state {
-                case .running, .asking: ProgressView().controlSize(.mini)
-                case .done: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                case .denied: Image(systemName: "hand.raised.fill").foregroundStyle(.orange)
-                case .failed: Image(systemName: "xmark.circle.fill").foregroundStyle(.red)
-                }
-            }
-            .font(.system(size: 11))
-            .frame(width: 14)
-            Image(systemName: AITools.symbol(call.name)).font(.system(size: 11))
-            Text(verbatim: AITools.title(call)).lineLimit(1)
-            switch state {
-            case .denied: Text("已拒绝")
-            case .failed: Text(verbatim: result).lineLimit(1).truncationMode(.tail)
-            default: EmptyView()
-            }
-        }
-        .font(.system(size: 12))
-        .foregroundStyle(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.6)))
-        .padding(.horizontal, 10).padding(.vertical, 5)
-        .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.05)) : AnyShapeStyle(.white.opacity(0.07)), in: Capsule())
-        .help(result)
-    }
-}
-
-/// The AI wants to act: say what, and wait for the user.
-private struct ApprovalCard: View {
-    let chat: ChatSession
-    let call: ToolCall
-    let windowed: Bool
-
-    private var risky: Bool { AITools.risky.contains(call.name) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: AITools.symbol(call.name))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(risky ? Color.orange : Color.accentColor)
-                    .frame(width: 32, height: 32)
-                    .background((risky ? Color.orange : Color.accentColor).opacity(0.15), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("AI 想要").font(.system(size: 11))
-                        .foregroundStyle(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.6)))
-                    Text(verbatim: AITools.title(call)).font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
-                }
-            }
-            if AITools.isForce(call) {
-                Label(String(localized: "强制退出会丢失未存储的内容"), systemImage: "exclamationmark.triangle.fill")
-                    .font(.system(size: 12)).foregroundStyle(.orange)
-            }
-            HStack(spacing: 8) {
-                if !risky {
-                    Button(String(localized: "本次对话都允许")) { chat.approve(forWholeChat: true) }
-                        .buttonStyle(.plain)
-                        .font(.system(size: 12))
-                        .foregroundStyle(windowed ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.65)))
-                }
-                Spacer()
-                Button { chat.deny() } label: {
-                    Text("拒绝").padding(.horizontal, 14).padding(.vertical, 6)
-                        .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.08)) : AnyShapeStyle(.white.opacity(0.14)), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
-                Button { chat.approve() } label: {
-                    Text("允许").padding(.horizontal, 16).padding(.vertical, 6)
-                        .background(risky ? Color.orange : Color.accentColor, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white)
-            }
-            .font(.system(size: 12, weight: .semibold))
-        }
-        .padding(14)
-        .background(windowed ? AnyShapeStyle(Color.primary.opacity(0.05)) : AnyShapeStyle(.white.opacity(0.08)),
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .strokeBorder((risky ? Color.orange : Color.accentColor).opacity(0.45), lineWidth: 1))
     }
 }

@@ -95,7 +95,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     switch model.settingsTab {
-                    case .general: GeneralTab(settings: settings)
+                    case .general: GeneralTab(model: model, settings: settings)
                     case .appearance: AppearanceTab(model: model, settings: settings)
                     case .organize: OrganizeTab(model: model, settings: settings)
                     case .apps: AppsTab(model: model, settings: settings, actions: actions)
@@ -248,6 +248,7 @@ struct MenuPicker<Value: Hashable>: View {
 // MARK: - 通用
 
 struct GeneralTab: View {
+    let model: LauncherModel
     @Bindable var settings: Settings
     @State private var loginEnabled = LoginItem.isEnabled
     @State private var loginNeedsApproval = LoginItem.needsApproval
@@ -330,11 +331,20 @@ struct GeneralTab: View {
                 Row(title: String(localized: "点击空白区域关闭")) {
                     Toggle("", isOn: $settings.clickBackgroundToClose).toggleStyle(.switch).labelsHidden()
                 }
+            }
+        }
+        // What's offered when a search finds no app.
+        SettingsSection(title: String(localized: "搜索")) {
+            Card {
                 Row(title: String(localized: "网页搜索"), info: String(localized: "搜索没有结果时，按 ↩ 用它搜索（配置了 AI 时改为 ⇥，↩ 问 AI）；按 ⌘↩ 在访达中搜索")) {
                     MenuPicker(selection: $settings.searchEngine, options: SearchEngine.allCases, title: \.title)
                 }
-                Row(title: String(localized: "搜索文件"), info: String(localized: "在 App 下面列出聚焦找到的文件和文件夹")) {
+                Row(title: String(localized: "搜索文件"), info: String(localized: "没有找到 App 时，列出聚焦找到的文件和文件夹")) {
                     Toggle("", isOn: $settings.searchFiles).toggleStyle(.switch).labelsHidden()
+                }
+                Row(title: String(localized: "AI 聊天"),
+                    subtitle: AIClient.isConfigured ? settings.aiModel : String(localized: "未配置")) {
+                    Button(String(localized: "设置…")) { model.settingsTab = .ai }
                 }
             }
         }

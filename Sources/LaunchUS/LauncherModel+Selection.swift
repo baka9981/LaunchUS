@@ -66,26 +66,27 @@ extension LauncherModel {
     /// Starts a chat with what's typed as its first message.
     func startChat() {
         guard let text = fallbackQuery, AIClient.isConfigured else { return }
-        let session = ChatSession()
-        session.local = { [weak self] call in self?.runLocalTool(call) }
+        let session = makeChat()
         withAnimation(.easeOut(duration: 0.2)) { chat = session }
         query = ""
         session.send(text)
     }
 
-    /// Tools from the chat that act on the launcher itself.
-    private func runLocalTool(_ call: ToolCall) -> String? {
-        let name = (call.input["name"] as? String ?? "").trimmingCharacters(in: .whitespaces)
-        switch call.name {
-        case "switch_layout":
-            return switchProfile(named: name) ? "Switched to the layout \(name)." : "No layout named \(name)."
-        case "open_group":
-            guard let folder = folder(named: name) else { return "No folder named \(name)." }
-            openAll(folder.id)
-            return "Opened the apps in \(folder.name)."
-        default:
-            return nil
-        }
+    private func makeChat() -> ChatSession {
+        let session = ChatSession()
+        session.local = { [weak self] call in self?.runLocalTool(call) }
+        return session
+    }
+
+    /// An empty chat, from the menu: the next ↩ in the field sends.
+    func openChat() {
+        guard chat == nil, AIClient.isConfigured else { return }
+        let session = makeChat()
+        if openFolderID != nil { closeFolder() }
+        spaceList = nil
+        withAnimation(.easeOut(duration: 0.2)) { chat = session }
+        query = ""
+        focusRequest += 1
     }
 
     /// ↩ in the field while chatting.

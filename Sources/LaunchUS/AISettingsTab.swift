@@ -7,7 +7,8 @@ struct AITab: View {
     @State private var key = AIKey.value
     @State private var testing = false
     @State private var testResult: Result<String, Error>?
-    @State private var models: [String] = []
+    /// Kept from the last 获取, so the menu is there next time.
+    @State private var models: [String] = UserDefaults.standard.stringArray(forKey: "aiModelList") ?? []
     @State private var fetching = false
     @State private var fetchError: String?
 
@@ -39,7 +40,7 @@ struct AITab: View {
                         HStack(spacing: 6) {
                             TextField(settings.aiFormat.modelPlaceholder, text: $settings.aiModel)
                                 .textFieldStyle(.roundedBorder)
-                                .frame(width: models.isEmpty ? 190 : 160)
+                                .frame(width: 220)
                             if !models.isEmpty {
                                 Menu {
                                     ForEach(models, id: \.self) { name in
@@ -54,6 +55,8 @@ struct AITab: View {
                                 .help(String(localized: "选择模型"))
                             }
                             Button(fetching ? String(localized: "获取中…") : String(localized: "获取")) { fetchModels() }
+                                .fixedSize()
+                                .layoutPriority(1)
                                 .disabled(fetching || (key.isEmpty && settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty))
                         }
                     }
@@ -87,8 +90,8 @@ struct AITab: View {
                 .padding(.leading, 4)
                 .onChange(of: settings.aiModel) { _, _ in testResult = nil }
                 .onChange(of: settings.aiBaseURL) { _, _ in testResult = nil }
-                .onChange(of: settings.aiFormat) { _, _ in testResult = nil; models = [] }
-                .onChange(of: settings.aiBaseURL) { _, _ in models = [] }
+                .onChange(of: settings.aiFormat) { _, _ in testResult = nil; clearModels() }
+                .onChange(of: settings.aiBaseURL) { _, _ in clearModels() }
             }
             MCPSection()
         }
@@ -127,6 +130,11 @@ struct AITab: View {
         }
     }
 
+    private func clearModels() {
+        models = []
+        UserDefaults.standard.removeObject(forKey: "aiModelList")
+    }
+
     private func fetchModels() {
         fetching = true
         fetchError = nil
@@ -134,6 +142,7 @@ struct AITab: View {
         Task {
             do {
                 models = try await client.models()
+                UserDefaults.standard.set(models, forKey: "aiModelList")
                 if settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty, let first = models.first { settings.aiModel = first }
             } catch {
                 fetchError = error.localizedDescription

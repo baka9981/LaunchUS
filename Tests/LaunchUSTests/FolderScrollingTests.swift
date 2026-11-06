@@ -184,7 +184,48 @@ extension AutoBackupTests {
         }
     }
 
+    @MainActor @Test func aiArrangesTheHomeScreen() async throws {
+        let apps = ["Mail", "Safari", "Notes", "Maps", "Music"].map { app($0, id: $0.lowercased()) }
+        let layout: [[LayoutItem]] = [[.app("mail"), .app("safari"), .folder(Folder(id: "f", name: "Work", apps: ["notes", "maps"]))], [.app("music")]]
+        try await withFolderFixture(apps: apps, layout: layout, browse: nil) { model in
+            @MainActor func call(_ name: String, _ args: String) -> (text: String, ok: Bool)? {
+                model.runLocalTool(ToolCall(id: "1", name: name, arguments: args))
+            }
+            #expect(call("get_layout", "{}")?.text.contains("Page 1: Mail, Safari, Work [Notes, Maps]") == true)
+            #expect(call("move_app", #"{"app":"Mail","to":"last"}"#)?.ok == true)
+            #expect(model.layout.last?.last == .app("mail"))
+            #expect(call("move_app", #"{"app":"Mail","to":"first"}"#)?.ok == true)
+            #expect(model.layout.first?.first == .app("mail"))
+            #expect(call("move_app", #"{"app":"Music","to":"after:Mail"}"#)?.ok == true)
+            #expect(model.layout[0].prefix(2) == [.app("mail"), .app("music")])
+            #expect(call("move_app", #"{"app":"Safari","to":"folder:Work"}"#)?.ok == true)
+            #expect(model.folder(named: "Work")?.apps == ["notes", "maps", "safari"])
+            #expect(call("move_app", #"{"app":"Notes","to":"out"}"#)?.ok == true)
+            #expect(model.folderContaining("notes") == nil)
+            #expect(call("move_app", #"{"app":"Work","to":"first"}"#)?.ok == true)
+            #expect(model.layout[0].first?.id == "folder:f")
+            #expect(call("move_app", #"{"app":"Mail","to":"sideways"}"#)?.ok == false)
+            #expect(call("create_folder", #"{"name":"Fun","apps":["Music","Notes"]}"#)?.ok == true)
+            #expect(model.folder(named: "Fun")?.apps == ["music", "notes"])
+            #expect(call("rename_folder", #"{"name":"Fun","new_name":"Play"}"#)?.ok == true)
+            #expect(call("dissolve_folder", #"{"name":"Play"}"#)?.ok == true)
+            #expect(model.folder(named: "Play") == nil)
+            #expect(call("list_apps", "{}") == nil)
+            model.settings.sortOrder = .name
+            #expect(call("move_app", #"{"app":"Mail","to":"last"}"#)?.ok == false)
+        }
+    }
+
     @MainActor private func withFolderFixture(_ body: @MainActor (LauncherModel) async throws -> Void) async throws {
+        let apps = (0..<100).map { app("Fixture \($0)", id: "fixture-\($0)") }
+        try await withFolderFixture(apps: apps, layout: [[.folder(Folder(id: "fixture-folder", name: "Fixture", apps: apps.map(\.id)))]], browse: "scroll") { model in
+            model.openFolder("fixture-folder")
+            try await body(model)
+        }
+    }
+
+    @MainActor private func withFolderFixture(apps: [AppItem], layout: [[LayoutItem]], browse: String?,
+                                              _ body: @MainActor (LauncherModel) async throws -> Void) async throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let directory = root.appendingPathComponent("work/folder-fixtures/\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -206,14 +247,12 @@ extension AutoBackupTests {
             }
             try? FileManager.default.removeItem(at: directory)
         }
-        let apps = (0..<100).map { app("Fixture \($0)", id: "fixture-\($0)") }
-        LayoutStore.save(layout: [[.folder(Folder(id: "fixture-folder", name: "Fixture", apps: apps.map(\.id)))]])
+        LayoutStore.save(layout: layout)
         let defaults = FolderMemoryDefaults()
-        defaults.set("scroll", forKey: "folderBrowseStyle")
+        if let browse { defaults.set(browse, forKey: "folderBrowseStyle") }
         let model = LauncherModel(catalog: AppCatalog(apps: apps), settings: Settings(defaults: defaults))
         model.screenSize = CGSize(width: 1_400, height: 1_000)
         model.catalogChanged()
-        model.openFolder("fixture-folder")
         defer { model.endDrag() }
         try await body(model)
     }

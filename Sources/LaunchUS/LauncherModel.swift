@@ -430,7 +430,7 @@ final class LauncherModel {
 
     func search(_ query: String) -> [AppItem] { search(query, includeHidden: false) }
 
-    private func search(_ query: String, includeHidden: Bool) -> [AppItem] {
+    func search(_ query: String, includeHidden: Bool) -> [AppItem] {
         // Hidden apps can optionally still be found by search (but never in smart folders).
         var pool = visibleApps
         if includeHidden {

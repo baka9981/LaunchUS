@@ -22,6 +22,19 @@ open launchus://open
 
 唤起后把界面渲染成 PNG。`LAUNCHUS_REAL=1` 改用真实视图截图；`LAUNCHUS_SHEET=custom|custom:<id>|icon:<id>|profile|whatsnew|guide:<步骤>|tip:<名称>` 打开对应的卡片（有模糊背景时截图要十几秒）。`LAUNCHUS_GUIDE=1` 启动时显示引导，`LAUNCHUS_CHECK_UPDATES=1` 启动时检查更新。
 
+AI 聊天：`LAUNCHUS_CHAT=1` 载入示例对话，`LAUNCHUS_ASK=<问题>` 真的发一条（用设置里的网关；`LAUNCHUS_AI_KEY` 可临时换密钥），`LAUNCHUS_DELAY=<秒>` 推迟截图等回答流完，`LAUNCHUS_SETTINGS=ai` 打开对应的设置页。debug 构建直接运行时加载不了 Sparkle，截图和 MCP 测试请用 `scripts/build.sh release` 的产物。
+
+## AI 与 MCP
+
+- `AIChat.swift`：网关（`AIClient`，OpenAI 兼容和 Anthropic 两种流式格式，含工具调用）、对话（`ChatSession`，每个回答最多 8 轮工具调用）和聊天界面。密钥存在钥匙串（`AIKey`）。
+- `AITools` 决定 AI 能用哪些工具：`readOnly` 直接运行，`actions` 先弹确认（「本次对话都允许」可跳过），`risky`（退出 App）每次都确认；设置里的「让 AI 操作 LaunchUS」可关掉或只允许查询。
+- 工具分两处执行：`LauncherModel+AITools.swift` 的 `runLocalTool` 在 App 内直接改布局（`get_layout`、`move_app`、`create_folder`、`rename_folder`、`dissolve_folder`、`hide_app`，以及 `switch_layout`、`open_group`），只给内置聊天用；其余交给 `MCPServer.call`。
+- `MCPServer.swift`：`LaunchUS --mcp` 是 stdio 上的 JSON-RPC MCP 服务器，不显示界面，只读布局文件；要动启动台的操作通过 `launchus://` 链接交给正在运行的 App。新增工具时同步更新 `AITools` 的分组、`title` 和 `symbol`，以及设置页 MCP 一节的工具列表。
+
+```bash
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | build/LaunchUS.app/Contents/MacOS/LaunchUS --mcp
+```
+
 ## 新功能的展示
 
 - 首次运行：`Guide.swift` 的引导。

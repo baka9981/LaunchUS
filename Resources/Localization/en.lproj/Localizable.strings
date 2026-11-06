@@ -749,3 +749,27 @@
 "退出「%@」" = "Quit “%@”";
 "选择模型" = "Choose Model";
 "配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；网页搜索改为按 ⇥。" = "Once a gateway is set up, press ↩ or click “Ask AI” when a search finds nothing to chat right in the launcher; web search moves to ⇥.";
+
+/* AI arranging, chat menu, search section */
+"AI 聊天" = "AI Chat";
+"取消隐藏「%@」" = "Show “%@” again";
+"可以搜索和查看 App、文件夹、布局，不能打开、退出或整理" = "Can search and look at apps, folders and layouts, but not open, quit or arrange anything";
+"在上面的输入框里输入，按 ↩ 发送" = "Type in the field above and press ↩ to send";
+"想问什么？" = "What would you like to ask?";
+"把 %@ 放进新文件夹「%@」" = "Put %@ in a new folder “%@”";
+"把「%@」放进文件夹「%@」" = "Put “%@” in the folder “%@”";
+"把「%@」移出文件夹" = "Take “%@” out of its folder";
+"把「%@」移到「%@」前面" = "Move “%@” before “%@”";
+"把「%@」移到「%@」后面" = "Move “%@” after “%@”";
+"把「%@」移到最前" = "Move “%@” to the start";
+"把「%@」移到最后" = "Move “%@” to the end";
+"把「%@」移到第 %lld 页" = "Move “%@” to page %lld";
+"把文件夹「%@」改名为「%@」" = "Rename the folder “%@” to “%@”";
+"搜索" = "Search";
+"未配置" = "Not set up";
+"查看主屏幕排列" = "Look at the home screen";
+"查询直接进行；打开 App、整理主屏幕、切换布局等先问你，退出 App 总要确认" = "Look-ups run at once; opening apps, arranging the home screen, switching layouts and the like ask first, and quitting an app always asks";
+"没有找到 App 时，列出聚焦找到的文件和文件夹" = "When no app is found, list the files and folders Spotlight finds";
+"移动「%@」" = "Move “%@”";
+"解散文件夹「%@」" = "Remove the folder “%@”";
+"隐藏「%@」" = "Hide “%@”";

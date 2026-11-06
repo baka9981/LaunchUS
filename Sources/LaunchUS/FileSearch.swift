@@ -35,8 +35,10 @@ final class FileSearch {
                                       NSMetadataItemDisplayNameKey, text,
                                       NSMetadataItemContentTypeKey, "com.apple.application-bundle")
         query.sortDescriptors = [NSSortDescriptor(key: NSMetadataItemLastUsedDateKey, ascending: false)]
-        observer = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.gathered(query, for: text) }
+        observer = NotificationCenter.default.addObserver(forName: .NSMetadataQueryDidFinishGathering, object: query, queue: .main) { [weak self] note in
+            MainActor.assumeIsolated {
+                if let query = note.object as? NSMetadataQuery { self?.gathered(query, for: text) }
+            }
         }
         self.query = query
         query.start()

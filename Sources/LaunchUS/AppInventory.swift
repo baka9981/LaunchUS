@@ -104,10 +104,9 @@ final class AppInventory {
         updates = [:]
         Task {
             async let brew = Homebrew.outdated()
-            await UpdateChecker.check(targets) { [weak self] id, update in
-                guard let self else { return }
-                if let update { updates[id] = update }
-                checking?.done += 1
+            await UpdateChecker.check(targets) { id, update in
+                if let update { self.updates[id] = update }
+                self.checking?.done += 1
             }
             // Homebrew fills in what the apps' own feeds didn't report.
             for (fileName, cask) in await brew {

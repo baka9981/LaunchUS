@@ -169,6 +169,18 @@ struct AIToolTests {
         #expect(stopped.last?["content"] as? String == "Cancelled by the user.")
     }
 
+    @Test func readsMoveTargets() {
+        #expect(LauncherTarget("last") == .last)
+        #expect(LauncherTarget(" First ") == .first)
+        #expect(LauncherTarget("page:3") == .page(3))
+        #expect(LauncherTarget("page:0") == nil)
+        #expect(LauncherTarget("before:Safari") == .before("Safari"))
+        #expect(LauncherTarget("folder: 工作") == .folder("工作"))
+        #expect(LauncherTarget("out") == .out)
+        #expect(LauncherTarget("folder:") == nil)
+        #expect(LauncherTarget("sideways") == nil)
+    }
+
     @Test func guardsActions() {
         let open = ToolCall(id: "1", name: "open_app", arguments: "{}")
         let quit = ToolCall(id: "2", name: "quit_app", arguments: "{}")
@@ -178,6 +190,10 @@ struct AIToolTests {
         #expect(AITools.needsApproval(quit, allowAll: true))
         #expect(!AITools.needsApproval(look, allowAll: false))
         #expect(AITools.available(.off).isEmpty)
-        #expect(!AITools.available(.readOnly).contains { $0.name == "open_app" })
+        #expect(!AITools.available(.readOnly).contains { $0.name == "open_app" || $0.name == "move_app" })
+        #expect(AITools.available(.readOnly).contains { $0.name == "get_layout" })
+        #expect(AITools.needsApproval(ToolCall(id: "4", name: "move_app", arguments: "{}"), allowAll: false))
+        // Arranging edits the live layout, so it isn't offered to outside MCP clients.
+        #expect(!MCPServer.tools.contains { $0.name == "move_app" })
     }
 }

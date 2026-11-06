@@ -84,6 +84,10 @@ enum LauncherMenus {
             for item in model.menuItems { menu.add(item.title, item.action) }
             menu.addSeparator()
         }
+        if AIClient.isConfigured, model.chat == nil {
+            menu.add(String(localized: "AI 聊天"), symbol: "sparkles") { model.openChat() }
+            menu.addSeparator()
+        }
         menu.addSubmenu(String(localized: "新建"), symbol: "plus") { sub in
             sub.add(String(localized: "启动项…"), symbol: "plus.app") { model.sheet = .editCustom(nil) }
             sub.add(String(localized: "智能文件夹…"), symbol: "folder.badge.gearshape") {
