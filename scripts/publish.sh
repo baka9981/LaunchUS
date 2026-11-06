@@ -31,5 +31,8 @@ echo "Published $VERSION to $DOWNLOAD_URL"
 if [[ -n "${GITHUB_REPO:-}" ]]; then
     NOTES=(--notes "")
     [[ -f "$OUT/LaunchUS-$VERSION.md" ]] && NOTES=(--notes-file "$OUT/LaunchUS-$VERSION.md")
-    gh release create "v$VERSION" "$DMG" "$ZIP" --repo "$GITHUB_REPO" --title "$VERSION" "${NOTES[@]}"
+    # appcast.xml too: 1.2.2 and earlier check github.com/<repo>/releases/latest/download/appcast.xml,
+    # and its download links point at the download site, so they update from there.
+    gh release create "v$VERSION" "$DMG" "$ZIP" "$FEED" --repo "$GITHUB_REPO" --target main \
+        --title "LaunchUS $VERSION" "${NOTES[@]}"
 fi
