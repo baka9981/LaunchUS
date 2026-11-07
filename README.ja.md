@@ -81,6 +81,10 @@ cd LaunchUS
 LaunchUS は完全に無料です。Pro 版、サブスクリプション、広告はありません。
 
 
+## リンク
+
+- [LINUX DO](https://linux.do)
+
 ## ライセンス
 
 [MIT](LICENSE)
