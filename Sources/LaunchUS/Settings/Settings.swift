@@ -114,7 +114,8 @@ enum ReturnHome: Int, CaseIterable {
 /// What the Dock icon's menu lists.
 enum DockMenuContent: String, CaseIterable { case pages, alphabetical, recent }
 enum MultiSelectKey: String, CaseIterable { case off, command, shift }
-enum AppIconStyle: Int, CaseIterable { case mono, blue, grid, rocket }
+/// Raw values are what's saved; the order here is the picker's.
+enum AppIconStyle: Int, CaseIterable { case mono = 0, blue = 1, grid = 2, dots = 4, rocket = 3 }
 
 /// The menu bar icon: an SF Symbol, drawn as a template so it follows the menu bar's colour.
 enum MenuBarIconStyle: String, CaseIterable {
