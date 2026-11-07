@@ -79,7 +79,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             || env["LAUNCHUS_GUIDE"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.launcher.openGuide() }
         } else if env["LAUNCHUS_SNAPSHOT"] != nil || env["LAUNCHUS_SHOW"] != nil {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { self.launcher.show() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                self.launcher.show()
+                // Also open a folder when only showing (snapshots open theirs themselves).
+                if env["LAUNCHUS_SNAPSHOT"] == nil, let name = env["LAUNCHUS_FOLDER"] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.launcher.model.openFolder(named: name)
+                    }
+                }
+            }
         }
     }
 

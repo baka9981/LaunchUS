@@ -85,8 +85,14 @@ struct GridMetrics: Equatable {
     /// The icon size setting, 1 being the default.
     var iconScale: CGFloat = 1
     var folderVisibleRows: Int { min(folderRows, max(1, (folderItemCount + folderColumns - 1) / folderColumns)) }
-    /// Panel top to the first row's icon centre.
-    var folderIconInset: CGFloat { windowed ? (cellSize.height / 2 - 12).rounded() : (size.height * 0.0735).rounded() }
+    /// Panel top to the first row's icon centre. Window mode centres the rows of icons and
+    /// names in the panel, the same space above the first icon as below the last name.
+    var folderIconInset: CGFloat {
+        guard windowed else { return (size.height * 0.0735).rounded() }
+        let label = hideNames ? 0 : labelGap + labelSize * 1.25
+        let block = CGFloat(folderVisibleRows - 1) * cellSize.height + iconSize + label
+        return ((folderPanelRect.height - block) / 2 + iconSize / 2).rounded()
+    }
     var folderCornerRadius: CGFloat { windowed ? 26 : (size.width * 0.025).rounded() }
     var folderPanelRect: CGRect {
         let h = (CGFloat(folderVisibleRows) * cellSize.height + (windowed ? 32 : size.height * 0.01)).rounded()
@@ -97,6 +103,12 @@ struct GridMetrics: Equatable {
         let panel = folderPanelRect
         return CGRect(x: panel.minX, y: panel.minY + folderIconInset - cellSize.height / 2,
                       width: panel.width, height: CGFloat(folderVisibleRows) * cellSize.height)
+    }
+    /// How far a cell's name reaches below its row: with many rows in a small window the icon
+    /// and name are taller than the row. The open folder's clip extends by this so the last
+    /// row's names aren't cut off (it still stays inside the panel).
+    var labelOverflow: CGFloat {
+        hideNames ? 0 : max(0, (iconSize / 2 + labelGap + labelSize * 1.25 + 2 - cellSize.height / 2).rounded(.up))
     }
     /// Icon centre of a slot on the current folder page, in launcher coordinates.
     func folderIconCenter(slot: Int) -> CGPoint {
@@ -901,6 +913,7 @@ struct FolderPanel: View {
     @State private var name = ""
     @FocusState private var renaming: Bool
     @Environment(\.windowedStyle) private var windowed
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let rect = metrics.folderPanelRect
@@ -920,12 +933,20 @@ struct FolderPanel: View {
 
         ZStack(alignment: .topLeading) {
             Group {
-                if windowed {
-                    // A light frosted card floating over the window, as in the system Apps window.
+                if windowed && model.settings.liquidGlass {
+                    // Liquid glass floating over the window, light or dark with the system.
+                    glass
+                        .fill(.clear)
+                        .glassEffect(LiquidGlass.style(tint: folder.color.flatMap(FolderColor.init(rawValue:))?.color, windowed: true),
+                                     in: glass)
+                        .shadow(color: .black.opacity(expanded ? (colorScheme == .dark ? 0.4 : 0.16) : 0), radius: 24, y: 10)
+                } else if windowed {
+                    // A frosted card floating over the window, as in the system Apps window; its rim
+                    // stays a faint highlight in dark mode instead of a bright outline.
                     glass
                         .fill(.thickMaterial)
-                        .overlay(glass.strokeBorder(.white.opacity(0.5), lineWidth: 1))
-                        .shadow(color: .black.opacity(expanded ? 0.18 : 0), radius: 24, y: 10)
+                        .overlay(glass.strokeBorder(.white.opacity(colorScheme == .dark ? 0.1 : 0.5), lineWidth: 1))
+                        .shadow(color: .black.opacity(expanded ? (colorScheme == .dark ? 0.4 : 0.18) : 0), radius: 24, y: 10)
                 } else if model.settings.liquidGlass {
                     glass
                         .fill(.black.opacity(expanded ? 0.06 : 0))
@@ -989,7 +1010,9 @@ struct FolderPanel: View {
             let mini = origin.width * 0.232
             let step = origin.width * 0.263
             let miniScale = mini / metrics.iconSize
-            let clip = expanded ? grid.intersection(rect) : origin
+            let clip = expanded
+                ? CGRect(x: grid.minX, y: grid.minY, width: grid.width, height: grid.height + metrics.labelOverflow).intersection(rect)
+                : origin
             ZStack(alignment: .topLeading) {
                 ForEach(Array(apps.enumerated()), id: \.element.id) { position, app in
                     let page = position / perPage
