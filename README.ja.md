@@ -6,20 +6,23 @@
 
 **おなじみの Launchpad を macOS 26 に。ずっと無料。**
 
-[![Release](https://img.shields.io/github/v/release/baka9981/LaunchUS?style=flat-square&color=0A84FF)](https://github.com/baka9981/LaunchUS/releases/latest)
+[![ダウンロード](https://img.shields.io/badge/%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89-LaunchUS.dmg-0A84FF?style=for-the-badge&logo=apple&logoColor=white)](https://dl.launchusapp.com/LaunchUS.dmg)
+[![公式サイト](https://img.shields.io/badge/%E5%85%AC%E5%BC%8F%E3%82%B5%E3%82%A4%E3%83%88-launchusapp.com-1C1C1E?style=for-the-badge&logo=safari&logoColor=white)](https://launchusapp.com/)
+
+[![Release](https://img.shields.io/github/v/release/baka9981/LaunchUS?style=flat-square&color=0A84FF&label=release)](https://github.com/baka9981/LaunchUS/releases/latest)
 ![macOS](https://img.shields.io/badge/macOS-26%2B-111?style=flat-square&logo=apple)
-![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)
-[![Downloads](https://img.shields.io/github/downloads/baka9981/LaunchUS/total?style=flat-square&color=34C759)](https://github.com/baka9981/LaunchUS/releases)
 [![License](https://img.shields.io/badge/license-MIT-8E8E93?style=flat-square)](LICENSE)
-[![Website](https://img.shields.io/badge/%E5%85%AC%E5%BC%8F%E3%82%B5%E3%82%A4%E3%83%88-launchusapp.com-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://launchusapp.com/)
 
 <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
 
-🌐 <a href="https://launchusapp.com/"><b>公式サイト</b></a>
-
-<img src="docs/images/whats-new.png" width="49%" alt="新機能"> <img src="docs/images/guide.png" width="49%" alt="ようこそガイド">
-
 </div>
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/launcher-ja-dark.webp">
+  <img src="docs/images/launcher-ja-light.webp" alt="macOS 26 で動く LaunchUS">
+</picture>
 
 ## なぜ作ったか
 

@@ -6,20 +6,23 @@
 
 **经典启动台，回到 macOS 26。永久免费。**
 
-[![Release](https://img.shields.io/github/v/release/baka9981/LaunchUS?style=flat-square&color=0A84FF)](https://github.com/baka9981/LaunchUS/releases/latest)
+[![下载](https://img.shields.io/badge/%E4%B8%8B%E8%BD%BD-LaunchUS.dmg-0A84FF?style=for-the-badge&logo=apple&logoColor=white)](https://dl.launchusapp.com/LaunchUS.dmg)
+[![官网](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-launchusapp.com-1C1C1E?style=for-the-badge&logo=safari&logoColor=white)](https://launchusapp.com/)
+
+[![Release](https://img.shields.io/github/v/release/baka9981/LaunchUS?style=flat-square&color=0A84FF&label=release)](https://github.com/baka9981/LaunchUS/releases/latest)
 ![macOS](https://img.shields.io/badge/macOS-26%2B-111?style=flat-square&logo=apple)
-![Swift](https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white)
-[![Downloads](https://img.shields.io/github/downloads/baka9981/LaunchUS/total?style=flat-square&color=34C759)](https://github.com/baka9981/LaunchUS/releases)
 [![License](https://img.shields.io/badge/license-MIT-8E8E93?style=flat-square)](LICENSE)
-[![Website](https://img.shields.io/badge/%E5%AE%98%E7%BD%91-launchusapp.com-0A84FF?style=flat-square&logo=safari&logoColor=white)](https://launchusapp.com/)
 
 <a href="README.md">English</a> · <a href="README.zh-CN.md">简体中文</a> · <a href="README.zh-TW.md">繁體中文</a> · <a href="README.ja.md">日本語</a>
 
-🌐 <a href="https://launchusapp.com/"><b>官网</b></a>
-
-<img src="docs/images/whats-new.png" width="49%" alt="新功能"> <img src="docs/images/guide.png" width="49%" alt="使用引导">
-
 </div>
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/launcher-zh-CN-dark.webp">
+  <img src="docs/images/launcher-zh-CN-light.webp" alt="LaunchUS 运行在 macOS 26 上">
+</picture>
 
 ## 为什么做它
 
