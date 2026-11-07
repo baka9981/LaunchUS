@@ -2,7 +2,8 @@
 # Publish a release that release.sh packaged:
 #   ./scripts/publish.sh 1.3.0
 # Copies releases/v<version>/ to the download site on DEPLOY_HOST (see update.conf) over SSH,
-# then mirrors it to a GitHub release when GITHUB_REPO is set.
+# removes the older versions there, then mirrors it to a GitHub release when GITHUB_REPO is set
+# (GitHub keeps every version).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,12 +21,15 @@ done
 
 DL="$DEPLOY_DIR/dl"
 # rsync writes to a temporary name and renames, so nobody downloads half a file.
-# The versioned files go first, then the "latest" dmg, and the feed last, so the feed never
-# lists a file that isn't up yet.
+# The update zip goes first, then the dmg (only as LaunchUS.dmg, the latest), and the feed
+# last, so the feed never lists a file that isn't up yet.
 ssh "$DEPLOY_HOST" "mkdir -p '$DL/v$VERSION'"
-rsync -t --progress "$ZIP" "$DMG" "$DEPLOY_HOST:$DL/v$VERSION/"
+rsync -t --progress "$ZIP" "$DEPLOY_HOST:$DL/v$VERSION/"
 rsync -t "$DMG" "$DEPLOY_HOST:$DL/LaunchUS.dmg"
 rsync -t "$FEED" "$DEPLOY_HOST:$DL/appcast.xml"
+# The server keeps only this release (the feed lists just it, and in-app updates from China
+# need its zip here); older versions live on GitHub Releases.
+ssh "$DEPLOY_HOST" "find '$DL' -mindepth 1 -maxdepth 1 -type d -name 'v*' ! -name 'v$VERSION' -exec rm -rf {} +"
 echo "Published $VERSION to $DOWNLOAD_URL"
 
 if [[ -n "${GITHUB_REPO:-}" ]]; then

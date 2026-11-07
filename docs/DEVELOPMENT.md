@@ -35,7 +35,7 @@ LAUNCHUS_SNAPSHOT=/tmp/shot.png LAUNCHUS_QUERY=wx LAUNCHUS_FOLDER=工具 build/L
 open launchus://open
 ```
 
-唤起后把界面渲染成 PNG。`LAUNCHUS_REAL=1` 改用真实视图截图；`LAUNCHUS_SHEET=custom|custom:<id>|icon:<id>|profile|whatsnew|guide:<步骤>|tip:<名称>` 打开对应的卡片（有模糊背景时截图要十几秒）。演示截图：`LAUNCHUS_DEMO=1` 只列系统自带的 App（/System 里的）、不显示引导，`LAUNCHUS_WALLPAPER=<图片>` 代替桌面壁纸，再加 `CFFIXED_USER_HOME=<空目录>` 用一份全新的布局。演示模式的设置存在单独的 `local.launchus.LaunchUS.demo` 里、每次启动清空（`UserDefaults.app`；`CFFIXED_USER_HOME` 隔离不了设置），不会把“只有系统 App”写进真实设置、让其他 App 全变成新装。`LAUNCHUS_SHOW=1` 启动后直接打开（录屏用），`LAUNCHUS_GUIDE=1` 启动时显示引导，`LAUNCHUS_CHECK_UPDATES=1` 启动时检查更新。
+唤起后把界面渲染成 PNG。`LAUNCHUS_REAL=1` 改用真实视图截图；`LAUNCHUS_SHEET=custom|custom:<id>|icon:<id>|profile|whatsnew|guide:<步骤>|tip:<名称>` 打开对应的卡片（有模糊背景时截图要十几秒）。演示截图：`LAUNCHUS_DEMO=1` 只列系统自带的 App（/System 里的）、不显示引导，`LAUNCHUS_WALLPAPER=<图片>` 代替桌面壁纸，再加 `CFFIXED_USER_HOME=<空目录>` 用一份全新的布局。演示模式的设置存在单独的 `local.launchus.LaunchUS.demo` 里、每次启动清空（`UserDefaults.app`；`CFFIXED_USER_HOME` 隔离不了设置），不会把“只有系统 App”写进真实设置、让其他 App 全变成新装。`LAUNCHUS_SHOW=1` 启动后直接打开（录屏用，加 `LAUNCHUS_FOLDER` 再打开那个文件夹），`LAUNCHUS_GUIDE=1` 启动时显示引导，`LAUNCHUS_CHECK_UPDATES=1` 启动时检查更新。
 
 卡顿：`LAUNCHUS_HITCHES=/tmp/hitch.log` 让启动台每次掉帧（一帧超过刷新间隔的 1.8 倍）都记一行：时间、耗时、掉了几帧、当时的页码 / 文件夹 / 搜索状态（`HitchLog.swift`）。配合 `sample <pid> 2` 看主线程在忙什么。
 
