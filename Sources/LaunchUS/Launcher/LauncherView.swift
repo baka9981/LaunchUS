@@ -144,7 +144,7 @@ struct LauncherView: View {
                         WindowGlass()
                     } else {
                         BackgroundView(wallpaper: wallpaper, glass: settings.background == .glass,
-                                       glassStrength: settings.glassStrength, dim: settings.dim)
+                                       style: settings.backgroundStyle)
                     }
                 }
                     .opacity(model.shownAmount)
@@ -313,7 +313,18 @@ struct LauncherView: View {
                         .zIndex(10)
                 }
 
-                if model.showSettings {
+                if model.showSettings, let tuner = model.tuner {
+                    // Clear, so the background and pages show exactly as they'll look.
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.closeSettings() }
+                        .zIndex(10)
+                    TunerPanel(model: model, settings: settings, tuner: tuner)
+                        .frame(maxHeight: min(640, geo.size.height - 80))
+                        .position(x: geo.size.width - TunerPanel.width / 2 - 36, y: geo.size.height / 2)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                        .zIndex(10)
+                } else if model.showSettings {
                     Color.black.opacity(0.2)
                         .contentShape(Rectangle())
                         .onTapGesture { model.closeSettings() }

@@ -9,7 +9,7 @@ struct GuideView: View {
         .flatMap { $0.hasPrefix("guide:") ? Int($0.dropFirst(6)) : nil } ?? 0
     @State private var forward = true
 
-    private static let steps = 7
+    private static let steps = 8
 
     var body: some View {
         let settings = model.settings
@@ -21,8 +21,9 @@ struct GuideView: View {
                     case 1: GuidePinch()
                     case 2: GuideFolder()
                     case 3: GuideEdit()
-                    case 4: GuideSearch()
-                    case 5: GuideCustomize()
+                    case 4: GuideRightClick()
+                    case 5: GuideSearch()
+                    case 6: GuideCustomize()
                     default: GuideHidden()
                     }
                 }
@@ -85,6 +86,8 @@ struct GuideView: View {
     private func go(_ delta: Int) {
         forward = delta > 0
         withAnimation(.spring(response: 0.4, dampingFraction: 0.88)) { step += delta }
+        // Whoever saw the right-click card doesn't need the same hint after their first swipe.
+        if step == 4 { Tip.rightClick.markShown() }
     }
 
     private func title(_ settings: Settings) -> String {
@@ -93,8 +96,9 @@ struct GuideView: View {
         case 1: String(localized: "随时打开")
         case 2: String(localized: "拖动整理")
         case 3: String(localized: "编辑与多选")
-        case 4: String(localized: "快速搜索")
-        case 5: String(localized: "按你的习惯来")
+        case 4: String(localized: "右键打开更多")
+        case 5: String(localized: "快速搜索")
+        case 6: String(localized: "按你的习惯来")
         default: String(localized: "隐藏的 App")
         }
     }
@@ -105,8 +109,9 @@ struct GuideView: View {
         case 1: String(localized: "按 \(settings.hotKey.display) 打开。也可以在设置里打开触控板捏合（拇指和三指）、F4 键或触发角。")
         case 2: String(localized: "把一个 App 拖到另一个上面就会建立文件夹。拖到屏幕边缘可以翻到别的页面。")
         case 3: String(localized: "长按图标或按住 ⌥ 进入编辑模式，按住 ⌘ 点击可以多选。右键选「编辑…」可以改名称、图标和标签，也可以移动或卸载。")
-        case 4: String(localized: "直接打字即可搜索，支持拼音和首字母，比如输入「wx」找到微信。输入 # 按标签筛选，输入 128*3 直接算出结果。")
-        case 5: String(localized: "⋯ 菜单里可以新建启动项（网址、文件或脚本），也能切换多套布局方案。编辑时把图标拖到屏幕底边，可以放进程序坞或访达。")
+        case 4: String(localized: "在空白处点右键，可以打开设置，新建启动项，整理文件夹，切换排序和布局方案。右键 App 或文件夹还有各自的操作。")
+        case 5: String(localized: "直接打字即可搜索，支持拼音和首字母，比如输入「wx」找到微信。输入 # 按标签筛选，输入 128*3 直接算出结果。")
+        case 6: String(localized: "⋯ 菜单里可以新建启动项（网址、文件或脚本），也能切换多套布局方案。编辑时把图标拖到屏幕底边，可以放进程序坞或访达。")
         default: String(localized: "右键 App 选择「隐藏」，它就不会出现在网格里。最后一个分页圆点后面藏着入口，验证后才能看到。入口和暗号可在设置 › App 中调整。")
         }
     }
@@ -234,6 +239,58 @@ private struct GuideEdit: View {
                 }
             }
         } animation: { _ in .easeInOut(duration: 0.13) }
+    }
+}
+
+/// A pointer right-clicks empty space and the launcher's menu opens next to it.
+private struct GuideRightClick: View {
+    enum Phase: CaseIterable { case idle, press, open, hold }
+
+    var body: some View {
+        PhaseAnimator(Phase.allCases) { phase in
+            let open = phase == .open || phase == .hold
+            ZStack(alignment: .topLeading) {
+                HStack(spacing: 18) {
+                    ForEach(0..<3, id: \.self) { i in Tile(color: tileColors[i]).opacity(0.45) }
+                }
+                .frame(width: 400, height: 180)
+                Image(systemName: "cursorarrow")
+                    .font(.system(size: 20))
+                    .scaleEffect(phase == .press ? 0.85 : 1)
+                    .offset(x: phase == .idle ? 250 : 200, y: phase == .idle ? 150 : 34)
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array([("plus", "新建"), ("square.grid.3x3.topleft.filled", "整理"),
+                                   ("eye", "视图"), ("gearshape", "设置…")].enumerated()), id: \.offset) { i, item in
+                        HStack(spacing: 8) {
+                            Image(systemName: item.0).frame(width: 16)
+                            Text(LocalizedStringKey(item.1))
+                            Spacer(minLength: 0)
+                        }
+                        .font(.system(size: 12))
+                        .padding(.horizontal, 8).padding(.vertical, 4)
+                        .background(i == 3 && phase == .hold ? Color.accentColor : .clear,
+                                    in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .foregroundStyle(i == 3 && phase == .hold ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+                    }
+                }
+                .padding(5)
+                .frame(width: 128)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(.primary.opacity(0.12)))
+                .shadow(color: .black.opacity(0.18), radius: 8, y: 3)
+                .scaleEffect(open ? 1 : 0.85, anchor: .topLeading)
+                .opacity(open ? 1 : 0)
+                .offset(x: 212, y: 44)
+            }
+            .frame(width: 400, height: 180)
+        } animation: { phase in
+            switch phase {
+            case .idle: .easeInOut(duration: 0.6)
+            case .press: .easeInOut(duration: 0.7)
+            case .open: .spring(response: 0.3, dampingFraction: 0.8)
+            case .hold: .linear(duration: 1.6)
+            }
+        }
     }
 }
 

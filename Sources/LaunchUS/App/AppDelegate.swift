@@ -152,7 +152,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launcher.model.settingsChanged()
         case "showBadges":
             launcher.badgesSettingChanged()
-        case "blur", "displayMode", "hideDock", "background", "backgroundImage":
+        case "blur", "backgroundSaturation", "displayMode", "hideDock", "background", "backgroundImage":
             launcher.displaySettingsChanged()
         default:
             break

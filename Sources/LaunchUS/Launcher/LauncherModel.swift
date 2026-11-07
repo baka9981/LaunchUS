@@ -227,6 +227,8 @@ final class LauncherModel {
     @ObservationIgnored var onClose: (() -> Void)?
     /// The settings card over the launcher.
     var showSettings = false
+    /// A tuning panel shown in the settings card's place, so its changes can be watched on the launcher itself.
+    var tuner: Tuner?
     var settingsTab: SettingsTab = .general
     @ObservationIgnored var settingsActions = SettingsActions(rescan: { _ in })
     /// A short message shown above the page dots, e.g. after a rescan.
@@ -514,6 +516,7 @@ final class LauncherModel {
         sheet = resumeUninstall.map(LauncherSheet.confirmTrash)
         resumeUninstall = nil
         showSettings = false
+        tuner = nil
         exitChat()
         query = ""
         spaceList = nil
@@ -554,7 +557,7 @@ final class LauncherModel {
 
     func goToPage(_ page: Int) {
         let target = max(0, min(pageCount - 1, page))
-        withAnimation(.spring(response: 0.5, dampingFraction: 1)) {
+        withAnimation(settings.motion(.spring(response: 0.5, dampingFraction: 1), duration: 0.45)) {
             currentPage = target
             dragOffset = 0
         }
@@ -566,7 +569,7 @@ final class LauncherModel {
 
     func goToFolderPage(_ page: Int) {
         let count = folderPageCount
-        withAnimation(.spring(response: 0.5, dampingFraction: 1)) {
+        withAnimation(settings.motion(.spring(response: 0.5, dampingFraction: 1), duration: 0.45)) {
             folderPage = max(0, min(count - 1, page))
             folderDragOffset = 0
         }
@@ -591,7 +594,10 @@ final class LauncherModel {
         if openFolderID != nil {
             goToFolderPage(folderPage + step)
         } else {
+            let before = currentPage
             goToPage(currentPage + step)
+            // The first swipe shows they've found their way around; now point out the right-click menu.
+            if currentPage != before { offerTip(.rightClick) }
         }
     }
 
@@ -627,7 +633,10 @@ final class LauncherModel {
 
     /// One page per mouse-wheel flick or ⌘←/→.
     func flipPage(_ step: Int) {
-        if openFolderID != nil { goToFolderPage(folderPage + step) } else { goToPage(currentPage + step) }
+        if openFolderID != nil { goToFolderPage(folderPage + step); return }
+        let before = currentPage
+        goToPage(currentPage + step)
+        if currentPage != before { offerTip(.rightClick) }
     }
 
     // MARK: - Folders
@@ -657,7 +666,7 @@ final class LauncherModel {
         // Let the collapsed panel render once on top of the tile, then grow it.
         DispatchQueue.main.async { [weak self] in
             guard let self, self.folderToken == token, self.openFolderID == id else { return }
-            withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) { self.folderExpanded = true }
+            withAnimation(self.settings.motion(.spring(response: 0.38, dampingFraction: 0.86), duration: 0.38)) { self.folderExpanded = true }
         }
     }
 
@@ -681,7 +690,7 @@ final class LauncherModel {
         folderToken += 1
         let token = folderToken
         folderOrigin = openFolderID.flatMap(tileRect(ofFolder:)) ?? folderOrigin
-        withAnimation(.spring(response: 0.32, dampingFraction: 1), completionCriteria: .logicallyComplete) {
+        withAnimation(settings.motion(.spring(response: 0.32, dampingFraction: 1), duration: 0.3), completionCriteria: .logicallyComplete) {
             folderExpanded = false
         } completion: { [weak self] in
             guard let self, self.folderToken == token else { return }

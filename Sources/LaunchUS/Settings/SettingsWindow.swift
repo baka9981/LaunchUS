@@ -456,6 +456,15 @@ struct AppearanceTab: View {
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
+                if settings.animationSpeed != .off {
+                    Row(title: String(localized: "动画曲线"),
+                        info: String(localized: "打开、关闭、翻页和文件夹的过渡快慢节奏。选一种预设，或点「调整…」拖动曲线")) {
+                        HStack(spacing: 8) {
+                            MotionCurvePicker(curve: $settings.motionCurve)
+                            Button(String(localized: "调整…")) { model.openTuner(.motion) }
+                        }
+                    }
+                }
             }
         }
         SettingsSection(title: String(localized: "网格")) {
@@ -530,18 +539,14 @@ struct AppearanceTab: View {
                         Button(String(localized: "选择图片…"), action: chooseBackground)
                     }
                 }
-                if settings.background != .glass && settings.displayMode == .fullScreen {
-                    Row(title: String(localized: "模糊壁纸"), info: String(localized: "拖到最左边关闭模糊")) {
-                        Slider(value: $settings.blur, in: 0...240).frame(width: 220)
+                if settings.displayMode == .fullScreen {
+                    Row(title: String(localized: "效果"),
+                        info: String(localized: "模糊、颜色、色温、色调、暗角和颗粒感。选一个方案，或点「调整…」边看边调，调好的可以存成自己的方案")) {
+                        HStack(spacing: 8) {
+                            BackgroundStylePicker(settings: settings)
+                            Button(String(localized: "调整…")) { model.openTuner(.background) }
+                        }
                     }
-                }
-                if settings.background == .glass && settings.displayMode == .fullScreen {
-                    Row(title: String(localized: "玻璃强度")) {
-                        Slider(value: $settings.glassStrength, in: 0.2...1).frame(width: 220)
-                    }
-                }
-                Row(title: String(localized: "暗度")) {
-                    Slider(value: $settings.dim, in: 0...0.6).frame(width: 220)
                 }
                 Row(title: String(localized: "深色时加深背景"), info: String(localized: "外观为深色时，背景再暗一些，图标和名称更清楚")) {
                     Toggle("", isOn: $settings.darkenBackground).toggleStyle(.switch).labelsHidden()
@@ -1036,6 +1041,29 @@ struct AdvancedTab: View {
                     .help(String(localized: "反馈问题时附上这个文件。包含版本、设置和最近的日志，不含 App 列表和暗号"))
             }
             .padding(.horizontal, 4)
+        }
+        SettingsSection(title: String(localized: "还原")) {
+            Card {
+                Row(title: String(localized: "还原所有设置和布局"),
+                    subtitle: String(localized: "回到刚安装时的样子，LaunchUS 会重新启动")) {
+                    Button { confirmFactoryReset() } label: { Text("还原…").foregroundStyle(.red) }
+                }
+            }
+        }
+    }
+
+    private func confirmFactoryReset() {
+        let alert = NSAlert()
+        alert.alertStyle = .critical
+        alert.messageText = String(localized: "还原所有设置和布局？")
+        alert.informativeText = String(localized: "所有设置都会恢复默认，布局、文件夹、隐藏的 App、启动项、自定义图标、布局方案、自动备份和 AI 聊天记录都会清空。现在的数据文件夹会移到废纸篓，需要时可以从那里找回。")
+        let reset = alert.addButton(withTitle: String(localized: "还原并重新启动"))
+        reset.hasDestructiveAction = true
+        alert.addButton(withTitle: String(localized: "取消"))
+        guard Modal.run({ alert.runModal() }) == .alertFirstButtonReturn else { return }
+        // It brings hidden apps back into the grid, so it needs the same verification as showing them.
+        model.whenHiddenUnlocked(reason: String(localized: "还原所有设置和布局")) {
+            do { try FactoryReset.run() } catch { failAlert(String(localized: "还原失败"), error) }
         }
     }
 

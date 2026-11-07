@@ -293,8 +293,17 @@ extension LauncherModel {
     }
 
     func closeSettings() {
+        if tuner != nil {
+            // A tuning panel goes back to the settings it came from.
+            withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) { tuner = nil }
+            return
+        }
         withAnimation(.easeOut(duration: 0.18)) { showSettings = false }
         focusRequest += 1
+    }
+
+    func openTuner(_ which: Tuner) {
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) { tuner = which }
     }
 
     static func cleaned(_ values: [String]) -> [String] {

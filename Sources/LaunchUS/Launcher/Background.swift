@@ -11,6 +11,13 @@ final class WallpaperProvider {
     @ObservationIgnored private var key: String?
     @ObservationIgnored private let context = CIContext(options: [.cacheIntermediates: false])
 
+    /// The last decoded picture, kept so dragging a slider only re-blurs instead of re-decoding a 6K file.
+    @ObservationIgnored private nonisolated(unsafe) var decoded: (key: String, image: CGImage)?
+    /// Work in flight and the newest request that came in meanwhile: sliders fire many times a
+    /// second, and only the latest value matters.
+    @ObservationIgnored private var busy = false
+    @ObservationIgnored private var queued: (() -> Void)?
+
     func prepare(for screen: NSScreen, blur: Double) {
         let settings = Settings.shared
         // Debug aid for website pictures: LAUNCHUS_WALLPAPER=/path.png stands in for the desktop picture.
@@ -22,46 +29,86 @@ final class WallpaperProvider {
             return
         }
         let size = screen.frame.size
+        let look = Look(blur: blur, saturation: settings.backgroundSaturation)
         let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-        let newKey = "\(url.path)|\(Int(size.width))x\(Int(size.height))|\(modified?.timeIntervalSince1970 ?? 0)|\(Int(blur))"
+        let source = "\(url.path)|\(Int(size.width))x\(Int(size.height))|\(modified?.timeIntervalSince1970 ?? 0)"
+        let newKey = "\(source)|\(look.key)"
         guard newKey != key else { return }
         key = newKey
 
-        let context = self.context
-        Task.detached(priority: .userInitiated) { [weak self] in
-            let blurred = Self.blurred(url: url, target: size, blur: blur, context: context)
-            await self?.finish(blurred, key: newKey)
+        let work = { [weak self] in
+            guard let self else { return }
+            self.busy = true
+            let context = self.context
+            Task.detached(priority: .userInitiated) { [weak self] in
+                let blurred = self?.render(url: url, source: source, target: size, look: look, context: context)
+                await self?.finish(blurred, key: newKey)
+            }
         }
+        if busy { queued = work } else { work() }
     }
 
     private func finish(_ blurred: CGImage?, key: String) {
-        guard self.key == key else { return }
-        image = blurred
+        if self.key == key { image = blurred }
+        busy = false
+        if let next = queued {
+            queued = nil
+            next()
+        }
     }
 
-    /// Aspect-fills the wallpaper at a third of the screen size, then blurs it.
-    /// The low resolution is invisible under a heavy blur and keeps this fast.
-    /// With the blur off, the picture is kept sharp at Retina resolution instead.
-    nonisolated private static func blurred(url: URL, target: CGSize, blur: Double, context: CIContext) -> CGImage? {
-        let sharp = blur < 1
-        let factor: CGFloat = sharp ? 2 : 1.0 / 3
+    /// What the background looks like, apart from which picture it is.
+    struct Look: Sendable {
+        /// Gaussian blur sigma in screen points (the setting's 0…240).
+        var blur: Double
+        /// 1 leaves the colours as they are, 0 is grey, 2 doubly vivid.
+        var saturation: Double
+
+        var key: String { "\(Int((blur * 4).rounded()))|\(Int((saturation * 100).rounded()))" }
+
+        /// Working resolution relative to the screen: sharp pictures need Retina pixels, while a
+        /// heavy blur hides any lack of them and is far cheaper at low resolution. Stepping it
+        /// down gradually (the blur spanning at least 4 working pixels) keeps light blurs smooth
+        /// instead of jumping from crisp to a blocky third-size image.
+        var resolution: CGFloat {
+            let steps: [CGFloat] = [1.0 / 3, 1.0 / 2, 2.0 / 3, 1, 2]
+            return steps.first { CGFloat(blur) * $0 >= 4 } ?? 2
+        }
+    }
+
+    /// Aspect-fills the picture at the working resolution, then blurs and tones it.
+    nonisolated func render(url: URL, source: String, target: CGSize, look: Look, context: CIContext) -> CGImage? {
+        let factor = look.resolution
         let outW = max(1, (target.width * factor).rounded())
         let outH = max(1, (target.height * factor).rounded())
-        guard let decoded = decode(url: url, fill: CGSize(width: outW, height: outH)) else { return nil }
-        let source = CIImage(cgImage: decoded)
-        guard source.extent.width > 0, source.extent.height > 0 else { return nil }
-        let scale = max(outW / source.extent.width, outH / source.extent.height)
-        let scaled = source.samplingLinear().transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        let decodeKey = "\(source)|\(Int(outW))"
+        let picture: CGImage
+        if let cached = decoded, cached.key == decodeKey {
+            picture = cached.image
+        } else {
+            guard let fresh = Self.decode(url: url, fill: CGSize(width: outW, height: outH)) else { return nil }
+            decoded = (decodeKey, fresh)
+            picture = fresh
+        }
+        let input = CIImage(cgImage: picture)
+        guard input.extent.width > 0, input.extent.height > 0 else { return nil }
+        let scale = max(outW / input.extent.width, outH / input.extent.height)
+        let scaled = input.samplingLinear().transformed(by: CGAffineTransform(scaleX: scale, y: scale))
         let crop = CGRect(
             x: scaled.extent.minX + (scaled.extent.width - outW) / 2,
             y: scaled.extent.minY + (scaled.extent.height - outH) / 2,
             width: outW, height: outH
         )
-        let output = (sharp ? scaled.cropped(to: crop) : scaled.cropped(to: crop)
+        let sigma = look.blur * Double(factor)
+        let blurred = sigma < 0.2 ? scaled.cropped(to: crop) : scaled.cropped(to: crop)
             .clampedToExtent()
-            .applyingGaussianBlur(sigma: blur / 3)
-            .cropped(to: crop))
-            .applyingFilter("CIColorControls", parameters: [kCIInputSaturationKey: 1.05, kCIInputContrastKey: 1.08, kCIInputBrightnessKey: -0.03])
+            .applyingGaussianBlur(sigma: sigma)
+            .cropped(to: crop)
+        // A light touch of contrast keeps a blurred picture from looking washed out; none when sharp.
+        let contrast = 1 + 0.08 * min(1, look.blur / 10)
+        let output = blurred.applyingFilter("CIColorControls", parameters: [
+            kCIInputSaturationKey: look.saturation, kCIInputContrastKey: contrast, kCIInputBrightnessKey: -0.03 * min(1, look.blur / 10),
+        ])
         return context.createCGImage(output, from: crop)
     }
 
@@ -90,20 +137,19 @@ struct BackgroundView: View {
     let wallpaper: WallpaperProvider
     /// Frosted glass over what's behind the window instead of the wallpaper.
     var glass = false
-    /// How much of the frosted glass covers what's behind, 0…1.
-    var glassStrength = 1.0
-    var dim = 0.2
+    var style = BackgroundStyle.standard
     @Environment(\.colorScheme) private var colorScheme
 
     /// The dark look darkens the background further, so icons and names stand out like in dark mode elsewhere.
     private var shade: Double {
-        guard colorScheme == .dark, Settings.shared.darkenBackground else { return dim }
-        return min(0.8, dim + 0.25)
+        guard colorScheme == .dark, Settings.shared.darkenBackground else { return style.dim }
+        return min(0.8, style.dim + 0.25)
     }
 
     var body: some View {
+        let picture = !glass ? wallpaper.image : nil
         ZStack {
-            if !glass, let image = wallpaper.image {
+            if let image = picture {
                 // Sized by the screen, not the picture: a landscape picture on a portrait
                 // screen would otherwise widen the whole launcher and push the grid aside.
                 Color.clear
@@ -116,12 +162,76 @@ struct BackgroundView: View {
             } else {
                 // Wallpaper unreadable (e.g. video or rotating folder): blur what's behind instead.
                 VisualEffectBackground()
-                    .opacity(glass ? glassStrength : 1)
+                    .opacity(glass ? style.glassStrength : 1)
             }
+            BackgroundToning(style: style, blends: picture != nil)
             Color.black.opacity(shade)
         }
+        .compositingGroup()
         .contentShape(Rectangle())
     }
+}
+
+/// Colour cast, colour wash, darkened corners and film grain over the background. Drawn live
+/// rather than baked into the blurred picture, so their sliders answer at once.
+struct BackgroundToning: View {
+    let style: BackgroundStyle
+    /// Blend modes only reach a picture drawn by SwiftUI; over the system's frosted glass the
+    /// colours are laid on plainly and more lightly instead.
+    let blends: Bool
+
+    static let warm = Color(red: 1, green: 0.55, blue: 0.15)
+    static let cool = Color(red: 0.2, green: 0.5, blue: 1)
+
+    var body: some View {
+        ZStack {
+            if style.temperature != 0 {
+                (style.temperature > 0 ? Self.warm : Self.cool)
+                    .opacity(abs(style.temperature) * (blends ? 0.75 : 0.3))
+                    .blendMode(blends ? .softLight : .normal)
+            }
+            if style.tint > 0 {
+                Color(hue: style.tintHue, saturation: 0.7, brightness: 0.75)
+                    .opacity(style.tint * (blends ? 0.9 : 0.35))
+                    .blendMode(blends ? .color : .normal)
+            }
+            if style.vignette > 0 {
+                EllipticalGradient(colors: [.clear, .black.opacity(0.85 * style.vignette)],
+                                   center: .center, startRadiusFraction: 0.25, endRadiusFraction: 0.78)
+            }
+            if style.grain > 0, let grain = FilmGrain.image {
+                Image(decorative: grain, scale: 2)
+                    .resizable(resizingMode: .tile)
+                    .opacity(min(1, style.grain * 1.2))
+            }
+        }
+        .allowsHitTesting(false)
+    }
+}
+
+/// A tile of random light and dark specks, transparent on average, for the grain slider.
+enum FilmGrain {
+    static let image: CGImage? = {
+        let side = 256
+        var pixels = [UInt8](repeating: 0, count: side * side * 4)
+        // A fixed-seed generator, so the grain doesn't change between launches.
+        var seed: UInt64 = 0x9E3779B97F4A7C15
+        for i in 0..<(side * side) {
+            seed = seed &* 6364136223846793005 &+ 1442695040888963407
+            let n = Double((seed >> 33) & 0xFFFF) / 65535 - 0.5   // -0.5…0.5
+            // Squaring keeps most specks faint and a few strong, like real grain.
+            let alpha = UInt8(min(255, (n * n * 4) * 200))
+            let value: UInt8 = n > 0 ? 255 : 0
+            // Premultiplied: colour × alpha.
+            let c = UInt8(Int(value) * Int(alpha) / 255)
+            pixels[i * 4] = c; pixels[i * 4 + 1] = c; pixels[i * 4 + 2] = c; pixels[i * 4 + 3] = alpha
+        }
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData) else { return nil }
+        return CGImage(width: side, height: side, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: side * 4,
+                       space: CGColorSpaceCreateDeviceRGB(),
+                       bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
+                       provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent)
+    }()
 }
 
 /// Window mode's frosted panel, following the system's light or dark appearance.

@@ -58,7 +58,7 @@ enum WhatsNew {
 
 /// A hint shown once, at the moment it's useful.
 enum Tip: String {
-    case dragOut, frequentRow, launchItem
+    case dragOut, frequentRow, launchItem, rightClick
 
     private static let key = "shownTips"
     nonisolated(unsafe) private static var shown = Set(UserDefaults.app.stringArray(forKey: key) ?? [])
@@ -81,6 +81,7 @@ enum Tip: String {
                 : String(localized: "小技巧：把图标拖到屏幕底边，可以放进程序坞或访达")
         case .frequentRow: String(localized: "想把最近打开的 App 放在最上面？可以开启「常用一行」")
         case .launchItem: String(localized: "没找到？网址、文件和脚本也能做成启动项")
+        case .rightClick: String(localized: "小技巧：在空白处点右键，可以打开设置和更多选项")
         }
     }
 
@@ -89,6 +90,7 @@ enum Tip: String {
         case .dragOut: nil
         case .frequentRow: String(localized: "开启")
         case .launchItem: String(localized: "新建启动项…")
+        case .rightClick: String(localized: "打开设置")
         }
     }
 
@@ -99,6 +101,7 @@ enum Tip: String {
         case .launchItem:
             model.query = ""
             model.sheet = .editCustom(nil)
+        case .rightClick: model.openSettings()
         }
     }
 }

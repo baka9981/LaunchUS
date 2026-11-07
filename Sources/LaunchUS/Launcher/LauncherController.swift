@@ -203,7 +203,7 @@ final class LauncherController {
             return
         }
         DispatchQueue.main.async { self.model.focusRequest += 1 }
-        finishShowing(animation: .easeOut(duration: 0.22))
+        finishShowing(animation: settings.motion(.easeOut(duration: 0.22), duration: 0.26))
         writeDebugSnapshotIfRequested()
     }
 
@@ -247,7 +247,7 @@ final class LauncherController {
         if opening {
             guard pinchOpening else { return }
             pinchOpening = false
-            if commit { finishShowing(animation: .easeOut(duration: 0.18)) } else { hide(restoreFocus: true) }
+            if commit { finishShowing(animation: settings.motion(.easeOut(duration: 0.18), duration: 0.2)) } else { hide(restoreFocus: true) }
         } else {
             guard isVisible, model.gestureProgress != nil else { return }
             if commit {
@@ -323,6 +323,15 @@ final class LauncherController {
                 else if sheet.hasPrefix("custom:") { self.model.sheet = .editCustom(sheet) }
             }
             if let tab = env["LAUNCHUS_SETTINGS"].flatMap(SettingsTab.named) { self.model.openSettings(tab) }
+            if let tuner = env["LAUNCHUS_TUNER"] {
+                self.model.openSettings(.appearance)
+                self.model.tuner = tuner.hasPrefix("motion") ? .motion : .background
+                // `background:<n>` also applies the n-th preset, to picture it.
+                if let n = tuner.split(separator: ":").last.flatMap({ Int($0) }), BackgroundStyle.presets.indices.contains(n) {
+                    self.settings.backgroundStyle = BackgroundStyle.presets[n].style
+                }
+                if tuner.hasPrefix("motion") { self.settings.motionCurve = MotionCurve.presets[3].curve }
+            }
             if let name = env["LAUNCHUS_FOLDER"],
                case .folder(let folder, _)? = self.model.pages.joined().first(where: { $0.title == name }) {
                 self.model.openFolder(folder.id)
@@ -363,11 +372,11 @@ final class LauncherController {
         model.endDrag()
         dockBadges.stop()
         pinchOpening = false
-        withAnimation(.easeIn(duration: 0.16)) {
+        withAnimation(settings.motion(.easeIn(duration: 0.16), duration: 0.18)) {
             model.isPresented = false
             model.gestureProgress = nil
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + settings.animationSpeed.duration(0.17)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + settings.animationSpeed.duration(settings.motionCurve == nil ? 0.17 : 0.19)) {
             guard self.hideToken == token else { return }
             self.panel.orderOut(nil)
             self.model.didHide()

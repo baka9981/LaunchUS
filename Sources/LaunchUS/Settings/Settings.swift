@@ -65,6 +65,58 @@ enum AnimationSpeed: String, CaseIterable {
         }
     }
 }
+/// A cubic Bézier timing curve for the launcher's transitions, like CSS's `cubic-bezier()`:
+/// time runs along x from 0 to 1, progress up y. y may leave 0…1 to undershoot or overshoot.
+struct MotionCurve: Codable, Equatable, Hashable {
+    var x1: Double, y1: Double, x2: Double, y2: Double
+
+    static let yRange: ClosedRange<Double> = -0.6...1.6
+
+    /// Keeps time moving forward (x in 0…1) and the bounce within reason.
+    var clamped: MotionCurve {
+        MotionCurve(x1: min(1, max(0, x1)), y1: min(Self.yRange.upperBound, max(Self.yRange.lowerBound, y1)),
+                    x2: min(1, max(0, x2)), y2: min(Self.yRange.upperBound, max(Self.yRange.lowerBound, y2)))
+    }
+
+    func animation(duration: Double) -> Animation {
+        .timingCurve(x1, y1, x2, y2, duration: duration)
+    }
+
+    /// Progress at time `t`, for drawing and previewing the curve.
+    func point(_ t: Double) -> CGPoint {
+        let u = 1 - t
+        let x = 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t
+        let y = 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t
+        return CGPoint(x: x, y: y)
+    }
+
+    /// Progress at clock time `x`: solves the curve's x for its t first.
+    func value(at x: Double) -> Double {
+        var lo = 0.0, hi = 1.0
+        for _ in 0..<24 {
+            let mid = (lo + hi) / 2
+            if point(mid).x < x { lo = mid } else { hi = mid }
+        }
+        return point((lo + hi) / 2).y
+    }
+
+    struct Preset: Identifiable {
+        let title: String
+        let curve: MotionCurve
+        var id: String { title }
+    }
+
+    static var presets: [Preset] {
+        [
+            Preset(title: String(localized: "缓出"), curve: MotionCurve(x1: 0.16, y1: 1, x2: 0.3, y2: 1)),
+            Preset(title: String(localized: "缓入缓出"), curve: MotionCurve(x1: 0.65, y1: 0, x2: 0.35, y2: 1)),
+            Preset(title: String(localized: "线性"), curve: MotionCurve(x1: 0, y1: 0, x2: 1, y2: 1)),
+            Preset(title: String(localized: "回弹"), curve: MotionCurve(x1: 0.34, y1: 1.45, x2: 0.64, y2: 1)),
+            Preset(title: String(localized: "先收后放"), curve: MotionCurve(x1: 0.6, y1: -0.35, x2: 0.4, y2: 1.35)),
+        ]
+    }
+}
+
 enum BackgroundKind: String, CaseIterable { case wallpaper, glass, image }
 /// Light or dark look for LaunchUS's cards, menus and window, apart from the Mac's own.
 enum AppearanceMode: String, CaseIterable {
@@ -272,6 +324,12 @@ final class Settings {
     /// Folder tiles and the open folder use liquid glass instead of the smoked glass look.
     var liquidGlass: Bool { didSet { save(liquidGlass, "liquidGlass") } }
     var animationSpeed: AnimationSpeed { didSet { save(animationSpeed.rawValue, "animationSpeed") } }
+    /// Timing curve for opening, closing, page turns and folders; `nil` keeps the built-in springs.
+    var motionCurve: MotionCurve? {
+        didSet {
+            if let motionCurve { saveCodable(motionCurve, "motionCurve") } else { save(Data(), "motionCurve") }
+        }
+    }
     var appearance: AppearanceMode { didSet { save(appearance.rawValue, "appearance") } }
     var darkIcons: DarkIconMode { didSet { save(darkIcons.rawValue, "darkIcons") } }
     /// The background gets darker still when the look is dark.
@@ -287,12 +345,26 @@ final class Settings {
     /// File name in `BackgroundImage.directory`, used when `background` is `.image`.
     var backgroundImage: String { didSet { save(backgroundImage, "backgroundImage") } }
     var background: BackgroundKind { didSet { save(background.rawValue, "background") } }
-    /// Wallpaper blur radius in screen pixels.
+    /// Wallpaper blur radius in screen points, 0…240.
     var blur: Double { didSet { save(blur, "blur") } }
+    /// Colour of the wallpaper or picture: 1 as is, 0 grey, up to 2 more vivid.
+    var backgroundSaturation: Double { didSet { save(backgroundSaturation, "backgroundSaturation") } }
     /// Black overlay on the background, 0…0.6.
     var dim: Double { didSet { save(dim, "dim") } }
     /// Frosted glass background's opacity, 0.2…1.
     var glassStrength: Double { didSet { save(glassStrength, "glassStrength") } }
+    /// Warm (1) or cool (-1) cast over the background, 0 leaves it neutral.
+    var backgroundTemperature: Double { didSet { save(backgroundTemperature, "backgroundTemperature") } }
+    /// Hue of the colour wash, 0…1 around the colour wheel.
+    var backgroundTintHue: Double { didSet { save(backgroundTintHue, "backgroundTintHue") } }
+    /// How strongly the background takes on `backgroundTintHue`, 0…1.
+    var backgroundTint: Double { didSet { save(backgroundTint, "backgroundTint") } }
+    /// Film grain over the background, 0…1.
+    var backgroundGrain: Double { didSet { save(backgroundGrain, "backgroundGrain") } }
+    /// Darkened corners, 0…1.
+    var backgroundVignette: Double { didSet { save(backgroundVignette, "backgroundVignette") } }
+    /// Looks the user saved, shown after the built-in ones.
+    var savedBackgroundStyles: [BackgroundStyle.Saved] { didSet { saveCodable(savedBackgroundStyles, "savedBackgroundStyles") } }
 
     // Apps
     /// Extra folders scanned for apps, besides the default ones.
@@ -374,6 +446,7 @@ final class Settings {
         fadeStale = value("fadeStale", false)
         liquidGlass = value("liquidGlass", true)
         animationSpeed = AnimationSpeed(rawValue: value("animationSpeed", "")) ?? .standard
+        motionCurve = d.data(forKey: "motionCurve").flatMap { try? JSONDecoder().decode(MotionCurve.self, from: $0) }?.clamped
         appearance = AppearanceMode(rawValue: value("appearance", "")) ?? .system
         darkIcons = DarkIconMode(rawValue: value("darkIcons", "")) ?? .auto
         darkenBackground = value("darkenBackground", true)
@@ -384,8 +457,16 @@ final class Settings {
         backgroundImage = value("backgroundImage", "")
         background = BackgroundKind(rawValue: value("background", "")) ?? .wallpaper
         blur = value("blur", 38.0)
+        backgroundSaturation = min(2, max(0, value("backgroundSaturation", 1.05)))
         dim = value("dim", 0.2)
         glassStrength = min(1, max(0.2, value("glassStrength", 1.0)))
+        backgroundTemperature = min(1, max(-1, value("backgroundTemperature", 0.0)))
+        backgroundTintHue = min(1, max(0, value("backgroundTintHue", 0.6)))
+        backgroundTint = min(1, max(0, value("backgroundTint", 0.0)))
+        backgroundGrain = min(1, max(0, value("backgroundGrain", 0.0)))
+        backgroundVignette = min(1, max(0, value("backgroundVignette", 0.0)))
+        savedBackgroundStyles = d.data(forKey: "savedBackgroundStyles")
+            .flatMap { try? JSONDecoder().decode([BackgroundStyle.Saved].self, from: $0) } ?? []
 
         extraAppFolders = value("extraAppFolders", [String]())
         hiddenDotEntrance = value("hiddenDotEntrance", true)
@@ -409,6 +490,33 @@ final class Settings {
         aiSystemPrompt = value("aiSystemPrompt", "")
         aiToolAccess = AIToolAccess(rawValue: value("aiToolAccess", "")) ?? .confirm
         aiHistoryCount = min(200, max(0, value("aiHistoryCount", 50)))
+    }
+
+    /// Every adjustable part of the background's look at once, for presets and saved looks.
+    var backgroundStyle: BackgroundStyle {
+        get {
+            BackgroundStyle(blur: blur, saturation: backgroundSaturation, dim: dim, glassStrength: glassStrength,
+                            temperature: backgroundTemperature, tintHue: backgroundTintHue, tint: backgroundTint,
+                            grain: backgroundGrain, vignette: backgroundVignette)
+        }
+        set {
+            let style = newValue.clamped
+            if blur != style.blur { blur = style.blur }
+            if backgroundSaturation != style.saturation { backgroundSaturation = style.saturation }
+            if dim != style.dim { dim = style.dim }
+            if glassStrength != style.glassStrength { glassStrength = style.glassStrength }
+            if backgroundTemperature != style.temperature { backgroundTemperature = style.temperature }
+            if backgroundTintHue != style.tintHue { backgroundTintHue = style.tintHue }
+            if backgroundTint != style.tint { backgroundTint = style.tint }
+            if backgroundGrain != style.grain { backgroundGrain = style.grain }
+            if backgroundVignette != style.vignette { backgroundVignette = style.vignette }
+        }
+    }
+
+    /// The animation for one of the launcher's transitions: `standard` unless a curve is chosen,
+    /// which then runs for `duration` seconds (the animation speed setting still scales it).
+    func motion(_ standard: Animation, duration: Double) -> Animation {
+        motionCurve?.animation(duration: duration) ?? standard
     }
 
     private func save(_ value: Any, _ key: String) {

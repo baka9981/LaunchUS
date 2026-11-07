@@ -39,7 +39,7 @@ open launchus://open
 
 卡顿：`LAUNCHUS_HITCHES=/tmp/hitch.log` 让启动台每次掉帧（一帧超过刷新间隔的 1.8 倍）都记一行：时间、耗时、掉了几帧、当时的页码 / 文件夹 / 搜索状态（`HitchLog.swift`）。配合 `sample <pid> 2` 看主线程在忙什么。
 
-AI 聊天：`LAUNCHUS_CHAT=1` 载入示例对话（`=empty` 打开空对话，显示建议和最近的对话记录；`=error` 显示一条出错的回答；记录存在 Application Support/LaunchUS/Chats，截图运行不写入），`LAUNCHUS_ASK=<问题>` 真的发一条（用设置里的网关；`LAUNCHUS_AI_KEY` 可临时换密钥），`LAUNCHUS_DELAY=<秒>` 推迟截图等回答流完，`LAUNCHUS_SETTINGS=ai` 打开对应的设置页。debug 构建直接运行时加载不了 Sparkle，截图和 MCP 测试请用 `scripts/build.sh release` 的产物。
+AI 聊天：`LAUNCHUS_CHAT=1` 载入示例对话（`=empty` 打开空对话，显示建议和最近的对话记录；`=error` 显示一条出错的回答；记录存在 Application Support/LaunchUS/Chats，截图运行不写入），`LAUNCHUS_ASK=<问题>` 真的发一条（用设置里的网关；`LAUNCHUS_AI_KEY` 可临时换密钥），`LAUNCHUS_DELAY=<秒>` 推迟截图等回答流完，`LAUNCHUS_SETTINGS=ai` 打开对应的设置页（`LAUNCHUS_TUNER=background|motion` 打开外观的调节面板，`background:<n>` 同时套用第 n 个方案）。debug 构建直接运行时加载不了 Sparkle，截图和 MCP 测试请用 `scripts/build.sh release` 的产物。
 
 ## AI 与 MCP
 
