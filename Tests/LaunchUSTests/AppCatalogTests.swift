@@ -142,6 +142,8 @@ struct AppCatalogTests {
         await waitUntil { catalog.icons["app"]?.width == 1 }
 
         catalog.darkIcons = true
+        // The light icon stays on screen until the dark one is drawn: never blank in between.
+        #expect(catalog.icons["app"]?.width == 1)
         await waitUntil { catalog.icons["app"]?.width == 2 }
         #expect(catalog.icons["app"]?.width == 2)
         catalog.darkIcons = false

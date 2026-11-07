@@ -71,13 +71,19 @@ import Testing
 
     @Test func frequentRowMetrics() {
         let size = CGSize(width: 1_512, height: 982)
-        let plain = GridMetrics(size: size, columns: 7, rows: 5)
-        let withRow = GridMetrics(size: size, columns: 7, rows: 5, frequentRow: true)
-        #expect(withRow.gridTop > plain.gridTop)
-        #expect(withRow.cellSize.height < plain.cellSize.height)
-        // The grid still ends where it did.
-        #expect(abs((withRow.gridTop + withRow.gridHeight) - (plain.gridTop + plain.gridHeight)) < 1.5)
-        #expect(withRow.frequentCenterY > plain.searchCenterY + plain.searchSize.height / 2)
+        let plain = GridMetrics(size: size, columns: 7, rows: 5, paged: false)
+        let withRow = GridMetrics(size: size, columns: 7, rows: 5, paged: false, frequentRow: true)
+        // A full grid row plus a line, scrolling with the grid: the grid's rows and top don't change.
+        #expect(withRow.cellSize == plain.cellSize)
+        #expect(withRow.gridTop == plain.gridTop)
+        // As in the system Apps window: under the line is the usual gap between rows, and the line
+        // sits about four fifths of that under the names.
+        let m = withRow
+        let above = m.frequentLineY - m.frequentLabelBottom
+        let below = m.frequentHeight + m.cellSize.height / 2 - m.iconSize * 0.4 - (m.frequentLineY + 1)
+        #expect(abs(below - m.rowGap) <= 1)
+        #expect(abs(above / below - 0.79) < 0.06)
+        #expect(plain.frequentHeight == 0)
     }
 
     @Test func syncPayloadNamesProfile() throws {

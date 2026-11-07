@@ -56,11 +56,14 @@ enum FolderColor: String, CaseIterable {
 enum LayoutItem: Codable, Hashable, Identifiable {
     case app(String)
     case folder(Folder)
+    /// An empty cell, kept when icons can be placed anywhere.
+    case gap
 
     var id: String {
         switch self {
         case .app(let id): "app:" + id
         case .folder(let folder): "folder:" + folder.id
+        case .gap: "gap"
         }
     }
 
@@ -68,6 +71,42 @@ enum LayoutItem: Codable, Hashable, Identifiable {
         switch self {
         case .app(let id): [id]
         case .folder(let folder): folder.apps
+        case .gap: []
+        }
+    }
+
+    var isGap: Bool {
+        if case .gap = self { return true }
+        return false
+    }
+
+    // Stored in the same shape the compiler used to synthesise, `{"app":{"_0":…}}`. An empty
+    // cell is written as an app with no ID, which older versions simply drop as uninstalled.
+    private enum CodingKeys: String, CodingKey { case app, folder }
+    private enum ValueKeys: String, CodingKey { case _0 }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if c.contains(.app) {
+            let id = try c.nestedContainer(keyedBy: ValueKeys.self, forKey: .app).decode(String.self, forKey: ._0)
+            self = id.isEmpty ? .gap : .app(id)
+        } else {
+            self = .folder(try c.nestedContainer(keyedBy: ValueKeys.self, forKey: .folder).decode(Folder.self, forKey: ._0))
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .app(let id):
+            var v = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .app)
+            try v.encode(id, forKey: ._0)
+        case .gap:
+            var v = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .app)
+            try v.encode("", forKey: ._0)
+        case .folder(let folder):
+            var v = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .folder)
+            try v.encode(folder, forKey: ._0)
         }
     }
 }
@@ -85,6 +124,8 @@ struct AppMeta: Codable, Hashable {
     var icon: String?
     /// Global shortcut that opens the app from anywhere (`AppHotKeys`).
     var shortcut: HotKeySpec?
+    /// Category tab the user moved the app to (an `AppCategoryName.Group`), instead of the one its developer declares.
+    var group: String?
 
     init() {}
 
@@ -96,6 +137,7 @@ struct AppMeta: Codable, Hashable {
         hidden = try c.decodeIfPresent(Bool.self, forKey: .hidden) ?? false
         icon = try c.decodeIfPresent(String.self, forKey: .icon)
         shortcut = try c.decodeIfPresent(HotKeySpec.self, forKey: .shortcut)
+        group = try c.decodeIfPresent(String.self, forKey: .group)
     }
 }
 
@@ -116,6 +158,19 @@ enum LayoutStore {
     }
     static var layoutURL: URL { directory.appendingPathComponent("layout.json") }
     static var metaURL: URL { directory.appendingPathComponent("meta.json") }
+    /// Smart folders that live only in the smart bar.
+    static var barFoldersURL: URL { directory.appendingPathComponent("bar-folders.json") }
+
+    static func loadBarFolders() -> [Folder] {
+        guard let data = try? Data(contentsOf: barFoldersURL) else { return [] }
+        return (try? JSONDecoder().decode([Folder].self, from: data)) ?? []
+    }
+
+    static func save(barFolders: [Folder]) {
+        write(barFolders, to: barFoldersURL)
+        AutoBackup.schedule()
+        ICloudSync.localChanged()
+    }
 
     static func loadLayout() -> [[LayoutItem]]? {
         guard let data = try? Data(contentsOf: layoutURL) else { return nil }
@@ -153,8 +208,10 @@ enum LayoutStore {
 
 enum LayoutOps {
     /// Drops uninstalled / hidden apps, appends new apps at the end, and repacks pages
-    /// so none exceeds `perPage`. Empty pages are removed.
-    static func reconcile(_ pages: [[LayoutItem]], installed: [AppItem], hidden: Set<String>, perPage: Int) -> [[LayoutItem]] {
+    /// so none exceeds `perPage`. Empty pages are removed. With `free` placement a removed
+    /// app leaves an empty cell behind, so the icons after it stay where they were put.
+    static func reconcile(_ pages: [[LayoutItem]], installed: [AppItem], hidden: Set<String>, perPage: Int,
+                          free: Bool = false) -> [[LayoutItem]] {
         let valid = Set(installed.map(\.id)).subtracting(hidden)
         var placed = Set<String>()
 
@@ -162,12 +219,14 @@ enum LayoutOps {
             page.compactMap { item in
                 switch item {
                 case .app(let id):
-                    guard valid.contains(id), placed.insert(id).inserted else { return nil }
+                    guard valid.contains(id), placed.insert(id).inserted else { return free ? .gap : nil }
                     return item
                 case .folder(var folder):
                     if folder.isSmart { return item }
                     folder.apps = folder.apps.filter { valid.contains($0) && placed.insert($0).inserted }
-                    return folder.apps.isEmpty ? nil : .folder(folder)
+                    return folder.apps.isEmpty ? (free ? .gap : nil) : .folder(folder)
+                case .gap:
+                    return free ? item : nil
                 }
             }
         }
@@ -175,16 +234,25 @@ enum LayoutOps {
         let newApps = installed.filter { valid.contains($0.id) && !placed.contains($0.id) }
         if !newApps.isEmpty {
             if result.isEmpty { result = [[]] }
+            trimTrailingGaps(&result[result.count - 1])
             result[result.count - 1].append(contentsOf: newApps.map { .app($0.id) })
         }
-        return repack(result, perPage: perPage)
+        return repack(result, perPage: perPage, free: free)
     }
 
-    /// Pushes overflow forward page by page and removes empty pages.
-    static func repack(_ pages: [[LayoutItem]], perPage: Int) -> [[LayoutItem]] {
-        var result = pages
+    /// Pushes overflow forward page by page and removes empty pages. Lined-up placement also
+    /// closes every empty cell; free placement keeps them, giving up the last ones on a page
+    /// before pushing an icon to the next page.
+    static func repack(_ pages: [[LayoutItem]], perPage: Int, free: Bool = false) -> [[LayoutItem]] {
+        var result = free ? pages : pages.map { $0.filter { !$0.isGap } }
         var i = 0
         while i < result.count {
+            if free {
+                trimTrailingGaps(&result[i])
+                while result[i].count > perPage, let gap = result[i].lastIndex(where: \.isGap) {
+                    result[i].remove(at: gap)
+                }
+            }
             if result[i].count > perPage {
                 let overflow = Array(result[i][perPage...])
                 result[i].removeLast(result[i].count - perPage)
@@ -195,6 +263,57 @@ enum LayoutOps {
                 }
             }
             i += 1
+        }
+        result.removeAll { $0.allSatisfy(\.isGap) }
+        return result
+    }
+
+    static func trimTrailingGaps(_ page: inout [LayoutItem]) {
+        while page.last?.isGap == true { page.removeLast() }
+    }
+
+    /// Free placement after the grid changed shape: every icon keeps its row and column. Ones
+    /// that no longer fit take the page's first empty cells, or move on to the next page.
+    static func regrid(_ pages: [[LayoutItem]], fromColumns: Int, toColumns: Int, rows: Int) -> [[LayoutItem]] {
+        guard fromColumns > 0, toColumns > 0 else { return pages }
+        let perPage = toColumns * rows
+        var result: [[LayoutItem]] = []
+        var carried: [LayoutItem] = []
+        for page in pages {
+            var cells = [LayoutItem](repeating: .gap, count: perPage)
+            var displaced = carried
+            carried = []
+            for (i, item) in page.enumerated() where !item.isGap {
+                let r = i / fromColumns, c = i % fromColumns
+                if c < toColumns, r < rows { cells[r * toColumns + c] = item } else { displaced.append(item) }
+            }
+            for item in displaced {
+                if let free = cells.firstIndex(where: \.isGap) { cells[free] = item } else { carried.append(item) }
+            }
+            result.append(cells)
+        }
+        while !carried.isEmpty {
+            result.append(Array(carried.prefix(perPage)))
+            carried.removeFirst(min(perPage, carried.count))
+        }
+        return repack(result, perPage: perPage, free: true)
+    }
+
+    /// After the grid grows: each page that was full at the old size takes items from the start
+    /// of the following pages until it's full again. Pages left short on purpose stay as they are.
+    static func fill(_ pages: [[LayoutItem]], wasPerPage: Int, perPage: Int) -> [[LayoutItem]] {
+        guard perPage > wasPerPage, wasPerPage > 0 else { return pages }
+        var result = pages
+        // Judged before any page gives items away to the one before it.
+        let wasFull = pages.map { $0.count >= wasPerPage }
+        for i in result.indices where wasFull[i] {
+            var next = i + 1
+            while result[i].count < perPage, next < result.count {
+                let take = min(perPage - result[i].count, result[next].count)
+                result[i].append(contentsOf: result[next].prefix(take))
+                result[next].removeFirst(take)
+                if result[next].isEmpty { next += 1 }
+            }
         }
         result.removeAll { $0.isEmpty }
         return result
@@ -294,16 +413,19 @@ struct LayoutBackup: Codable {
     var profile: String?
     /// The other layout profiles; missing in older backups and in iCloud layouts.
     var profiles: [String: [[LayoutItem]]]?
+    /// Smart folders shown only in the smart bar; missing in older backups.
+    var barFolders: [Folder]?
 
-    init(pages: [[LayoutItem]], meta: [String: AppMeta], custom: [CustomItem]? = nil) {
+    init(pages: [[LayoutItem]], meta: [String: AppMeta], custom: [CustomItem]? = nil, barFolders: [Folder]? = nil) {
         self.pages = pages
         self.meta = meta
         self.custom = custom
+        self.barFolders = barFolders
     }
 
-    /// A backup of everything: the pages on screen, launch items and every layout profile.
-    init(pages: [[LayoutItem]], meta: [String: AppMeta], custom: [CustomItem], profiles file: LayoutProfiles.File) {
-        self.init(pages: pages, meta: meta, custom: custom)
+    /// A backup of everything: the pages on screen, launch items, bar-only smart folders and every layout profile.
+    init(pages: [[LayoutItem]], meta: [String: AppMeta], custom: [CustomItem], barFolders: [Folder] = [], profiles file: LayoutProfiles.File) {
+        self.init(pages: pages, meta: meta, custom: custom, barFolders: barFolders)
         profile = file.current
         profiles = file.saved.filter { $0.key != file.current }
     }

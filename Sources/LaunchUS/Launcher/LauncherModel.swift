@@ -6,18 +6,27 @@ import Observation
 enum GridEntry: Identifiable, Equatable {
     case app(AppItem)
     case folder(Folder, [AppItem])
+    /// An empty cell left by free placement; the string tells cells apart.
+    case gap(String)
 
     var id: String {
         switch self {
         case .app(let app): "app:" + app.id
         case .folder(let folder, _): "folder:" + folder.id
+        case .gap(let key): "gap:" + key
         }
+    }
+
+    var isGap: Bool {
+        if case .gap = self { return true }
+        return false
     }
 
     static func == (a: GridEntry, b: GridEntry) -> Bool {
         switch (a, b) {
         case (.app(let x), .app(let y)): x.id == y.id && x.name == y.name
         case (.folder(let x, let xa), .folder(let y, let ya)): x == y && xa == ya
+        case (.gap(let x), .gap(let y)): x == y
         default: false
         }
     }
@@ -26,7 +35,7 @@ enum GridEntry: Identifiable, Equatable {
 /// A card shown over the launcher: editors and confirmations.
 enum LauncherSheet: Hashable {
     case editApp(String)
-    /// `nil` folder ID creates a new smart folder.
+    /// 编辑智能栏, on that smart folder; a `nil` folder ID starts a new one from the query.
     case editSmartFolder(String?, query: String)
     case confirmTrash(String)
     /// The info card of an app.
@@ -41,6 +50,14 @@ enum LauncherSheet: Hashable {
     /// The App manager: sizes, chips, updates and usage statistics.
     case manager
     case message(title: String, text: String, revealPath: String?)
+
+    /// The manager and the smart bar editor: big cards that take most of the launcher.
+    var isLarge: Bool {
+        switch self {
+        case .manager, .editSmartFolder: true
+        default: false
+        }
+    }
 }
 
 struct GridPos: Equatable {
@@ -50,6 +67,14 @@ struct GridPos: Equatable {
 
 /// An icon being dragged. The pointer is tracked by the controller (not the SwiftUI gesture),
 /// because the view that started the drag can disappear mid-drag (e.g. leaving a folder).
+/// A dropped icon on its way into place; see `LauncherModel.land`.
+struct DragLanding {
+    let item: LayoutItem
+    var position: CGPoint
+    var scale: CGFloat
+    var opacity: Double
+}
+
 struct DragSession {
     var item: LayoutItem
     /// Set while the app is still being rearranged inside this open folder.
@@ -71,7 +96,7 @@ final class LauncherModel {
     /// The launcher is taller than it is wide.
     private(set) var portrait = false
     var folderColumns: Int { columns }
-    var folderRows: Int { rows }
+    var folderRows: Int { metrics.folderRows }
     var perPage: Int { columns * rows }
     /// Scrolling folders keep all their apps on one tall page.
     var folderScrolls: Bool { settings.folderBrowseStyle == .scroll }
@@ -86,6 +111,10 @@ final class LauncherModel {
         }
     }
     @ObservationIgnored private var layoutLoaded = false
+    /// The grid the layout was last arranged for, to tell when it changed shape.
+    @ObservationIgnored private var laidOutColumns = 0
+    @ObservationIgnored private var laidOutRows = 0
+    private var laidOutPerPage: Int { laidOutColumns * laidOutRows }
 
     /// Installed apps minus hidden ones, with display names applied. Rebuilt by `refresh()`.
     private(set) var visibleApps: [AppItem] = []
@@ -158,7 +187,7 @@ final class LauncherModel {
     /// What was picked before the rectangle started; the rectangle adds to it.
     @ObservationIgnored var marqueeBase: Set<String>?
     /// Icons can be dragged around only in the custom, paged arrangement.
-    var canRearrange: Bool { settings.sortOrder == .custom && settings.browseStyle == .paged && categoryFilter == nil }
+    var canRearrange: Bool { settings.sortOrder == .custom && categoryFilter == nil }
 
     /// Window mode's category tabs: nil shows everything.
     var categoryFilter: String? {
@@ -171,14 +200,124 @@ final class LauncherModel {
         }
     }
 
-    static func categoryKey(_ app: AppItem) -> String {
-        AppCategoryName.group(for: app.category).rawValue
+    /// An app's App Store category group, for "@…" conditions: the one the user moved it to,
+    /// else its developer's.
+    func appGroup(_ app: AppItem) -> AppCategoryName.Group {
+        meta[app.id]?.group.flatMap(AppCategoryName.Group.init(rawValue:)) ?? AppCategoryName.group(for: app.category)
     }
 
-    /// The system Apps window's groups that have apps, in its order.
+    /// Every smart folder as a tab, shown or not, in the order the user arranged them. The bar
+    /// holds nothing else: the system's categories come in as smart folders ("导入系统分类").
+    var allCategoryTabs: [(key: String, title: String)] {
+        let all = smartFolders.map { (key: Self.smartTabPrefix + $0.id, title: $0.name) }
+        let order = settings.categoryTabOrder
+        return all.enumerated().sorted { a, b in
+            (order.firstIndex(of: a.element.key) ?? order.count + a.offset) < (order.firstIndex(of: b.element.key) ?? order.count + b.offset)
+        }.map(\.element)
+    }
+
+    /// Window mode, like the system Apps window: a picked category replaces the tab row with its
+    /// name in the header, so the bar only shows while nothing is picked.
+    var showsCategoryBar: Bool {
+        // With no tab to show there's no empty row either.
+        !categoryTabs.isEmpty && !(settings.displayMode == .window && categoryFilter != nil)
+    }
+
+    /// The picked smart folder's name.
+    var categoryFilterTitle: String? {
+        categoryFilter.flatMap { key in allCategoryTabs.first { $0.key == key }?.title }
+    }
+
+    /// The apps a tab shows: what its smart folder finds.
+    func categoryApps(_ key: String) -> [AppItem] {
+        smartFolder(forTab: key).map { apps(in: $0) } ?? []
+    }
+
+    func smartFolder(forTab key: String) -> Folder? {
+        guard key.hasPrefix(Self.smartTabPrefix) else { return nil }
+        let id = String(key.dropFirst(Self.smartTabPrefix.count))
+        return smartFolders.first { $0.id == id }
+    }
+
+    /// The tabs the bar shows.
     var categoryTabs: [(key: String, title: String)] {
-        let present = Set(visibleApps.map(Self.categoryKey))
-        return AppCategoryName.Group.allCases.filter { present.contains($0.rawValue) }.map { (key: $0.rawValue, title: $0.title) }
+        guard settings.showCategoryBar else { return [] }
+        let hidden = Set(settings.hiddenCategoryTabs)
+        return allCategoryTabs.filter { !hidden.contains($0.key) }
+    }
+
+    func setCategoryTab(_ key: String, hidden: Bool) {
+        var keys = settings.hiddenCategoryTabs.filter { $0 != key }
+        if hidden { keys.append(key) }
+        settings.hiddenCategoryTabs = keys
+        if hidden, categoryFilter == key { categoryFilter = nil }
+    }
+
+    /// Puts the tabs in this order (keys of `allCategoryTabs`).
+    func setCategoryTabOrder(_ keys: [String]) {
+        settings.categoryTabOrder = keys
+    }
+
+    /// Moves apps to another App Store category for "@…" conditions; nil puts them back under
+    /// their developer's.
+    func setCategory(_ group: AppCategoryName.Group?, for ids: [String]) {
+        for id in ids { setMeta(id) { $0.group = group?.rawValue } }
+        refresh()
+    }
+
+    /// Whether any smart folder picks apps by App Store category, so moving an app between
+    /// categories means something.
+    var usesCategoryConditions: Bool {
+        smartFolders.contains { !AppSearch.categories(in: $0.query ?? "").groups.isEmpty }
+    }
+
+    /// The App Store categories that have apps and no smart folder of their own yet.
+    var importableCategories: [AppCategoryName.Group] {
+        let present = Set(visibleApps.map(appGroup))
+        let taken = Set(smartFolders.compactMap { folder -> AppCategoryName.Group? in
+            let (groups, rest) = AppSearch.categories(in: folder.query ?? "")
+            return groups.count == 1 && rest.isEmpty ? groups[0] : nil
+        })
+        return AppCategoryName.Group.allCases.filter { present.contains($0) && !taken.contains($0) }
+    }
+
+    /// One smart folder per App Store category ("@开发者工具"), shown only in the smart bar.
+    /// Their contents follow the condition, so apps installed later join on their own.
+    func importSystemCategories() {
+        let groups = importableCategories
+        guard !groups.isEmpty else { return }
+        barFolders += groups.map { Folder(name: $0.title, apps: [], query: AppSearch.categoryToken($0)) }
+        LayoutStore.save(barFolders: barFolders)
+        if !settings.showCategoryBar { settings.showCategoryBar = true }
+        refresh()
+    }
+
+    /// Smart folders get a tab of their own in the smart bar.
+    static let smartTabPrefix = "smart:"
+    /// Smart folders that show only in the smart bar, not on the pages.
+    var barFolders: [Folder] = []
+    /// Every smart folder: those on the pages, then the bar-only ones.
+    var smartFolders: [Folder] {
+        layout.joined().compactMap { if case .folder(let folder) = $0, folder.isSmart { folder } else { nil } } + barFolders
+    }
+
+    func isOnPages(_ folderID: String) -> Bool { !barFolders.contains { $0.id == folderID } }
+
+    /// Moves a smart folder between the pages and the smart bar alone.
+    func setSmartFolder(_ id: String, onPages: Bool) {
+        if onPages, let index = barFolders.firstIndex(where: { $0.id == id }) {
+            let folder = barFolders.remove(at: index)
+            LayoutStore.save(barFolders: barFolders)
+            if layout.isEmpty { layout = [[]] }
+            layout[layout.count - 1].append(.folder(folder))
+            commitLayout()
+        } else if !onPages, let loc = location(ofFolder: id), case .folder(let folder) = layout[loc.page][loc.slot], folder.isSmart {
+            barFolders.append(folder)
+            LayoutStore.save(barFolders: barFolders)
+            if openFolderID == id { dropFolder() }
+            vacate(page: loc.page, slot: loc.slot)
+            commitLayout()
+        }
     }
     @ObservationIgnored private var lastHidden = Date.distantPast
 
@@ -189,6 +328,12 @@ final class LauncherModel {
     private(set) var folderExpanded = false
     /// The open folder's tile on the home grid, in launcher coordinates.
     private(set) var folderOrigin: CGRect?
+    /// How far the scrolling grid is scrolled, for finding a folder's tile in it.
+    @ObservationIgnored var gridScrollOffset: CGFloat = 0
+    /// Height of the recent row at the top of the scrolling grid, when it shows.
+    var scrollLead: CGFloat {
+        showsFrequentRow && !frequentApps.isEmpty && !isSearching && categoryFilter == nil ? metrics.frequentHeight : 0
+    }
     @ObservationIgnored private var folderToken = 0
     var folderPage = 0
     var folderDragOffset: CGFloat = 0
@@ -199,6 +344,8 @@ final class LauncherModel {
 
     // MARK: Dragging
     var drag: DragSession?
+    /// The icon just let go of, gliding from the pointer to where it landed.
+    var landing: DragLanding?
     /// Pointer location during a drag, in launcher coordinates. Only the floating icon reads it.
     var dragLocation: CGPoint = .zero
     /// The dragged icon is near the bottom edge, where it can be dragged out of the launcher.
@@ -214,6 +361,10 @@ final class LauncherModel {
     }
     @ObservationIgnored var pendingMove: (key: String, work: DispatchWorkItem)?
     @ObservationIgnored var edgeWork: DispatchWorkItem?
+    /// Scrolls the scrolling grid while a held icon rests at its top or bottom edge.
+    @ObservationIgnored var edgeScroll: Timer?
+    /// Where the scrolling grid should scroll to (content offset), for the edge scroll.
+    var gridScrollRequest: CGFloat?
 
     /// Items of the search field's "⋯" menu, supplied by the controller.
     @ObservationIgnored var menuItems: [(title: String, action: () -> Void)] = []
@@ -249,6 +400,7 @@ final class LauncherModel {
         self.catalog = catalog
         self.settings = settings ?? .shared
         meta = LayoutStore.loadMeta()
+        barFolders = LayoutStore.loadBarFolders()
         customItems = CustomItemStore.load()
         catalog.customApps = customItems.map(\.appItem)
         catalog.iconOverrides = Self.iconOverrides(meta)
@@ -261,7 +413,7 @@ final class LauncherModel {
     var pageCount: Int { max(1, pages.count) }
     var metrics: GridMetrics {
         GridMetrics(size: screenSize, columns: columns, rows: rows, windowed: settings.displayMode == .window,
-                    paged: settings.browseStyle == .paged, frequentRow: settings.showFrequent, folderItemCount: openFolder?.1.count ?? 0, hideNames: settings.hideNames && settings.hideFolderNames,
+                    paged: settings.browseStyle == .paged, frequentRow: showsFrequentRow, categoryBar: showsCategoryBar, folderItemCount: openFolder?.1.count ?? 0, folderHasQuery: openFolder?.0.query != nil, hideNames: settings.hideNames && settings.hideFolderNames,
                     iconScale: settings.iconScale)
     }
 
@@ -275,6 +427,7 @@ final class LauncherModel {
     /// Apps pinned to the row, so their icons can show a pin.
     var frequentPinned: Set<String> = []
     @ObservationIgnored var lastDragEnd = Date.distantPast
+    @ObservationIgnored var landingToken = 0
     @ObservationIgnored var profiles = LayoutProfiles.load()
     /// Bumped when profiles change, so menus and settings re-read them.
     var profilesVersion = 0
@@ -290,6 +443,7 @@ final class LauncherModel {
         var needsSave = false
         if !layoutLoaded {
             layoutLoaded = true
+            (laidOutColumns, laidOutRows) = (columns, rows)
             if let saved = LayoutStore.loadLayout() {
                 layout = saved
             } else {
@@ -307,11 +461,24 @@ final class LauncherModel {
     func settingsChanged() {
         guard layoutLoaded, drag == nil else { return }
         folderDragOffset = 0
+        if freePlacement {
+            // Free placement: every icon keeps its row and column in the new grid.
+            if (columns, rows) != (laidOutColumns, laidOutRows) {
+                layout = LayoutOps.regrid(layout, fromColumns: laidOutColumns, toColumns: columns, rows: rows)
+                LayoutStore.save(layout: layout)
+            }
+        } else if perPage > laidOutPerPage {
+            // A bigger grid: pages that were full fill up again from the ones after them.
+            layout = LayoutOps.fill(layout, wasPerPage: laidOutPerPage, perPage: perPage)
+            LayoutStore.save(layout: layout)
+        }
+        (laidOutColumns, laidOutRows) = (columns, rows)
         reconcile()
     }
 
     func reconcile(forceSave: Bool = false) {
-        let reconciled = LayoutOps.reconcile(layout, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage)
+        let reconciled = LayoutOps.reconcile(layout, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage,
+                                              free: freePlacement)
         if reconciled != layout || forceSave {
             layout = reconciled
             LayoutStore.save(layout: layout)
@@ -336,7 +503,7 @@ final class LauncherModel {
     var hiddenIDs: Set<String> { Set(meta.filter { $0.value.hidden }.map(\.key)) }
 
     func commitLayout() {
-        layout = LayoutOps.repack(layout, perPage: perPage)
+        layout = LayoutOps.repack(layout, perPage: perPage, free: freePlacement)
         LayoutStore.save(layout: layout)
         refresh()
     }
@@ -350,20 +517,37 @@ final class LauncherModel {
         }
         var counts: [String: Int] = [:]
         for m in meta.values { for tag in m.tags { counts[tag, default: 0] += 1 } }
+        // Tags a smart folder asks for count as known even before any app carries them.
+        for folder in smartFolders {
+            for tag in AppSearch.parse(folder.query ?? "").tags where !counts.keys.contains(where: { $0.lowercased() == tag }) {
+                counts[tag] = 0
+            }
+        }
         allTags = counts.keys.sorted { counts[$0]! != counts[$1]! ? counts[$0]! > counts[$1]! : $0.localizedStandardCompare($1) == .orderedAscending }
         updateFrequentApps()
 
+        // The picked tab's smart folder was deleted, or the tab or the whole bar is gone: back
+        // to everything (the didSet refreshes again).
+        if let filter = categoryFilter,
+           smartFolder(forTab: filter) == nil || !settings.showCategoryBar || settings.hiddenCategoryTabs.contains(filter) {
+            categoryFilter = nil; return
+        }
         let byID = Dictionary(visibleApps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         if isSearching {
             // System Settings panes come after the apps.
             let results = spaceList.map { $0.apps(from: visibleApps, recent: recentIDs, hours: LaunchHours.load()) }
+                ?? categoryFilter.map { filter in
+                    // Typing with a category picked searches inside it (its chip stays in the search field).
+                    let inside = Set(categoryApps(filter).map(\.id))
+                    return search(query, includeHidden: hiddenUnlocked).filter { inside.contains($0.id) }
+                }
                 ?? search(query, includeHidden: hiddenUnlocked) + SettingsPanes.search(query)
             if results.isEmpty, spaceList == nil, query.count >= (query.allSatisfy(\.isASCII) ? 3 : 2) { offerTip(.launchItem) }
             pages = stride(from: 0, to: max(results.count, 1), by: perPage).map { start in
                 results[start..<min(start + perPage, results.count)].map(GridEntry.app)
             }
         } else if let filter = categoryFilter {
-            let apps = visibleApps.filter { Self.categoryKey($0) == filter }
+            let apps = categoryApps(filter)
                 .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
             pages = stride(from: 0, to: max(apps.count, 1), by: perPage).map { start in
                 apps[start..<min(start + perPage, apps.count)].map(GridEntry.app)
@@ -374,10 +558,16 @@ final class LauncherModel {
                 case .app(let id): byID[id].map(GridEntry.app)
                 case .folder(let folder):
                     .folder(folder, folder.query.map(search) ?? folder.apps.compactMap { byID[$0] })
+                case .gap: nil
                 }
             }
             if settings.sortOrder == .custom {
-                pages = layout.map { $0.compactMap(entry) }
+                // Empty cells keep their place, and so the icons after them.
+                pages = layout.enumerated().map { p, page in
+                    page.enumerated().compactMap { s, item in
+                        item.isGap ? (freePlacement ? .gap("\(p)-\(s)") : nil) : entry(item)
+                    }
+                }
             } else {
                 let sorted = Self.sorted(layout.joined().compactMap(entry), by: settings.sortOrder)
                 pages = stride(from: 0, to: sorted.count, by: perPage).map {
@@ -399,6 +589,7 @@ final class LauncherModel {
             let apps: [AppItem] = switch e {
             case .app(let a): [a]
             case .folder(_, let apps): apps
+            case .gap: []
             }
             let dates = apps.compactMap { order == .recentlyUsed ? $0.lastUsedDate : $0.addedDate }
             return dates.max() ?? .distantPast
@@ -411,6 +602,7 @@ final class LauncherModel {
                 switch e {
                 case .app(let a): a.useCount
                 case .folder(_, let apps): apps.map(\.useCount).reduce(0, +)
+                case .gap: 0
                 }
             }
             let keyed = entries.map { ($0, uses($0)) }
@@ -431,7 +623,8 @@ final class LauncherModel {
         }
         return AppSearch.search(query, in: pool,
                          aliases: meta.compactMapValues { $0.aliases.isEmpty ? nil : $0.aliases },
-                         tags: meta.compactMapValues { $0.tags.isEmpty ? nil : $0.tags })
+                         tags: meta.compactMapValues { $0.tags.isEmpty ? nil : $0.tags },
+                         group: appGroup)
     }
 
     // MARK: - Tags in the search field
@@ -706,13 +899,31 @@ final class LauncherModel {
         folderExpanded = false
     }
 
-    /// Where a folder's tile is drawn on the current home page, if it is visible there.
-    private func tileRect(ofFolder id: String) -> CGRect? {
-        guard !isSearching, settings.browseStyle == .paged, pages.indices.contains(currentPage),
-              let slot = pages[currentPage].firstIndex(where: { $0.id == "folder:" + id }) else { return nil }
+    /// Icon centre of an entry in the scrolling grid, in launcher coordinates, if it's in view.
+    /// Pages run together there without their empty cells, under the recent row.
+    func scrollIconCenter(of entryID: String) -> CGPoint? {
         let m = metrics
-        let c = m.iconCenter(slot: slot)
+        let flat = pages.flatMap { $0.filter { !$0.isGap } }
+        guard let index = flat.firstIndex(where: { $0.id == entryID }) else { return nil }
+        let c = CGPoint(x: m.gridOriginX + (CGFloat(index % m.columns) + 0.5) * m.cellSize.width,
+                        y: m.gridTop + scrollLead + (CGFloat(index / m.columns) + 0.5) * m.cellSize.height
+                            - gridScrollOffset)
+        return c.y > m.gridTop - m.cellSize.height / 2 && c.y < m.size.height ? c : nil
+    }
+
+    /// Where a folder's tile is drawn on the current home page, if it is visible there.
+    func tileRect(ofFolder id: String) -> CGRect? {
+        guard !isSearching else { return nil }
+        let m = metrics
         let size = m.iconSize * 0.8
+        if settings.browseStyle == .scroll {
+            // Scrolled out of sight: the panel opens from the middle instead.
+            guard let c = scrollIconCenter(of: "folder:" + id) else { return nil }
+            return CGRect(x: c.x - size / 2, y: c.y - size / 2, width: size, height: size)
+        }
+        guard pages.indices.contains(currentPage),
+              let slot = pages[currentPage].firstIndex(where: { $0.id == "folder:" + id }) else { return nil }
+        let c = m.iconCenter(slot: slot)
         return CGRect(x: c.x - size / 2, y: c.y - size / 2, width: size, height: size)
     }
 
@@ -863,6 +1074,11 @@ final class LauncherModel {
         return pages.indices.contains(page) && pages[page].count < perPage ? page : nil
     }
 
+    /// Scroll mode: the secret slot sits right after the last app (there are no pages to pick).
+    var phantomScrollSlot: Bool {
+        settings.browseStyle == .scroll && settings.hiddenSlotEntrance && !isSearching && categoryFilter == nil && !isEditing
+    }
+
     func armPhantomSlot() {
         withAnimation(.easeOut(duration: 0.15)) { phantomSlotArmed = true }
         phantomDisarm?.cancel()
@@ -884,7 +1100,7 @@ final class LauncherModel {
     func takeOutOfFolder(_ appID: String, folderID: String) {
         guard let loc = location(ofFolder: folderID) else { return }
         removeApp(appID, fromFolder: folderID)
-        layout[loc.page].insert(.app(appID), at: min(loc.slot + 1, layout[loc.page].count))
+        insertItems([.app(appID)], page: loc.page, slot: loc.slot + 1)
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) {
             if openFolderID == folderID, case .app = layout[loc.page][loc.slot] { dropFolder() }
             commitLayout()
@@ -895,15 +1111,23 @@ final class LauncherModel {
         guard let loc = location(ofFolder: folderID), case .folder(var folder) = layout[loc.page][loc.slot] else { return }
         folder.apps.removeAll { $0 == appID }
         layout[loc.page][loc.slot] = folder.apps.count == 1 ? .app(folder.apps[0]) : .folder(folder)
-        if folder.apps.isEmpty { layout[loc.page].remove(at: loc.slot) }
+        if folder.apps.isEmpty { vacate(page: loc.page, slot: loc.slot) }
     }
 
     /// Replaces a folder with its apps; a smart folder is simply removed.
     func dissolveFolder(_ id: String) {
+        if let index = barFolders.firstIndex(where: { $0.id == id }) {
+            barFolders.remove(at: index)
+            LayoutStore.save(barFolders: barFolders)
+            refresh()
+            return
+        }
         guard let loc = location(ofFolder: id), case .folder(let folder) = layout[loc.page][loc.slot] else { return }
-        layout[loc.page].remove(at: loc.slot)
-        if !folder.isSmart {
-            layout[loc.page].insert(contentsOf: folder.apps.map(LayoutItem.app), at: loc.slot)
+        if folder.isSmart || folder.apps.isEmpty {
+            vacate(page: loc.page, slot: loc.slot)
+        } else {
+            layout[loc.page][loc.slot] = .app(folder.apps[0])
+            insertItems(folder.apps.dropFirst().map(LayoutItem.app), page: loc.page, slot: loc.slot + 1)
         }
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) {
             if openFolderID == id { dropFolder() }
@@ -916,29 +1140,56 @@ final class LauncherModel {
         openFolder(id)
     }
 
-    /// Creates (folderID nil) or edits a smart folder. New ones go to the end of the last page.
-    func saveSmartFolder(_ folderID: String?, name: String, query: String) {
+    /// Creates (folderID nil) or edits a smart folder. New ones go to the end of the last page,
+    /// or only into the smart bar when `onPages` is off.
+    /// Returns the folder's ID.
+    @discardableResult
+    func saveSmartFolder(_ folderID: String?, name: String, query: String, onPages: Bool = true) -> String? {
         let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { return }
+        guard !q.isEmpty else { return nil }
         let n = name.trimmingCharacters(in: .whitespaces)
-        if let folderID, let loc = location(ofFolder: folderID), case .folder(var f) = layout[loc.page][loc.slot] {
+        if let folderID, let index = barFolders.firstIndex(where: { $0.id == folderID }) {
+            if !n.isEmpty { barFolders[index].name = n }
+            barFolders[index].query = q
+            LayoutStore.save(barFolders: barFolders)
+            refresh()
+            if onPages { setSmartFolder(folderID, onPages: true) }
+            return folderID
+        } else if let folderID, let loc = location(ofFolder: folderID), case .folder(var f) = layout[loc.page][loc.slot] {
             f.name = n.isEmpty ? f.name : n
             f.query = q
             layout[loc.page][loc.slot] = .folder(f)
             commitLayout()
+            if !onPages { setSmartFolder(folderID, onPages: false) }
+            return folderID
+        } else if !onPages {
+            let folder = Folder(name: n.isEmpty ? Self.smartFolderName(for: q) : n, apps: [], query: q)
+            barFolders.append(folder)
+            LayoutStore.save(barFolders: barFolders)
+            if !settings.showCategoryBar { settings.showCategoryBar = true }
+            self.query = ""
+            refresh()
+            return folder.id
         } else {
             let folder = Folder(name: n.isEmpty ? Self.smartFolderName(for: q) : n, apps: [], query: q)
             if layout.isEmpty { layout = [[]] }
             layout[layout.count - 1].append(.folder(folder))
             self.query = ""
             commitLayout()
-            goToPage(pageCount - 1)
+            return folder.id
         }
     }
 
     static func smartFolderName(for query: String) -> String {
-        let (tags, text) = AppSearch.parse(query)
-        let parts = tags + (text.isEmpty ? [] : [text])
+        let toks = AppSearch.tokens(query)
+        guard toks.allSatisfy(\.isTerm) else {
+            // A formula names itself: "#工具 ∪ #效率".
+            let text = AppSearch.formulaText(toks).replacingOccurrences(of: "#", with: "").replacingOccurrences(of: "@", with: "")
+            return text.isEmpty ? String(localized: "智能文件夹") : text
+        }
+        let (groups, rest) = AppSearch.categories(in: query)
+        let (tags, text) = AppSearch.parse(rest)
+        let parts = groups.compactMap { $0?.title } + tags + (text.isEmpty ? [] : [text])
         return parts.isEmpty ? String(localized: "智能文件夹") : parts.joined(separator: "、")
     }
 

@@ -253,30 +253,61 @@ private struct MotionTuner: View {
             }
         }
         TunerGroup(title: String(localized: "速度")) {
-            Picker("", selection: $settings.animationSpeed) {
-                ForEach(AnimationSpeed.allCases.filter { $0 != .off }, id: \.self) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented).labelsHidden()
+            TunerSlider(title: String(localized: "倍速"),
+                        value: Binding(get: { log2(settings.animationRate) },
+                                       set: { settings.animationRate = (pow(2, $0) * 20).rounded() / 20 }),
+                        range: log2(AnimationSpeed.rateRange.lowerBound)...log2(AnimationSpeed.rateRange.upperBound),
+                        standard: 0, text: String(format: "%.2g×", settings.animationRate))
+                .disabled(settings.animationsOff)
+            Toggle(String(localized: "关闭动画"), isOn: $settings.animationsOff)
+                .toggleStyle(.checkbox)
+                .font(.system(size: 12))
         }
         HStack {
-            Button(String(localized: "翻页试试")) { tryPageTurn() }
-                .disabled(model.pageCount < 2)
+            Button(model.pageCount > 1 && settings.browseStyle == .paged ? String(localized: "试试翻页和文件夹") : String(localized: "试试文件夹")) { tryMotion() }
+                .disabled(settings.animationsOff)
             Spacer()
             Button(String(localized: "全部还原")) {
                 settings.motionCurve = nil
-                settings.animationSpeed = .standard
+                settings.animationRate = 1
+                settings.animationsOff = false
             }
             .disabled(settings.motionCurve == nil && settings.animationSpeed == .standard)
         }
         .controlSize(.small)
     }
 
-    /// Turns a page and back, to see the curve on the real launcher.
-    private func tryPageTurn() {
-        let from = model.currentPage
-        let to = from + 1 < model.pageCount ? from + 1 : from - 1
-        model.goToPage(to)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { model.goToPage(from) }
+    /// Turns a page and back, then opens and closes a folder on screen, to see the motion on the real launcher.
+    private func tryMotion() {
+        let speed = settings.animationSpeed
+        var delay = 0.0
+        if model.pageCount > 1, settings.browseStyle == .paged, model.openFolderID == nil {
+            let from = model.currentPage
+            let to = from + 1 < model.pageCount ? from + 1 : from - 1
+            model.goToPage(to)
+            DispatchQueue.main.asyncAfter(deadline: .now() + speed.duration(0.9)) { model.goToPage(from) }
+            delay = speed.duration(1.8)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            model.closeFolder()
+            guard let id = visibleFolderID() else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + speed.duration(model.openFolderID == nil ? 0 : 0.4)) {
+                model.openFolder(id)
+                DispatchQueue.main.asyncAfter(deadline: .now() + speed.duration(1.1)) {
+                    if model.openFolderID == id { model.closeFolder() }
+                }
+            }
+        }
+    }
+
+    /// The first folder whose tile is on screen now.
+    private func visibleFolderID() -> String? {
+        let page = model.pages.indices.contains(model.currentPage) ? model.pages[model.currentPage] : []
+        let candidates = settings.browseStyle == .paged ? page : model.pages.flatMap { $0 }
+        for case .folder(let folder, _) in candidates where model.tileRect(ofFolder: folder.id) != nil {
+            return folder.id
+        }
+        return nil
     }
 }
 

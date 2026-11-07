@@ -73,6 +73,7 @@ final class LauncherController {
                 switch entry {
                 case .app(let app): [app.id]
                 case .folder(_, let apps): apps.prefix(9).map(\.id)
+                case .gap: []
                 }
             }
         }
@@ -655,6 +656,9 @@ final class LauncherController {
             case kVK_Delete where model.spaceList != nil:
                 model.spaceList = nil
                 return nil
+            case kVK_Delete where model.categoryFilter != nil:
+                withAnimation(.easeInOut(duration: 0.22)) { model.categoryFilter = nil }
+                return nil
             default: break
             }
         }
@@ -726,6 +730,8 @@ final class LauncherController {
         // Smooth-scrolling mouse drivers send point deltas with no gesture phase at all.
         let isTrackpad = event.hasPreciseScrollingDeltas && !(event.phase.isEmpty && event.momentumPhase.isEmpty)
         if model.drag != nil {
+            // The scrolling grid scrolls under a held icon as usual.
+            if settings.browseStyle == .scroll, model.openFolderID == nil { return event }
             // The wheel turns pages while an icon is held.
             if !isTrackpad { wheelFlip(event) }
             return nil

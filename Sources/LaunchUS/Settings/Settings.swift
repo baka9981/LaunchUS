@@ -34,37 +34,36 @@ enum SearchEngine: String, CaseIterable {
     }
 }
 
-enum AnimationSpeed: String, CaseIterable {
-    case standard, fast, off
+/// How fast the launcher animates: a rate relative to the standard speed, or not at all.
+struct AnimationSpeed: Equatable {
+    /// 1 is the standard speed, 2 twice as fast.
+    var rate = 1.0
+    var off = false
 
-    var title: String {
-        switch self {
-        case .standard: String(localized: "标准")
-        case .fast: String(localized: "快速")
-        case .off: String(localized: "关闭动画")
-        }
-    }
+    static let standard = AnimationSpeed()
+    static let rateRange: ClosedRange<Double> = 0.5...2.5
+    /// The standard speed (1×) runs this much faster than the durations written in the code.
+    static let base = 1.2
 
-    /// Scales a duration written for the standard speed.
+    /// How much faster than written the animations run.
+    var speed: Double { rate * Self.base }
+
+    /// Scales a duration written in the code to the chosen speed.
     func duration(_ seconds: Double) -> Double {
-        switch self {
-        case .standard: seconds
-        case .fast: seconds / 1.8
-        case .off: 0
-        }
+        off ? 0 : seconds / speed
     }
 
     /// Applied to every transaction in the launcher, so each `withAnimation` follows the setting.
     func adjust(_ transaction: inout Transaction) {
-        switch self {
-        case .standard: break
-        case .fast: transaction.animation = transaction.animation?.speed(1.8)
-        case .off:
+        if off {
             transaction.animation = nil
             transaction.disablesAnimations = true
+        } else {
+            transaction.animation = transaction.animation?.speed(speed)
         }
     }
 }
+
 /// A cubic Bézier timing curve for the launcher's transitions, like CSS's `cubic-bezier()`:
 /// time runs along x from 0 to 1, progress up y. y may leave 0…1 to undershoot or overshoot.
 struct MotionCurve: Codable, Equatable, Hashable {
@@ -310,7 +309,14 @@ final class Settings {
     var browseStyle: BrowseStyle { didSet { save(browseStyle.rawValue, "browseStyle") } }
     /// How an open folder with more apps than fit is browsed.
     var folderBrowseStyle: BrowseStyle { didSet { save(folderBrowseStyle.rawValue, "folderBrowseStyle") } }
+    /// Window mode's row of category tabs under the search field.
+    var showCategoryBar: Bool { didSet { save(showCategoryBar, "showCategoryBar") } }
+    /// Tab keys in the order the user put them; tabs not in it keep their default place after these.
+    var categoryTabOrder: [String] { didSet { save(categoryTabOrder, "categoryTabOrder") } }
+    var hiddenCategoryTabs: [String] { didSet { save(hiddenCategoryTabs, "hiddenCategoryTabs") } }
     var columns: Int { didSet { save(columns, "columns") } }
+    /// Icons stay in whichever cell they're dropped in, leaving empty cells, instead of lining up one after another.
+    var freePlacement: Bool { didSet { save(freePlacement, "freePlacement") } }
     var rows: Int { didSet { save(rows, "rows") } }
     /// Names under app icons.
     var hideNames: Bool { didSet { save(hideNames, "hideNames") } }
@@ -323,7 +329,10 @@ final class Settings {
     var fadeStale: Bool { didSet { save(fadeStale, "fadeStale") } }
     /// Folder tiles and the open folder use liquid glass instead of the smoked glass look.
     var liquidGlass: Bool { didSet { save(liquidGlass, "liquidGlass") } }
-    var animationSpeed: AnimationSpeed { didSet { save(animationSpeed.rawValue, "animationSpeed") } }
+    /// Animation speed relative to the standard, 0.5…2.5.
+    var animationRate: Double { didSet { save(animationRate, "animationRate") } }
+    var animationsOff: Bool { didSet { save(animationsOff, "animationsOff") } }
+    var animationSpeed: AnimationSpeed { AnimationSpeed(rate: animationRate, off: animationsOff) }
     /// Timing curve for opening, closing, page turns and folders; `nil` keeps the built-in springs.
     var motionCurve: MotionCurve? {
         didSet {
@@ -418,6 +427,7 @@ final class Settings {
         self.defaults = defaults
         let d = defaults
         func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
+        freePlacement = value("freePlacement", false)
         hotKey = (d.data(forKey: "hotKey")).flatMap { try? JSONDecoder().decode(HotKeySpec.self, from: $0) } ?? .default
         f4Key = value("f4Key", false)
         trackpadPinch = value("trackpadPinch", false)
@@ -437,6 +447,9 @@ final class Settings {
         sortOrder = SortOrder(rawValue: value("sortOrder", "")) ?? .custom
         browseStyle = BrowseStyle(rawValue: value("browseStyle", "")) ?? .paged
         folderBrowseStyle = BrowseStyle(rawValue: value("folderBrowseStyle", "")) ?? .paged
+        showCategoryBar = value("showCategoryBar", true)
+        categoryTabOrder = value("categoryTabOrder", [String]())
+        hiddenCategoryTabs = value("hiddenCategoryTabs", [String]())
         columns = min(10, max(4, value("columns", 7)))
         rows = min(8, max(3, value("rows", 5)))
         hideNames = value("hideNames", false)
@@ -445,7 +458,12 @@ final class Settings {
         iconScale = min(1.3, max(0.6, value("iconScale", 1.0)))
         fadeStale = value("fadeStale", false)
         liquidGlass = value("liquidGlass", true)
-        animationSpeed = AnimationSpeed(rawValue: value("animationSpeed", "")) ?? .standard
+        // Earlier versions had three fixed choices: standard, fast (1.8× the old standard,
+        // which is 1.5× today's) and off.
+        let oldSpeed = value("animationSpeed", "")
+        animationRate = min(AnimationSpeed.rateRange.upperBound, max(AnimationSpeed.rateRange.lowerBound,
+                            value("animationRate", oldSpeed == "fast" ? 1.5 : 1.0)))
+        animationsOff = value("animationsOff", oldSpeed == "off")
         motionCurve = d.data(forKey: "motionCurve").flatMap { try? JSONDecoder().decode(MotionCurve.self, from: $0) }?.clamped
         appearance = AppearanceMode(rawValue: value("appearance", "")) ?? .system
         darkIcons = DarkIconMode(rawValue: value("darkIcons", "")) ?? .auto

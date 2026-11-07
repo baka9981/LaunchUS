@@ -10,7 +10,7 @@ extension LauncherModel {
 
     func folder(_ id: String) -> Folder? {
         for case .folder(let folder) in layout.joined() where folder.id == id { return folder }
-        return nil
+        return barFolders.first { $0.id == id }
     }
 
     func folder(named name: String) -> Folder? {
@@ -22,8 +22,9 @@ extension LauncherModel {
 
     /// The apps a folder holds now: its list, or what a smart folder's search finds.
     func apps(in folder: Folder) -> [AppItem] {
+        if let query = folder.query { return search(query) }
         let byID = Dictionary(visibleApps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        return folder.query.map { search($0) } ?? folder.apps.compactMap { byID[$0] }
+        return folder.apps.compactMap { byID[$0] }
     }
 
     /// Opens every app in the folder; the last one ends up in front.

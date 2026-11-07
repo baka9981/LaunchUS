@@ -39,3 +39,26 @@ struct BackgroundStyleTests {
         #expect(FilmGrain.image === tile)
     }
 }
+
+struct GridFillTests {
+    private func pages(_ counts: [Int]) -> [[LayoutItem]] {
+        var n = 0
+        return counts.map { c in (0..<c).map { _ in n += 1; return LayoutItem.app("a\(n)") } }
+    }
+
+    @Test func fullPagesFillUpWhenTheGridGrows() {
+        let filled = LayoutOps.fill(pages([30, 30, 12]), wasPerPage: 30, perPage: 35)
+        #expect(filled.map(\.count) == [35, 35, 2])
+        #expect(filled.joined().map(\.id) == pages([30, 30, 12]).joined().map(\.id))
+    }
+
+    @Test func shortPagesStayShort() {
+        #expect(LayoutOps.fill(pages([30, 10, 30]), wasPerPage: 30, perPage: 35).map(\.count) == [35, 5, 30])
+    }
+
+    @Test func shrinkingThenGrowingRestoresPages() {
+        let original = pages([35, 20])
+        let shrunk = LayoutOps.repack(original, perPage: 30)
+        #expect(LayoutOps.fill(shrunk, wasPerPage: 30, perPage: 35) == original)
+    }
+}

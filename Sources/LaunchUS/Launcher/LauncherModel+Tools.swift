@@ -49,7 +49,35 @@ extension LauncherModel {
         if let folderID = folderContaining(id) {
             removeApp(id, fromFolder: folderID)
         } else if let loc = location(of: "app:" + id) {
-            layout[loc.page].remove(at: loc.slot)
+            vacate(page: loc.page, slot: loc.slot)
+        }
+    }
+
+    /// Whether icons stay in the cell they're dropped in, empty cells and all. Other sort
+    /// orders don't show the empty cells but keep them, for when custom order comes back.
+    var freePlacement: Bool { settings.freePlacement }
+
+    /// Takes whatever is in a cell out: lined up, the icons after it close the gap; placed
+    /// freely, the cell is left empty.
+    func vacate(page: Int, slot: Int) {
+        guard layout.indices.contains(page), layout[page].indices.contains(slot) else { return }
+        if freePlacement { layout[page][slot] = .gap } else { layout[page].remove(at: slot) }
+    }
+
+    /// Puts items in at a cell, pushing the ones after it along. Placed freely, the push stops
+    /// at the first empty cells after them, which the items take up instead.
+    func insertItems(_ items: [LayoutItem], page: Int, slot: Int) {
+        guard !items.isEmpty, layout.indices.contains(page) else { return }
+        if freePlacement, layout[page].count < slot {
+            layout[page].append(contentsOf: Array(repeating: LayoutItem.gap, count: slot - layout[page].count))
+        }
+        let at = min(slot, layout[page].count)
+        layout[page].insert(contentsOf: items, at: at)
+        guard freePlacement else { return }
+        var absorb = items.count
+        var i = at + items.count
+        while absorb > 0, i < layout[page].count {
+            if layout[page][i].isGap { layout[page].remove(at: i); absorb -= 1 } else { i += 1 }
         }
     }
 
@@ -79,6 +107,19 @@ extension LauncherModel {
         let target = min(page, layout.count)
         if target == layout.count { layout.append([]) }
         layout[target].append(.app(id))
+        withAnimation(.spring(response: 0.42, dampingFraction: 1)) {
+            if openFolderID != nil, openFolder == nil { dropFolder() }
+            commitLayout()
+        }
+    }
+
+    /// Scroll mode has no pages to pick: moves apps to the very start or end of the grid.
+    func moveApps(_ ids: [String], toStart: Bool) {
+        for id in ids { detach(id) }
+        layout = layout.filter { !$0.isEmpty }
+        if layout.isEmpty { layout = [[]] }
+        let items = ids.map(LayoutItem.app)
+        if toStart { layout[0].insert(contentsOf: items, at: 0) } else { layout[layout.count - 1].append(contentsOf: items) }
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) {
             if openFolderID != nil, openFolder == nil { dropFolder() }
             commitLayout()
@@ -217,7 +258,7 @@ extension LauncherModel {
     }
 
     func exportBackup(to url: URL) throws {
-        let backup = LayoutBackup(pages: layout, meta: meta, custom: customItems, profiles: profiles)
+        let backup = LayoutBackup(pages: layout, meta: meta, custom: customItems, barFolders: barFolders, profiles: profiles)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         try encoder.encode(backup).write(to: url, options: .atomic)
@@ -227,7 +268,7 @@ extension LauncherModel {
     func importLaunchpad(from url: URL) throws {
         let pages = try LaunchpadImport.read(url)
         AutoBackup.snapshot()
-        layout = LayoutOps.reconcile(pages, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage)
+        layout = LayoutOps.reconcile(pages, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage, free: freePlacement)
         LayoutStore.save(layout: layout)
         dropFolder()
         currentPage = 0
@@ -249,6 +290,10 @@ extension LauncherModel {
             defer { ICloudSync.applying = false }
             meta = backup.meta
             LayoutStore.save(meta: meta)
+            if let folders = backup.barFolders {
+                barFolders = folders
+                LayoutStore.save(barFolders: folders)
+            }
             if let profile = backup.profile, profile != profiles.current {
                 // The other Mac is on another layout profile: update that one, not the one on screen.
                 profiles.saved[profile] = backup.pages
@@ -257,7 +302,7 @@ extension LauncherModel {
                 refresh()
                 return
             }
-            layout = LayoutOps.reconcile(backup.pages, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage)
+            layout = LayoutOps.reconcile(backup.pages, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage, free: freePlacement)
             LayoutStore.save(layout: layout)
             if let id = openFolderID, location(ofFolder: id) == nil { dropFolder() }
             currentPage = min(currentPage, max(0, layout.count - 1))
@@ -271,13 +316,17 @@ extension LauncherModel {
             guard let self else { return }
             meta = backup.meta
             LayoutStore.save(meta: meta)
+            if let folders = backup.barFolders {
+                barFolders = folders
+                LayoutStore.save(barFolders: folders)
+            }
             if let saved = backup.profiles {
                 // Older backups have no profiles; those keep the ones here.
                 profiles = LayoutProfiles.File(current: backup.profile ?? "", saved: saved)
                 LayoutProfiles.save(profiles)
                 profilesVersion += 1
             }
-            layout = LayoutOps.reconcile(backup.pages, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage)
+            layout = LayoutOps.reconcile(backup.pages, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage, free: freePlacement)
             LayoutStore.save(layout: layout)
             dropFolder()
             currentPage = 0

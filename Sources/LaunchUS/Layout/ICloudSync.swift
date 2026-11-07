@@ -16,6 +16,8 @@ enum ICloudSync {
         var custom: [CustomItem]?
         /// Layout profile the pages belong to; "" or missing is the default one.
         var profile: String?
+        /// Smart folders shown only in the smart bar; missing from older versions.
+        var barFolders: [Folder]?
     }
 
     static var driveRoot: URL {
@@ -93,7 +95,8 @@ enum ICloudSync {
         guard enabled, let pages = LayoutStore.loadLayout() else { return }
         let payload = Payload(device: Host.current().localizedName ?? "Mac", deviceID: deviceID,
                               modified: Date(), pages: pages, meta: LayoutStore.loadMeta(),
-                              custom: CustomItemStore.load(), profile: LayoutProfiles.load().current)
+                              custom: CustomItemStore.load(), profile: LayoutProfiles.load().current,
+                              barFolders: LayoutStore.loadBarFolders())
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
@@ -112,7 +115,7 @@ enum ICloudSync {
         guard enabled, let payload = read(), payload.deviceID != deviceID, payload.modified > lastApplied else { return false }
         lastApplied = payload.modified
         UserDefaults.app.set(Date(), forKey: "iCloudLastSync")
-        var backup = LayoutBackup(pages: payload.pages, meta: payload.meta, custom: payload.custom)
+        var backup = LayoutBackup(pages: payload.pages, meta: payload.meta, custom: payload.custom, barFolders: payload.barFolders)
         backup.profile = payload.profile ?? ""
         onRemoteChange?(backup)
         return true

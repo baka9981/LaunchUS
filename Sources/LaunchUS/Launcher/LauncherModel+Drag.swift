@@ -6,7 +6,7 @@ import SwiftUI
 extension LauncherModel {
     // MARK: - Drag and drop
 
-    var draggedID: String? { drag?.item.id }
+    var draggedID: String? { drag?.item.id ?? landing?.item.id }
     /// A drag just finished; the mouse-up must not also count as a click.
     var dragJustEnded: Bool { Date().timeIntervalSince(lastDragEnd) < 0.3 }
 
@@ -17,9 +17,13 @@ extension LauncherModel {
         switch entry {
         case .app(let app): item = .app(app.id)
         case .folder(let folder, _): item = .folder(folder)
+        case .gap: return
         }
         selection = nil
         dragLocation = pointer
+        // The scrolling grid's cells don't know how far it is scrolled; find the icon on screen.
+        let iconCenter = folderID == nil && settings.browseStyle == .scroll
+            ? scrollIconCenter(of: entry.id) ?? iconCenter : iconCenter
         var session = DragSession(
             item: item,
             folderID: folderID,
@@ -54,13 +58,99 @@ extension LauncherModel {
             return
         }
 
+        if settings.browseStyle == .scroll {
+            handleEdgeScrolling(at: point)
+            hoverInScrollGrid(at: point)
+            return
+        }
         handleEdgePaging(at: point)
         hoverInGrid(at: point)
+    }
+
+    /// The scrolling grid: pages run together without their empty cells, so a cell there is
+    /// the n-th icon of the layout, and moving one shifts the rest along.
+    private func hoverInScrollGrid(at point: CGPoint) {
+        guard let session = drag else { return }
+        let m = metrics
+        let top = m.gridTop + scrollLead - gridScrollOffset
+        let col = Int(floor((point.x - m.gridOriginX) / m.cellSize.width))
+        let row = Int(floor((point.y - top) / m.cellSize.height))
+        let flat = layout.flatMap { $0.filter { !$0.isGap } }
+        guard (0..<columns).contains(col), row >= 0, point.y > m.gridTop, !flat.isEmpty else {
+            pendingMove?.work.cancel()
+            pendingMove = nil
+            if mergeTargetID != nil { withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = nil } }
+            return
+        }
+        let index = row * columns + col
+        let center = CGPoint(x: m.gridOriginX + (CGFloat(col) + 0.5) * m.cellSize.width,
+                             y: top + (CGFloat(row) + 0.5) * m.cellSize.height)
+        let nearCenter = hypot(point.x - center.x, point.y - center.y) < m.iconSize * 0.32
+        if index < flat.count, flat[index].id != session.item.id, nearCenter, case .app = session.item,
+           !Self.isSmartFolder(flat[index]) {
+            pendingMove?.work.cancel()
+            pendingMove = nil
+            if mergeTargetID != flat[index].id {
+                withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = flat[index].id }
+            }
+            return
+        }
+        if mergeTargetID != nil { withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = nil } }
+        let target = min(index, flat.count - 1)
+        schedule("scroll:\(target)") { [weak self] in self?.moveDraggedInOrder(to: target) }
+    }
+
+    /// Moves the held item to the `index`-th place among all icons, keeping every page's
+    /// cells (and empty cells) where they are: the icons just shift along them.
+    private func moveDraggedInOrder(to index: Int) {
+        guard let session = drag else { return }
+        var flat = layout.flatMap { $0.filter { !$0.isGap } }
+        guard let from = flat.firstIndex(where: { $0.id == session.item.id }), from != index,
+              flat.indices.contains(index) else { return }
+        flat.insert(flat.remove(at: from), at: index)
+        var next = 0
+        for p in layout.indices {
+            for s in layout[p].indices where !layout[p][s].isGap {
+                layout[p][s] = flat[next]
+                next += 1
+            }
+        }
+        refresh()
+    }
+
+    /// Holding an icon near the top or bottom of the scrolling grid scrolls it.
+    private func handleEdgeScrolling(at point: CGPoint) {
+        let m = metrics
+        let edge = m.cellSize.height * 0.4
+        let bottom = m.size.height * 0.97
+        let direction: CGFloat = point.y < m.gridTop + edge && point.y > m.gridTop - edge * 2 ? -1
+            : point.y > bottom - edge ? 1 : 0
+        guard direction != 0 else {
+            edgeScroll?.invalidate()
+            edgeScroll = nil
+            return
+        }
+        guard edgeScroll == nil else { return }
+        edgeScroll = Timer.scheduledTimer(withTimeInterval: 1 / 60, repeats: true) { [weak self] timer in
+            MainActor.assumeIsolated {
+                guard let self, self.drag != nil else { timer.invalidate(); return }
+                let rows = (self.pages.flatMap { $0.filter { !$0.isGap } }.count + self.columns - 1) / self.columns
+                let content = self.scrollLead + CGFloat(rows) * m.cellSize.height + m.scrollTail
+                let viewport = m.scrollViewport
+                let y = min(max(0, self.gridScrollOffset + direction * 9), max(0, content - viewport))
+                guard y != self.gridScrollOffset else { return }
+                self.gridScrollRequest = y
+                self.gridScrollOffset = y
+                self.dragMoved(to: self.dragLocation)
+            }
+        }
     }
 
     func endDrag() {
         guard let session = drag else { return }
         cancelTimers()
+        edgeScroll?.invalidate()
+        edgeScroll = nil
         lastDragEnd = Date()
         var newFolderID: String?
 
@@ -80,8 +170,10 @@ extension LauncherModel {
                 folder.apps.append(draggedApp)
                 folder.apps.append(contentsOf: companions)
                 layout[target.page][target.slot] = .folder(folder)
+            case .gap:
+                break
             }
-            layout[source.page].remove(at: source.slot)
+            vacate(page: source.page, slot: source.slot)
         } else if !companions.isEmpty, let at = location(of: session.item.id) {
             layout[at.page].insert(contentsOf: companions.map(LayoutItem.app), at: at.slot + 1)
         } else if !companions.isEmpty, case .app(let draggedApp) = session.item,
@@ -96,12 +188,61 @@ extension LauncherModel {
         }
         if !companions.isEmpty || mergeTargetID != nil { multiSelection = [] }
 
+        let released = CGPoint(x: dragLocation.x - session.grabOffset.width, y: dragLocation.y - session.grabOffset.height)
+        let mergedInto = mergeTargetID
         withAnimation(.easeOut(duration: 0.2)) {
             drag = nil
             mergeTargetID = nil
             commitLayout()
         }
+        land(session.item, from: released, mergedInto: mergedInto)
         if let id = newFolderID { openFolder(id) }
+    }
+
+    /// Glides the let-go icon from the pointer into its slot (or into the folder it was dropped
+    /// on) instead of it vanishing there and reappearing in the grid.
+    private func land(_ item: LayoutItem, from: CGPoint, mergedInto: String?) {
+        guard !settings.animationsOff, let target = landingTarget(for: item, mergedInto: mergedInto) else { return }
+        landingToken += 1
+        let token = landingToken
+        var t = Transaction()
+        t.disablesAnimations = true
+        withTransaction(t) { landing = DragLanding(item: item, position: from, scale: 1.08, opacity: 1) }
+        // On the next turn: the icon must be drawn under the pointer first, or SwiftUI folds
+        // both changes into one and it simply appears in its slot.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.landingToken == token else { return }
+            withAnimation(self.settings.motion(.spring(response: 0.32, dampingFraction: 0.86), duration: 0.32)) {
+                self.landing?.position = target
+                self.landing?.scale = mergedInto == nil ? 1 : 0.5
+                self.landing?.opacity = mergedInto == nil ? 1 : 0
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + settings.animationSpeed.duration(0.4)) { [weak self] in
+            guard let self, self.landingToken == token else { return }
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { self.landing = nil }
+        }
+    }
+
+    /// Where the dropped icon ends up on screen, if that's on the page in view.
+    private func landingTarget(for item: LayoutItem, mergedInto: String?) -> CGPoint? {
+        let m = metrics
+        if let folderID = openFolderID, case .app(let app) = item,
+           let folder = openFolder, folder.0.id == folderID, let index = folder.1.firstIndex(where: { $0.id == app }) {
+            if folderScrolls {
+                let c = m.folderIconCenter(slot: index)
+                return CGPoint(x: c.x, y: c.y - folderScrollOffset)
+            }
+            guard index / folderPerPage == folderPage else { return nil }
+            return m.folderIconCenter(slot: index % folderPerPage)
+        }
+        guard openFolderID == nil, !isSearching else { return nil }
+        let id = mergedInto ?? item.id
+        if settings.browseStyle == .scroll { return scrollIconCenter(of: id) }
+        guard let pos = location(of: id), pos.page == currentPage else { return nil }
+        return m.iconCenter(slot: pos.slot)
     }
 
     private func cancelTimers() {
@@ -143,7 +284,7 @@ extension LauncherModel {
         let center = m.iconCenter(slot: slot)
         let nearCenter = hypot(point.x - center.x, point.y - center.y) < m.iconSize * 0.32
 
-        if slot < page.count, page[slot].id != session.item.id, nearCenter, case .app = session.item,
+        if slot < page.count, !page[slot].isGap, page[slot].id != session.item.id, nearCenter, case .app = session.item,
            !Self.isSmartFolder(page[slot]) {
             // Dropping an app onto another app or a folder makes / fills a folder.
             pendingMove?.work.cancel()
@@ -156,7 +297,8 @@ extension LauncherModel {
         if mergeTargetID != nil { withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = nil } }
 
         let targetPage = currentPage
-        let targetSlot = min(slot, page.count)
+        // Placed freely, any cell will do, even past the last icon; lined up, it's next in line.
+        let targetSlot = freePlacement ? slot : min(slot, page.count)
         schedule("grid:\(targetPage):\(targetSlot)") { [weak self] in
             self?.moveDragged(toPage: targetPage, slot: targetSlot)
         }
@@ -164,6 +306,10 @@ extension LauncherModel {
 
     private func moveDragged(toPage page: Int, slot: Int) {
         guard let session = drag, let from = location(of: session.item.id), layout.indices.contains(page) else { return }
+        if freePlacement {
+            moveDraggedFreely(from: from, toPage: page, slot: slot)
+            return
+        }
         if from.page == page && from.slot == min(slot, layout[page].count - 1) { return }
         let item = layout[from.page].remove(at: from.slot)
         layout[page].insert(item, at: min(slot, layout[page].count))
@@ -175,6 +321,31 @@ extension LauncherModel {
                 if i + 1 < layout.count { layout[i + 1].insert(overflow, at: 0) } else { layout.append([overflow]) }
             }
             i += 1
+        }
+        refresh()
+    }
+
+    /// Free placement: an empty cell simply takes the icon, leaving its old cell empty. An
+    /// occupied one makes room by pushing the icons after it along up to the next empty cell.
+    private func moveDraggedFreely(from: GridPos, toPage page: Int, slot: Int) {
+        if from.page == page && from.slot == slot { return }
+        let item = layout[from.page][from.slot]
+        layout[from.page][from.slot] = .gap
+        if slot < layout[page].count, !layout[page][slot].isGap {
+            insertItems([item], page: page, slot: slot)
+        } else {
+            while layout[page].count <= slot { layout[page].append(.gap) }
+            layout[page][slot] = item
+        }
+        // Too many on a page gives up its last empty cells, then pushes icons on;
+        // empty pages stay until the drop, so page numbers hold still.
+        for i in layout.indices {
+            LayoutOps.trimTrailingGaps(&layout[i])
+            while layout[i].count > perPage, let gap = layout[i].lastIndex(where: \.isGap) { layout[i].remove(at: gap) }
+            if layout[i].count > perPage {
+                let overflow = layout[i].removeLast()
+                if i + 1 < layout.count { layout[i + 1].insert(overflow, at: 0) } else { layout.append([overflow]) }
+            }
         }
         refresh()
     }

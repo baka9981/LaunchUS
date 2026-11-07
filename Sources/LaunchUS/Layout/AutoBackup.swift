@@ -42,7 +42,8 @@ enum AutoBackup {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         guard let data = try? encoder.encode(LayoutBackup(pages: pages, meta: LayoutStore.loadMeta(),
-                                                                  custom: CustomItemStore.load(), profiles: LayoutProfiles.load())) else { return nil }
+                                                                  custom: CustomItemStore.load(), barFolders: LayoutStore.loadBarFolders(),
+                                                                  profiles: LayoutProfiles.load())) else { return nil }
         if let newest = list().first, (try? Data(contentsOf: newest.url)) == data { return nil }
         let url = directory.appendingPathComponent(prefix + stampFormat.string(from: now) + ".json")
         do {

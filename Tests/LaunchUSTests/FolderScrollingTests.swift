@@ -216,6 +216,71 @@ extension AutoBackupTests {
         }
     }
 
+    @MainActor @Test func recentRowOnlyWhileScrolling() async throws {
+        let apps = ["A", "B"].map { app($0, id: $0.lowercased()) }
+        try await withFolderFixture(apps: apps, layout: [["a", "b"].map(LayoutItem.app)], browse: nil) { model in
+            model.settings.showFrequent = true
+            model.settings.browseStyle = .paged
+            #expect(!model.showsFrequentRow)
+            #expect(!model.metrics.frequentRow)
+            model.settings.browseStyle = .scroll
+            #expect(model.showsFrequentRow)
+            #expect(model.metrics.frequentRow)
+        }
+    }
+
+    @MainActor @Test func freePlacementDropsIntoEmptyCellsAndKeepsThem() async throws {
+        let apps = ["A", "B", "C", "D"].map { app($0, id: $0.lowercased()) }
+        try await withFolderFixture(apps: apps, layout: [["a", "b", "c", "d"].map(LayoutItem.app)], browse: nil) { model in
+            model.settings.freePlacement = true
+            let m = model.metrics
+            let target = m.columns + 1
+            guard case .app(let d)? = model.pages[0].last else { Issue.record("no app"); return }
+            model.beginDrag(.app(d), inFolder: nil, pointer: m.iconCenter(slot: 3), iconCenter: m.iconCenter(slot: 3))
+            model.dragMoved(to: m.iconCenter(slot: target))
+            try await Task.sleep(for: .milliseconds(400))
+            model.endDrag()
+            // D sits on the second row; the cells between stay empty.
+            #expect(model.layout[0].count == target + 1)
+            #expect(model.layout[0][target] == .app("d"))
+            #expect(model.layout[0][3..<target].allSatisfy { $0.isGap })
+            #expect(model.pages[0].filter { !$0.isGap }.count == 4)
+
+            // Hiding an app leaves its cell empty instead of pulling the rest forward.
+            model.setHidden(true, for: "b")
+            #expect(model.layout[0][1].isGap)
+            #expect(model.layout[0][target] == .app("d"))
+
+            // Back to lined up: the empty cells close.
+            model.settings.freePlacement = false
+            model.settingsChanged()
+            #expect(model.layout[0] == [.app("a"), .app("c"), .app("d")])
+        }
+    }
+
+    @MainActor @Test func scrollingGridRearrangesAcrossPages() async throws {
+        let apps = ["A", "B", "C", "D"].map { app($0, id: $0.lowercased()) }
+        try await withFolderFixture(apps: apps, layout: [["a", "b"].map(LayoutItem.app), ["c", "d"].map(LayoutItem.app)],
+                                    browse: "scroll") { model in
+            #expect(model.canRearrange)
+            let m = model.metrics
+            // Pages run together: D is the fourth icon, dropped in the first cell.
+            let lead = model.scrollLead
+            func cell(_ i: Int) -> CGPoint {
+                CGPoint(x: m.gridOriginX + (CGFloat(i % m.columns) + 0.5) * m.cellSize.width,
+                        y: m.gridTop + lead + (CGFloat(i / m.columns) + 0.5) * m.cellSize.height)
+            }
+            guard case .app(let d)? = model.pages[1].last else { Issue.record("no app"); return }
+            model.beginDrag(.app(d), inFolder: nil, pointer: cell(3), iconCenter: cell(3))
+            // Between icons, not on one (that would make a folder).
+            model.dragMoved(to: CGPoint(x: cell(0).x - m.cellSize.width * 0.4, y: cell(0).y))
+            try await Task.sleep(for: .milliseconds(400))
+            model.endDrag()
+            // The rest shift along, from page to page.
+            #expect(model.layout.flatMap { $0 } == [.app("d"), .app("a"), .app("b"), .app("c")])
+        }
+    }
+
     @MainActor private func withFolderFixture(_ body: @MainActor (LauncherModel) async throws -> Void) async throws {
         let apps = (0..<100).map { app("Fixture \($0)", id: "fixture-\($0)") }
         try await withFolderFixture(apps: apps, layout: [[.folder(Folder(id: "fixture-folder", name: "Fixture", apps: apps.map(\.id)))]], browse: "scroll") { model in
@@ -250,6 +315,7 @@ extension AutoBackupTests {
         LayoutStore.save(layout: layout)
         let defaults = FolderMemoryDefaults()
         if let browse { defaults.set(browse, forKey: "folderBrowseStyle") }
+        defaults.set(false, forKey: "showCategoryBar") // the numbers below are for a grid without the tab row
         let model = LauncherModel(catalog: AppCatalog(apps: apps), settings: Settings(defaults: defaults))
         model.screenSize = CGSize(width: 1_400, height: 1_000)
         model.catalogChanged()

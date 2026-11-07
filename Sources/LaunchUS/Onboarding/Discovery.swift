@@ -26,7 +26,7 @@ enum WhatsNew {
             Feature(symbol: "plus.forwardslash.minus", title: String(localized: "计算"),
                     detail: String(localized: "在搜索栏输入 128*3，按 ↩ 复制结果")),
             Feature(symbol: "command", title: String(localized: "⌘1–9 打开常用 App"),
-                    detail: String(localized: "常用一行的前 9 个，右键可以固定"),
+                    detail: String(localized: "最近一行的前 9 个，右键可以固定"),
                     action: { $0.finishWhatsNew(); $0.openSettings(.appearance) }),
             Feature(symbol: "arrow.up.left.and.arrow.down.right", title: String(localized: "图标大小"),
                     detail: String(localized: "设置 › 外观 › 网格"),
@@ -79,7 +79,7 @@ enum Tip: String {
             settings.displayMode == .window
                 ? String(localized: "小技巧：把图标拖出窗口，可以放进程序坞或访达")
                 : String(localized: "小技巧：把图标拖到屏幕底边，可以放进程序坞或访达")
-        case .frequentRow: String(localized: "想把最近打开的 App 放在最上面？可以开启「常用一行」")
+        case .frequentRow: String(localized: "想把最近打开的 App 放在最上面？可以开启「最近一行」")
         case .launchItem: String(localized: "没找到？网址、文件和脚本也能做成启动项")
         case .rightClick: String(localized: "小技巧：在空白处点右键，可以打开设置和更多选项")
         }
@@ -112,7 +112,7 @@ extension LauncherModel {
         guard !showGuide, sheet == nil, !showSettings else { return }
         if WhatsNew.isPending {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { showWhatsNew = true }
-        } else if !settings.showFrequent, RecentLaunches.load().count >= Tip.frequentRowAfter {
+        } else if !showsFrequentRow, settings.browseStyle == .scroll, RecentLaunches.load().count >= Tip.frequentRowAfter {
             offerTip(.frequentRow)
         }
     }

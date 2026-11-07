@@ -100,13 +100,14 @@ enum LauncherMenus {
             sub.add(String(localized: "解散所有文件夹"), symbol: "folder.badge.minus", enabled: hasFolders) {
                 model.ungroupAllFolders()
             }
-            sub.add(String(localized: "文件夹移到最前"), symbol: "arrow.up.to.line") { model.moveAllFolders(toStart: true) }
-            sub.add(String(localized: "文件夹移到最后"), symbol: "arrow.down.to.line") { model.moveAllFolders(toStart: false) }
+            // Sorted by name or date, positions come from the order.
+            sub.add(String(localized: "文件夹移到最前"), symbol: "arrow.up.to.line", enabled: model.canRearrange) { model.moveAllFolders(toStart: true) }
+            sub.add(String(localized: "文件夹移到最后"), symbol: "arrow.down.to.line", enabled: model.canRearrange) { model.moveAllFolders(toStart: false) }
             sub.addSeparator()
             sub.add(String(localized: "App 管理…"), symbol: "square.stack.3d.up") { model.sheet = .manager }
             sub.add(String(localized: "整理布局…")) { model.openSettings(.organize) }
         }
-        // Only the two view choices people switch back and forth; the rest is in settings.
+        // Only the view choices people switch back and forth; the rest is in settings.
         menu.addSubmenu(String(localized: "视图"), symbol: "eye") { sub in
             sub.addItem(.sectionHeader(title: String(localized: "排序方式")))
             for order in SortOrder.allCases {
@@ -116,6 +117,11 @@ enum LauncherMenus {
             sub.addItem(.sectionHeader(title: String(localized: "浏览样式")))
             for style in BrowseStyle.allCases {
                 sub.add(style.title, checked: settings.browseStyle == style) { settings.browseStyle = style }
+            }
+            // The recent apps row is part of the scrolling grid only.
+            if settings.browseStyle == .scroll {
+                sub.addItem(.separator())
+                sub.add(String(localized: "最近一行"), checked: settings.showFrequent) { settings.showFrequent.toggle() }
             }
         }
         if model.profileNames.count > 1 {
@@ -166,13 +172,15 @@ enum LauncherMenus {
             menu.add(String(localized: "编辑…"), symbol: "pencil") {
                 model.sheet = app.isCustom ? .editCustom(app.id) : .editApp(app.id)
             }
+            addCategoryMenu(to: menu, ids: [app.id], model: model)
             menu.addSubmenu(String(localized: "移动到"), symbol: "arrow.right.square", enabled: model.canRearrange) { sub in
                 let current = model.folderContaining(app.id)
                 addMoveTargets(to: sub, model: model, current: current,
                                takeOut: folderID != nil && model.openFolder?.0.isSmart != true
                                    ? { model.takeOutOfFolder(app.id, folderID: folderID!) } : nil,
                                toFolder: { model.moveApp(app.id, toFolder: $0) },
-                               toPage: { model.moveApp(app.id, toPage: $0) })
+                               toPage: { model.moveApp(app.id, toPage: $0) },
+                               toEdge: { model.moveApps([app.id], toStart: $0) })
             }
             if meta.hidden {
                 menu.add(String(localized: "取消隐藏"), symbol: "eye") { model.setHidden(false, for: app.id) }
@@ -203,12 +211,12 @@ enum LauncherMenus {
             menu.addSeparator()
             if folder.isSmart {
                 menu.add(String(localized: "编辑智能文件夹…"), symbol: "slider.horizontal.3") {
-                    model.sheet = .editSmartFolder(folder.id, query: folder.query ?? "")
+                    model.sheet = .editSmartFolder(folder.id, query: "")
                 }
-                menu.add(String(localized: "删除智能文件夹"), symbol: "trash") { model.dissolveFolder(folder.id) }
             } else {
                 menu.add(String(localized: "解散文件夹"), symbol: "folder.badge.minus") { model.dissolveFolder(folder.id) }
             }
+        case .gap: break
         }
         return menu
     }
@@ -225,13 +233,13 @@ enum LauncherMenus {
             if model.isPinnedToFrequent(app.id) {
                 menu.add(String(localized: "取消固定"), symbol: "pin.slash") { model.setPinnedToFrequent(false, app.id) }
             } else {
-                menu.add(String(localized: "固定在常用一行"), symbol: "pin") { model.setPinnedToFrequent(true, app.id) }
+                menu.add(String(localized: "固定在最近一行"), symbol: "pin") { model.setPinnedToFrequent(true, app.id) }
             }
             menu.add(String(localized: "从常用中移除"), symbol: "minus.circle") { model.removeFromFrequent(app.id) }
             menu.addSeparator()
         }
         menu.add(String(localized: "清空常用记录"), symbol: "clock.arrow.circlepath") { model.resetFrequent() }
-        menu.add(String(localized: "隐藏常用一行"), symbol: "eye.slash") { model.settings.showFrequent = false }
+        menu.add(String(localized: "关闭最近一行"), symbol: "eye.slash") { model.settings.showFrequent = false }
         return menu
     }
 
@@ -247,8 +255,14 @@ enum LauncherMenus {
             addMoveTargets(to: sub, model: model, current: nil,
                            takeOut: inFolder ? { model.takeSelectionOutOfFolders() } : nil,
                            toFolder: { model.moveSelection(toFolder: $0) },
-                           toPage: { model.moveSelection(toPage: $0) })
+                           toPage: { model.moveSelection(toPage: $0) },
+                           toEdge: { start in
+                               let ids = model.multiSelectedIDs
+                               model.multiSelection = []
+                               model.moveApps(ids, toStart: start)
+                           })
         }
+        addCategoryMenu(to: menu, ids: ids, model: model)
         menu.addSubmenu(String(localized: "标签"), symbol: "tag") { sub in
             for tag in model.allTags {
                 sub.add(tag, checked: ids.allSatisfy { model.meta(for: $0).tags.contains(tag) }) {
@@ -259,6 +273,34 @@ enum LauncherMenus {
         menu.add(String(localized: "隐藏"), symbol: "eye.slash") { model.hideSelection() }
         menu.addSeparator()
         menu.add(String(localized: "取消选择"), symbol: "xmark.circle") { model.multiSelection = [] }
+        return menu
+    }
+
+    /// "App Store 分类" submenu: which category "@…" smart-folder conditions put the apps in.
+    /// Shown only once some smart folder picks apps that way.
+    static func addCategoryMenu(to menu: NSMenu, ids: [String], model: LauncherModel) {
+        guard model.usesCategoryConditions else { return }
+        let apps = ids.compactMap(model.app)
+        guard !apps.isEmpty else { return }
+        menu.addSubmenu(String(localized: "App Store 分类"), symbol: "square.grid.3x1.below.line.grid.1x2") { sub in
+            for group in AppCategoryName.Group.allCases {
+                sub.add(group.title, checked: apps.allSatisfy { model.appGroup($0) == group }) {
+                    model.setCategory(group, for: ids)
+                }
+            }
+            sub.addSeparator()
+            sub.add(String(localized: "使用 App 自带的分类"), checked: apps.allSatisfy { model.meta(for: $0.id).group == nil }) {
+                model.setCategory(nil, for: ids)
+            }
+        }
+    }
+
+    /// Right-click on a tab in the smart bar: everything about it is in 编辑智能栏.
+    static func categoryTab(_ key: String, title: String, model: LauncherModel) -> NSMenu {
+        let menu = NSMenu.launcher()
+        menu.add(String(localized: "编辑智能栏…"), symbol: "slider.horizontal.3") {
+            model.sheet = .editSmartFolder(model.smartFolder(forTab: key)?.id, query: "")
+        }
         return menu
     }
 
@@ -285,7 +327,7 @@ enum LauncherMenus {
 
     private static func addMoveTargets(to sub: NSMenu, model: LauncherModel, current: String?,
                                        takeOut: (() -> Void)?, toFolder: @escaping (String) -> Void,
-                                       toPage: @escaping (Int) -> Void) {
+                                       toPage: @escaping (Int) -> Void, toEdge: @escaping (Bool) -> Void) {
         if let takeOut {
             sub.add(String(localized: "移出文件夹"), takeOut)
             sub.addSeparator()
@@ -294,6 +336,12 @@ enum LauncherMenus {
             sub.add(target.name, symbol: "folder") { toFolder(target.id) }
         }
         sub.addSeparator()
+        // Scrolling runs the pages together, so there are none to pick.
+        if Settings.shared.browseStyle == .scroll {
+            sub.add(String(localized: "移到最前"), symbol: "arrow.up.to.line") { toEdge(true) }
+            sub.add(String(localized: "移到最后"), symbol: "arrow.down.to.line") { toEdge(false) }
+            return
+        }
         let pages = model.layout.filter { !$0.isEmpty }.count
         for page in 0..<pages {
             sub.add(String(localized: "第 \(page + 1) 页")) { toPage(page) }
@@ -354,7 +402,22 @@ final class ContextMenuView: NSView {
         let menu = pending ?? make?(convert(event.locationInWindow, from: nil))
         pending = nil
         guard let menu else { return }
+        // The icon the menu belongs to lifts while the menu is open (`MenuTarget`).
+        MenuTarget.shared.id = menu.identifier?.rawValue
         NSMenu.popUpContextMenu(menu, with: event, for: self)
+        MenuTarget.shared.id = nil
+    }
+}
+
+/// The cell whose right-click menu is open, so it can show where the menu came from.
+@MainActor @Observable final class MenuTarget {
+    static let shared = MenuTarget()
+    var id: String?
+
+    /// Marks `menu` as belonging to the cell with this ID.
+    static func tag(_ menu: NSMenu, _ id: String) -> NSMenu {
+        menu.identifier = NSUserInterfaceItemIdentifier(id)
+        return menu
     }
 }
 

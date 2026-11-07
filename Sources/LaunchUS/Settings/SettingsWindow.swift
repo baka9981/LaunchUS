@@ -150,6 +150,13 @@ private struct TabButton: View {
 
 // MARK: - Building blocks
 
+/// Why a row is greyed out: it only does something in another mode.
+enum ModeNote {
+    static var paged: String { String(localized: "仅在分页浏览时可用") }
+    static var scroll: String { String(localized: "仅在滚动浏览时可用") }
+    static var fullScreen: String { String(localized: "仅在全屏模式下可用") }
+}
+
 struct SettingsSection<Content: View>: View {
     var title: String?
     @ViewBuilder let content: () -> Content
@@ -325,7 +332,9 @@ struct GeneralTab: View {
                 Row(title: String(localized: "启动台显示在")) {
                     MenuPicker(selection: $settings.targetScreen, options: TargetScreen.allCases, title: \.title)
                 }
-                Row(title: String(localized: "回到主页面"), info: String(localized: "再次打开时，隔多久回到第一页；在这之前会停在上次浏览的位置")) {
+                Row(title: String(localized: "回到主页面"), info: settings.browseStyle == .scroll
+                        ? String(localized: "再次打开时，隔多久回到最上面；在这之前会停在上次浏览的位置")
+                        : String(localized: "再次打开时，隔多久回到第一页；在这之前会停在上次浏览的位置")) {
                     MenuPicker(selection: $settings.returnHome, options: ReturnHome.allCases, title: \.title)
                 }
                 Row(title: String(localized: "点击空白区域关闭")) {
@@ -445,25 +454,56 @@ struct AppearanceTab: View {
                         ModeThumb(title: String(localized: "窗口"), windowed: true, selected: settings.displayMode == .window) { settings.displayMode = .window }
                     }
                 }
-                if settings.displayMode == .fullScreen {
-                    Row(title: String(localized: "隐藏程序坞"), info: String(localized: "全屏时盖住程序坞和菜单栏；关掉则让程序坞留在最上面")) {
-                        Toggle("", isOn: $settings.hideDock).toggleStyle(.switch).labelsHidden()
+                Row(title: String(localized: "隐藏程序坞"),
+                    subtitle: settings.displayMode == .window ? ModeNote.fullScreen : nil,
+                    info: String(localized: "全屏时盖住程序坞和菜单栏；关掉则让程序坞留在最上面")) {
+                    Toggle("", isOn: $settings.hideDock).toggleStyle(.switch).labelsHidden()
+                        .disabled(settings.displayMode == .window)
+                }
+                Row(title: String(localized: "液态玻璃"), info: String(localized: "文件夹、打开的文件夹和搜索栏透出并折射后面的内容；关掉则用烟灰玻璃")) {
+                    Toggle("", isOn: $settings.liquidGlass).toggleStyle(.switch).labelsHidden()
+                }
+                Row(title: String(localized: "动画"),
+                    subtitle: settings.animationsOff ? String(localized: "已关闭") : nil,
+                    info: String(localized: "打开、关闭、翻页和文件夹的过渡快慢节奏。选一种预设，或点「调整…」拖动曲线、调速度，也可以关闭动画")) {
+                    HStack(spacing: 8) {
+                        MotionCurvePicker(curve: $settings.motionCurve)
+                            .disabled(settings.animationsOff)
+                        Button(String(localized: "调整…")) { model.openTuner(.motion) }
                     }
                 }
-                Row(title: String(localized: "动画速度")) {
-                    Picker("", selection: $settings.animationSpeed) {
-                        ForEach(AnimationSpeed.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+        }
+        SettingsSection(title: String(localized: "浏览")) {
+            Card {
+                Row(title: String(localized: "浏览样式"), info: String(localized: "分页：左右翻页，可以留出空位。滚动：所有页面连成一列上下滚动，顶部可以显示最近一行")) {
+                    Picker("", selection: $settings.browseStyle) {
+                        Text("分页").tag(BrowseStyle.paged)
+                        Text("滚动").tag(BrowseStyle.scroll)
                     }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                    .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
                 }
-                if settings.animationSpeed != .off {
-                    Row(title: String(localized: "动画曲线"),
-                        info: String(localized: "打开、关闭、翻页和文件夹的过渡快慢节奏。选一种预设，或点「调整…」拖动曲线")) {
-                        HStack(spacing: 8) {
-                            MotionCurvePicker(curve: $settings.motionCurve)
-                            Button(String(localized: "调整…")) { model.openTuner(.motion) }
-                        }
+                Row(title: String(localized: "最近一行"),
+                    subtitle: settings.browseStyle == .paged ? ModeNote.scroll : nil,
+                    info: String(localized: "滚动浏览时，在最上面一行显示最近打开的 App，下面用一条线隔开")) {
+                    Toggle("", isOn: Binding(get: { settings.showFrequent && settings.browseStyle == .scroll },
+                                             set: { settings.showFrequent = $0 }))
+                        .toggleStyle(.switch).labelsHidden()
+                        .disabled(settings.browseStyle == .paged)
+                }
+                Row(title: String(localized: "智能栏"),
+                    info: String(localized: "搜索框下面的一排智能文件夹，点一个只看里面的 App。可以把 App Store 分类导入成智能文件夹，新装的 App 会自动归进去")) {
+                    HStack(spacing: 8) {
+                        SmartBarButton(model: model)
+                        Toggle("", isOn: $settings.showCategoryBar).toggleStyle(.switch).labelsHidden()
                     }
+                }
+                Row(title: String(localized: "文件夹内浏览"), info: String(localized: "文件夹里的 App 超过一屏时，分页左右翻，滚动上下滑")) {
+                    Picker("", selection: $settings.folderBrowseStyle) {
+                        Text("分页").tag(BrowseStyle.paged)
+                        Text("滚动").tag(BrowseStyle.scroll)
+                    }
+                    .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
                 }
             }
         }
@@ -485,25 +525,19 @@ struct AppearanceTab: View {
                             .disabled(settings.iconScale == 1)
                     }
                 }
-            }
-        }
-        SettingsSection(title: String(localized: "图标")) {
-            Card {
-                Row(title: String(localized: "液态玻璃"), info: String(localized: "文件夹、打开的文件夹和搜索栏透出并折射后面的内容；关掉则用烟灰玻璃")) {
-                    Toggle("", isOn: $settings.liquidGlass).toggleStyle(.switch).labelsHidden()
-                }
-                Row(title: String(localized: "深色图标"), info: String(localized: "使用 App 自带的深色图标，就像深色模式下的程序坞；没有深色版本的 App 保持原样")) {
-                    MenuPicker(selection: $settings.darkIcons, options: DarkIconMode.allCases, title: \.title)
-                }
-                Row(title: String(localized: "常用一行"), info: String(localized: "在搜索栏下方显示最近打开的 App")) {
-                    Toggle("", isOn: $settings.showFrequent).toggleStyle(.switch).labelsHidden()
-                }
                 Row(title: String(localized: "隐藏名称")) {
                     HStack(spacing: 14) {
                         Toggle("App", isOn: $settings.hideNames)
                         Toggle(String(localized: "文件夹"), isOn: $settings.hideFolderNames)
                     }
                     .toggleStyle(.checkbox)
+                }
+            }
+        }
+        SettingsSection(title: String(localized: "图标")) {
+            Card {
+                Row(title: String(localized: "深色图标"), info: String(localized: "使用 App 自带的深色图标，就像深色模式下的程序坞；没有深色版本的 App 保持原样")) {
+                    MenuPicker(selection: $settings.darkIcons, options: DarkIconMode.allCases, title: \.title)
                 }
                 Row(title: String(localized: "图标标记")) {
                     Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
@@ -525,31 +559,29 @@ struct AppearanceTab: View {
         }
         SettingsSection(title: String(localized: "背景")) {
             Card {
-                Row(title: String(localized: "类型")) {
+                Row(title: String(localized: "类型"), subtitle: settings.displayMode == .window ? ModeNote.fullScreen : nil) {
                     Picker("", selection: $settings.background) {
                         Text("系统壁纸").tag(BackgroundKind.wallpaper)
                         Text("毛玻璃").tag(BackgroundKind.glass)
                         Text("图片").tag(BackgroundKind.image)
                     }
                     .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
+                    .disabled(settings.displayMode == .window)
                 }
                 if settings.background == .image {
                     Row(title: String(localized: "图片"), subtitle: BackgroundImage.url(settings.backgroundImage) == nil
                             ? String(localized: "还没有选择，暂时使用系统壁纸") : nil) {
                         Button(String(localized: "选择图片…"), action: chooseBackground)
+                            .disabled(settings.displayMode == .window)
                     }
                 }
-                if settings.displayMode == .fullScreen {
-                    Row(title: String(localized: "效果"),
-                        info: String(localized: "模糊、颜色、色温、色调、暗角和颗粒感。选一个方案，或点「调整…」边看边调，调好的可以存成自己的方案")) {
-                        HStack(spacing: 8) {
-                            BackgroundStylePicker(settings: settings)
-                            Button(String(localized: "调整…")) { model.openTuner(.background) }
-                        }
+                Row(title: String(localized: "效果"),
+                    info: String(localized: "模糊、颜色、色温、色调、暗角和颗粒感。选一个方案，或点「调整…」边看边调，调好的可以存成自己的方案")) {
+                    HStack(spacing: 8) {
+                        BackgroundStylePicker(settings: settings)
+                        Button(String(localized: "调整…")) { model.openTuner(.background) }
                     }
-                }
-                Row(title: String(localized: "深色时加深背景"), info: String(localized: "外观为深色时，背景再暗一些，图标和名称更清楚")) {
-                    Toggle("", isOn: $settings.darkenBackground).toggleStyle(.switch).labelsHidden()
+                    .disabled(settings.displayMode == .window)
                 }
             }
         }
@@ -687,17 +719,23 @@ struct AppsTab: View {
                 .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             } else {
                 Card {
-                    Row(title: String(localized: "隐形圆点"), subtitle: String(localized: "最后一个分页圆点后面，鼠标移上去才会出现")) {
+                    let scrolling = settings.browseStyle == .scroll
+                    Row(title: String(localized: "隐形圆点"), subtitle: scrolling ? ModeNote.paged : String(localized: "最后一个分页圆点后面，鼠标移上去才会出现")) {
                         Toggle("", isOn: $settings.hiddenDotEntrance).toggleStyle(.switch).labelsHidden()
+                            .disabled(scrolling)
                     }
-                    Row(title: String(localized: "隐形空位"), subtitle: String(localized: "在所选页最后一个 App 后面的空位上右键，点击出现的虚线框")) {
+                    Row(title: String(localized: "隐形空位"), subtitle: scrolling
+                            ? String(localized: "在最后一个 App 后面的空位上右键，点击出现的虚线框")
+                            : String(localized: "在所选页最后一个 App 后面的空位上右键，点击出现的虚线框")) {
                         HStack(spacing: 8) {
-                            Picker("", selection: $settings.hiddenSlotPage) {
-                                Text("最后一页").tag(0)
-                                ForEach(1...max(1, model.pageCount), id: \.self) { Text("第 \($0) 页").tag($0) }
+                            if !scrolling {
+                                Picker("", selection: $settings.hiddenSlotPage) {
+                                    Text("最后一页").tag(0)
+                                    ForEach(1...max(1, model.pageCount), id: \.self) { Text("第 \($0) 页").tag($0) }
+                                }
+                                .labelsHidden().fixedSize()
+                                .disabled(!settings.hiddenSlotEntrance)
                             }
-                            .labelsHidden().fixedSize()
-                            .disabled(!settings.hiddenSlotEntrance)
                             Toggle("", isOn: $settings.hiddenSlotEntrance).toggleStyle(.switch).labelsHidden()
                         }
                     }
@@ -797,19 +835,16 @@ struct OrganizeTab: View {
                 Row(title: String(localized: "排序方式"), info: String(localized: "按名称或时间排序时，App 位置由排序决定，不能拖动整理；文件夹内仍保持原样")) {
                     MenuPicker(selection: $settings.sortOrder, options: SortOrder.allCases, title: \.title)
                 }
-                Row(title: String(localized: "浏览样式"), subtitle: settings.browseStyle == .scroll ? String(localized: "滚动模式下不能拖动整理图标") : nil) {
-                    Picker("", selection: $settings.browseStyle) {
-                        Text("分页").tag(BrowseStyle.paged)
-                        Text("滚动").tag(BrowseStyle.scroll)
+                Row(title: String(localized: "图标摆放"),
+                    subtitle: settings.browseStyle == .scroll ? ModeNote.paged
+                        : settings.sortOrder != .custom ? String(localized: "按自定义排序时生效") : nil,
+                    info: String(localized: "随处摆放：图标落在松手处的格子里，可以留出空位；调整行列数时，图标保持原来的行和列。依次排列：图标一个挨一个，空位自动补上")) {
+                    Picker("", selection: $settings.freePlacement) {
+                        Text("依次排列").tag(false)
+                        Text("随处摆放").tag(true)
                     }
                     .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
-                }
-                Row(title: String(localized: "文件夹内浏览"), info: String(localized: "App 超过一屏时上下滚动查看")) {
-                    Picker("", selection: $settings.folderBrowseStyle) {
-                        Text("分页").tag(BrowseStyle.paged)
-                        Text("滚动").tag(BrowseStyle.scroll)
-                    }
-                    .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
+                    .disabled(settings.browseStyle == .scroll)
                 }
             }
         }
@@ -822,15 +857,19 @@ struct OrganizeTab: View {
                     MenuPicker(selection: $settings.deleteBadges, options: [true, false]) { $0 ? String(localized: "抖动时显示 ✕") : String(localized: "关") }
                 }
             }
-            Text(String(localized: "拖动图标到屏幕底边（窗口模式下拖出窗口），即可放到程序坞、访达或其他 App"))
+            Text(settings.displayMode == .window
+                 ? String(localized: "把图标拖出窗口，即可放到程序坞、访达或其他 App")
+                 : String(localized: "拖动图标到屏幕底边，即可放到程序坞、访达或其他 App"))
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 4)
         }
         SettingsSection(title: String(localized: "整理")) {
             Card {
-                Row(title: String(localized: "整理空位"), info: String(localized: "按当前行列，把 App 向前移动，填满前面页面的空位。")) {
+                Row(title: String(localized: "整理空位"), subtitle: settings.browseStyle == .scroll ? ModeNote.paged : nil,
+                    info: String(localized: "按当前行列，把 App 向前移动，填满前面页面的空位。")) {
                     Button(String(localized: "重新整理")) { model.compactLayout() }
+                        .disabled(settings.browseStyle == .scroll)
                 }
                 Row(title: String(localized: "整理布局"), info: String(localized: "按所选规则重新整理所有页面")) {
                     HStack {
@@ -1028,19 +1067,22 @@ struct AdvancedTab: View {
             }
         }
         SettingsSection(title: String(localized: "帮助")) {
-            HStack(spacing: 8) {
-                Button(String(localized: "使用引导")) {
-                    model.closeSettings()
-                    model.openGuide()
+            Card {
+                Row(title: String(localized: "使用引导"), info: String(localized: "再看一遍首次打开时的介绍")) {
+                    Button(String(localized: "打开")) {
+                        model.closeSettings()
+                        model.openGuide()
+                    }
                 }
-                Button(String(localized: "在访达中显示数据文件夹")) {
-                    model.reveal(LayoutStore.directory.path)
+                Row(title: String(localized: "数据文件夹"), info: String(localized: "布局、文件夹、启动项、自定义图标和备份都存在这里")) {
+                    Button(String(localized: "在访达中显示")) { model.reveal(LayoutStore.directory.path) }
                 }
-                Button(exporting ? String(localized: "正在收集…") : String(localized: "导出诊断信息…")) { exportDiagnostics() }
-                    .disabled(exporting)
-                    .help(String(localized: "反馈问题时附上这个文件。包含版本、设置和最近的日志，不含 App 列表和暗号"))
+                Row(title: String(localized: "诊断信息"),
+                    info: String(localized: "反馈问题时附上这个文件。包含版本、设置和最近的日志，不含 App 列表和暗号")) {
+                    Button(exporting ? String(localized: "正在收集…") : String(localized: "导出…")) { exportDiagnostics() }
+                        .disabled(exporting)
+                }
             }
-            .padding(.horizontal, 4)
         }
         SettingsSection(title: String(localized: "还原")) {
             Card {
@@ -1213,5 +1255,19 @@ extension AppearanceTab {
         } catch {
             NSLog("LaunchUS: failed to copy background image: \(error)")
         }
+    }
+}
+
+/// "编辑智能栏…" next to the smart bar setting: the same editor the launcher's right-click opens.
+private struct SmartBarButton: View {
+    let model: LauncherModel
+    @State private var shown = false
+
+    var body: some View {
+        Button(String(localized: "编辑智能栏…")) { shown = true }
+            .sheet(isPresented: $shown) {
+                SmartBarEditor(model: model) { shown = false }
+                    .frame(width: 760, height: 540)
+            }
     }
 }

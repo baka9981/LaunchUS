@@ -87,6 +87,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         self.launcher.model.openFolder(named: name)
                     }
                 }
+                // …or 编辑智能栏.
+                if env["LAUNCHUS_SNAPSHOT"] == nil, env["LAUNCHUS_SMARTBAR"] != nil {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.launcher.model.sheet = .editSmartFolder(nil, query: "")
+                    }
+                }
             }
         }
     }
@@ -135,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case "darkIcons":
             let dark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
             catalog.darkIcons = settings.darkIcons.resolve(dark: dark)
-        case "columns", "rows", "sortOrder", "browseStyle", "folderBrowseStyle":
+        case "columns", "rows", "sortOrder", "browseStyle", "folderBrowseStyle", "freePlacement":
             launcher.model.settingsChanged()
         case "autoBackupCount":
             if settings.autoBackupCount > 0 {
@@ -331,6 +337,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     folderItem.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
                     folderItem.submenu = sub
                     pageMenu.addItem(folderItem)
+                case .gap: continue
                 }
             }
             let pageItem = NSMenuItem(title: String(localized: "第 \(index + 1) 页"), action: nil, keyEquivalent: "")

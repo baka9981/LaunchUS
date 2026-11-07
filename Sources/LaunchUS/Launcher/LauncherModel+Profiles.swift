@@ -18,7 +18,7 @@ extension LauncherModel {
         LayoutProfiles.save(profiles)
         profilesVersion += 1
         AutoBackup.snapshot()
-        layout = LayoutOps.reconcile(target, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage)
+        layout = LayoutOps.reconcile(target, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage, free: freePlacement)
         LayoutStore.save(layout: layout)
         dropFolder()
         currentPage = 0

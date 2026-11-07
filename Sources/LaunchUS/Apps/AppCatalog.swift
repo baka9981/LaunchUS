@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import CoreServices
 import Observation
 
@@ -50,6 +51,9 @@ final class AppCatalog {
         }
     }
     @ObservationIgnored private var loadingIcons: [String: IconSource] = [:]
+    /// Icons whose source changed (light ↔ dark, a new day's Calendar): the old image stays on
+    /// screen until the new one is drawn, instead of the icon going blank.
+    @ObservationIgnored private var staleIcons: Set<String> = []
     /// Apps from the last scan; `apps` adds the launch items to them.
     @ObservationIgnored private var scannedApps: [AppItem]
     @ObservationIgnored private var customSources: [String: IconSource] = [:]
@@ -189,16 +193,21 @@ final class AppCatalog {
         for (id, path) in iconOverrides where sources[id] != nil {
             sources[id] = IconSource(path: path, modified: nil)
         }
-        if icons.keys.contains(where: { sources[$0] == nil || sources[$0] != iconSources[$0] }) {
-            icons = icons.filter { sources[$0.key] != nil && sources[$0.key] == iconSources[$0.key] }
+        if icons.keys.contains(where: { sources[$0] == nil }) {
+            icons = icons.filter { sources[$0.key] != nil }
         }
+        staleIcons.formUnion(icons.keys.filter { sources[$0] != iconSources[$0] })
+        staleIcons = staleIcons.filter { sources[$0] != nil }
         iconSources = sources
         loadingIcons = loadingIcons.filter { sources[$0.key] == $0.value }
     }
 
     private func loadMissingIcons() {
+        let listed = Set(apps.map(\.id))
+        staleIcons = staleIcons.filter { listed.contains($0) }
         var missing = apps.compactMap { app -> (String, IconSource)? in
-            guard icons[app.id] == nil, let source = iconSources[app.id],
+            guard icons[app.id] == nil || staleIcons.contains(app.id),
+                  let source = iconSources[app.id],
                   loadingIcons[app.id] != source else { return nil }
             return (app.id, source)
         }
@@ -229,12 +238,24 @@ final class AppCatalog {
 
     private func mergeIcons(_ batch: [RenderedIcon]) {
         var accepted: [String: CGImage] = [:]
+        var redrawn: [String: CGImage] = [:]
         for result in batch {
             if loadingIcons[result.id] == result.source { loadingIcons[result.id] = nil }
-            guard iconSources[result.id] == result.source, let image = result.image else { continue }
-            accepted[result.id] = image
+            guard iconSources[result.id] == result.source else { continue }
+            let stale = staleIcons.remove(result.id) != nil
+            guard let image = result.image else {
+                if stale { icons[result.id] = nil }
+                continue
+            }
+            if stale { redrawn[result.id] = image } else { accepted[result.id] = image }
         }
         if !accepted.isEmpty { icons.merge(accepted) { _, new in new } }
+        // Redrawn icons (light ↔ dark) crossfade from the old image; the views key each image by identity.
+        if !redrawn.isEmpty {
+            withAnimation(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .easeInOut(duration: 0.35)) {
+                icons.merge(redrawn) { _, new in new }
+            }
+        }
     }
 }
 

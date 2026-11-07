@@ -1,6 +1,5 @@
 /* Keys are the Simplified Chinese source text. */
 " 等" = " and more";
-"#设计 #常用" = "#design #favorites";
 "%@ 已被其他应用占用" = "%@ is in use by another app";
 "%@%@。可能需要管理员权限或「App 管理」权限，可以在访达中手动删除。" = "%1$@%2$@. This may need administrator rights or the “App Management” permission; you can delete them in Finder yourself.";
 "%lld" = "%lld";
@@ -38,7 +37,6 @@
 "关闭启动台后重新隐藏" = "Hide again when the launcher closes";
 "关闭时，下次需要重新通过入口打开" = "Next time, open them through an entrance again";
 "其他" = "Other";
-"内容由条件决定，打上标签的 App 会自动出现在里面" = "Contents follow the rule: apps with the tags show up automatically";
 "再次打开时，隔多久回到第一页；在这之前会停在上次浏览的位置" = "How long before reopening goes back to the first page; until then it stays where you left off";
 "分页" = "Pages";
 "列 × 行" = "Columns × Rows";
@@ -70,7 +68,6 @@
 "在搜索框输入暗号即可打开，留空则关闭" = "Type the passphrase in the search field to open them; leave empty to turn off";
 "在访达中显示" = "Show in Finder";
 "在访达中显示备份文件夹" = "Show backups folder in Finder";
-"在访达中显示数据文件夹" = "Show Data Folder in Finder";
 "外观" = "Appearance";
 "多选" = "Multiple selection";
 "天气" = "Weather";
@@ -149,7 +146,6 @@
 "整理布局…" = "Organize Layout…";
 "整理空位" = "Fill Gaps";
 "新建智能文件夹" = "New Smart Folder";
-"新建智能文件夹…" = "New Smart Folder…";
 "新建标签…" = "New Tag…";
 "新的一页" = "New Page";
 "新闻" = "News";
@@ -171,7 +167,6 @@
 "有 %lld 个项目没能移到废纸篓" = "%lld items couldn’t be moved to the Trash";
 "未命名文件夹" = "Untitled Folder";
 "未设置" = "Not set";
-"条件（#标签 取交集，也可以加关键词）" = "Rule (#tags must all match; keywords allowed)";
 "标签" = "Tags";
 "标签（用逗号分隔）" = "Tags (comma-separated)";
 "检查更新…" = "Check for Updates…";
@@ -190,7 +185,6 @@
 "添加日期" = "Date Added";
 "游戏" = "Games";
 "滚动" = "Scroll";
-"滚动模式下不能拖动整理图标" = "Icons can’t be dragged while scrolling";
 "点击空白区域关闭" = "Click empty space to close";
 "然后打开它右边的开关" = "Then turn on the switch next to it";
 "熟悉的启动台回来了：所有 App 一屏排开，翻页、文件夹、搜索都在这里。完全免费。" = "The Launchpad you know is back: all your apps on one screen, with pages, folders and search. Completely free.";
@@ -222,8 +216,6 @@
 "编辑" = "Edit";
 "编辑与多选" = "Edit and Select";
 "编辑布局" = "Edit Layout";
-"编辑智能文件夹" = "Edit Smart Folder";
-"编辑智能文件夹…" = "Edit Smart Folder…";
 "网格布局" = "Grid";
 "背景" = "Background";
 "自动备份" = "Automatic Backups";
@@ -294,7 +286,6 @@
 "反馈问题时附上这个文件。包含版本、设置和最近的日志，不含 App 列表和暗号" = "Attach this file when reporting a problem. It has versions, settings and recent logs, but not your app list or secret phrase.";
 "导入…" = "Import…";
 "导入启动台的布局？" = "Import the Launchpad layout?";
-"导出诊断信息…" = "Export Diagnostics…";
 "已开启，等待第一次同步" = "On, waiting for the first sync";
 "拷贝命令" = "Copy Command";
 "数据库里没有找到启动台页面。" = "No Launchpad pages were found in the database.";
@@ -341,7 +332,6 @@
 "正在扫描…" = "Scanning…";
 "没有变化" = "no changes";
 "文件夹内浏览" = "Inside Folders";
-"App 超过一屏时上下滚动查看" = "Scroll up and down when a folder has more apps than fit";
 
 /* Launch items, icons, layouts, badges, recent row, background picture, Shortcuts */
 "也可以用链接切换：launchus://profile?name=名称" = "You can also switch with a link: launchus://profile?name=Name";
@@ -357,20 +347,18 @@
 "可以像 App 一样放进文件夹、搜索和加标签" = "Can be put in folders, searched and tagged like an app";
 "命令" = "Command";
 "图片" = "Picture";
-"在搜索栏下方显示最近打开的 App" = "Shows recently opened apps under the search field";
 "完成" = "Done";
 "已切换到布局「%@」" = "Switched to layout “%@”";
 "已经有同名的布局" = "A layout with this name already exists";
 "布局名称" = "Layout Name";
 "布局方案" = "Layouts";
-"常用一行" = "Recent Apps Row";
+"最近一行" = "Recent Apps Row";
 "当前方案" = "Current Layout";
 "恢复默认" = "Restore Default";
 "打开 LaunchUS" = "Open LaunchUS";
 "打开文件夹" = "Open Folder";
 "拖出图标" = "Drag Icons Out";
 "拖到屏幕底边，可放到程序坞、访达或其他 App" = "Drag to the bottom edge to drop on the Dock, Finder or another app";
-"拖动图标到屏幕底边（窗口模式下拖出窗口），即可放到程序坞、访达或其他 App" = "Drag an icon to the bottom edge of the screen (out of the window in window mode) to drop it on the Dock, Finder or another app";
 "搜索 App" = "Search Apps";
 "搜索内容" = "Search Text";
 "文件夹名称" = "Folder Name";
@@ -418,7 +406,7 @@
 "工作、娱乐各一套页面" = "Separate pages for work and play";
 "开启" = "Turn On";
 "快捷指令" = "Shortcuts";
-"想把最近打开的 App 放在最上面？可以开启「常用一行」" = "Want recent apps at the top? Turn on the Recent Apps Row";
+"想把最近打开的 App 放在最上面？可以开启「最近一行」" = "Want recent apps at the top? Turn on the Recent Apps Row";
 "打开文件夹、搜索、切换布局" = "Open folders, search, switch layouts";
 "按你的习惯来" = "Make It Yours";
 "搜索栏下方是最近打开的 App" = "Recently opened apps below the search field";
@@ -463,9 +451,9 @@
 "4 指或 5 指" = "4 or 5 fingers";
 "从常用中移除" = "Remove from Recent Apps";
 "取消固定" = "Unpin";
-"固定在常用一行" = "Pin to Recent Apps Row";
+"固定在最近一行" = "Pin to Recent Apps Row";
 "清空常用记录" = "Clear Recent Apps";
-"隐藏常用一行" = "Hide Recent Apps Row";
+"关闭最近一行" = "Turn Off Recent Apps Row";
 "久未打开的 App" = "Long-Unused Apps";
 "全部选中" = "Select All";
 "关闭动画" = "Off";
@@ -489,7 +477,7 @@
 "计算与换算" = "Math & Conversions";
 "在搜索栏输入 128*3 或 5 km in mi" = "Type 128*3 or 5 km in mi in the search field";
 "⌘1–9 打开常用 App" = "⌘1–9 for Recent Apps";
-"常用一行的前 9 个，右键可以固定" = "The first 9 in the recent apps row. Right-click to pin.";
+"最近一行的前 9 个，右键可以固定" = "The first 9 in the recent apps row. Right-click to pin.";
 "设置 › 界面 › 图标" = "Settings › Interface › Icons";
 "文件夹透出后面的内容" = "Folders show what’s behind them";
 "标准、快速或关闭" = "Standard, fast or off";
@@ -873,7 +861,6 @@
 "单色" = "Monotone";
 "存为方案…" = "Save as Look…";
 "我的方案 %lld" = "My Look %lld";
-"打开、关闭、翻页和文件夹的过渡快慢节奏。选一种预设，或点「调整…」拖动曲线" = "The pacing of opening, closing, page turns and folders. Pick a preset, or click Adjust… to drag the curve.";
 "拖动两个圆点调节。横向是时间，纵向是进度；超出方框的部分会冲过头再回来" = "Drag the two dots. Across is time, up is progress; going outside the box overshoots and comes back.";
 "效果" = "Look";
 "方案" = "Presets";
@@ -888,7 +875,7 @@
 "清透" = "Clear";
 "着色" = "Tint";
 "系统弹簧按手势的快慢自然收尾，没有固定的曲线。选一个方案后就可以拖动曲线" = "System springs settle naturally with your gesture's speed and have no fixed curve. Pick a look to drag the curve.";
-"翻页试试" = "Try a Page Turn";
+"试试翻页和文件夹" = "Try Pages and Folders";
 "背景效果" = "Background Look";
 "胶片" = "Film";
 "色温" = "Warmth";
@@ -897,3 +884,57 @@
 "速度" = "Speed";
 "颗粒感" = "Grain";
 "黑白" = "Black & White";
+"打开、关闭、翻页和文件夹的过渡快慢节奏。选一种预设，或点「调整…」拖动曲线、调速度，也可以关闭动画" = "The pacing of opening, closing, page turns and folders. Pick a preset, or click Adjust… to drag the curve, set the speed or turn animations off.";
+"动画" = "Animation";
+"倍速" = "Rate";
+"图标摆放" = "Icon Placement";
+"按自定义排序时生效" = "Applies with custom order";
+"依次排列" = "Lined Up";
+"随处摆放" = "Anywhere";
+"随处摆放：图标落在松手处的格子里，可以留出空位；调整行列数时，图标保持原来的行和列。依次排列：图标一个挨一个，空位自动补上" = "Anywhere: icons stay in the cell where you drop them, and cells can be left empty; when you change rows or columns, icons keep their row and column. Lined up: icons sit one after another and empty cells close up.";
+"滚动浏览时，在最上面一行显示最近打开的 App，下面用一条线隔开" = "Shows recently opened apps in the top row while scrolling, with a line under them";
+"仅在滚动浏览时可用" = "Only available while scrolling";
+"再看一遍首次打开时的介绍" = "Go through the introduction from the first launch again";
+"数据文件夹" = "Data Folder";
+"布局、文件夹、启动项、自定义图标和备份都存在这里" = "Your layout, folders, launch items, custom icons and backups are kept here";
+"诊断信息" = "Diagnostics";
+"导出…" = "Export…";
+"仅在全屏模式下可用" = "Only in full screen";
+"仅在分页浏览时可用" = "Only when browsing by page";
+"再次打开时，隔多久回到最上面；在这之前会停在上次浏览的位置" = "How long before reopening goes back to the top; until then it stays where you left off";
+"分页：左右翻页，可以留出空位。滚动：所有页面连成一列上下滚动，顶部可以显示最近一行" = "Pages: swipe left and right, and you can leave empty cells. Scroll: all pages run together in one column, with an optional row of recent apps at the top";
+"在最后一个 App 后面的空位上右键，点击出现的虚线框" = "Right-click the empty cell after the last app, then click the dashed tile";
+"把图标拖出窗口，即可放到程序坞、访达或其他 App" = "Drag an icon out of the window to drop it on the Dock, Finder or another app";
+"拖动图标到屏幕底边，即可放到程序坞、访达或其他 App" = "Drag an icon to the bottom edge of the screen to drop it on the Dock, Finder or another app";
+"文件夹里的 App 超过一屏时，分页左右翻，滚动上下滑" = "When a folder holds more apps than fit: pages swipe left and right, scroll moves up and down";
+"浏览" = "Browsing";
+"移到最前" = "To the Start";
+"移到最后" = "To the End";
+"试试文件夹" = "Try a Folder";
+
+/* Category bar */
+"使用 App 自带的分类" = "Use the App's Own Category";
+"智能栏" = "Smart Bar";
+"编辑智能栏…" = "Edit Smart Bar…";
+"编辑智能文件夹…" = "Edit Smart Folder…";
+"显示全部 App" = "Show All Apps";
+"App Store 分类" = "App Store Category";
+"内容由条件决定，符合条件的 App 会自动出现在里面" = "Its contents follow the condition: matching apps appear in it automatically";
+"导入系统分类" = "Import System Categories";
+"按 App Store 分类建好 %lld 个智能文件夹，放在智能栏里，新装的 App 会自动归进去" = "Create %lld smart folders from App Store categories in the smart bar; newly installed apps join them automatically";
+"按 App Store 分类建好智能文件夹，只放在智能栏里" = "Creates smart folders from App Store categories, shown only in the smart bar";
+"搜索框下面的一排智能文件夹，点一个只看里面的 App。可以把 App Store 分类导入成智能文件夹，新装的 App 会自动归进去" = "A row of smart folders under the search field; click one to see only its apps. App Store categories can be imported as smart folders, and newly installed apps join them automatically.";
+"还没有智能文件夹" = "No smart folders yet";
+"主界面" = "Home";
+"勾选决定显示在哪里，拖动调整智能栏里的顺序" = "Checkboxes choose where each shows; drag to reorder the smart bar";
+"显示智能栏" = "Show Smart Bar";
+"编辑智能栏" = "Edit Smart Bar";
+"交集（且）" = "Intersect (and)";
+"删掉最后一个" = "Remove the last one";
+"加入" = "Add";
+"名称里的关键词" = "Word in the name";
+"并集（或）" = "Union (or)";
+"点下面的标签、分类和符号，组成规则" = "Click tags, categories and symbols below to build the rule";
+"补集（非）" = "Complement (not)";
+"规则" = "Rule";
+"规则还没写完：括号要配对，符号两边都要有内容" = "The rule isn't finished: brackets must pair up and every symbol needs something on each side";

@@ -17,7 +17,7 @@ extension LauncherModel {
 
     func isValid(_ pos: GridPos) -> Bool {
         let p = selectablePages
-        return p.indices.contains(pos.page) && p[pos.page].indices.contains(pos.slot)
+        return p.indices.contains(pos.page) && p[pos.page].indices.contains(pos.slot) && !p[pos.page][pos.slot].isGap
     }
 
     func moveSelection(dx: Int, dy: Int) {
@@ -25,20 +25,31 @@ extension LauncherModel {
         let cols = openFolderID != nil ? folderColumns : columns
         let visiblePage = openFolderID != nil ? (folderScrolls ? 0 : folderPage) : currentPage
         guard var pos = selection, isValid(pos) else {
-            if p.indices.contains(visiblePage), !p[visiblePage].isEmpty { selection = GridPos(page: visiblePage, slot: 0) }
+            if p.indices.contains(visiblePage), let first = p[visiblePage].firstIndex(where: { !$0.isGap }) {
+                selection = GridPos(page: visiblePage, slot: first)
+            }
             return
         }
+        // Empty cells are stepped over.
         if dx != 0 {
-            pos.slot += dx
-            if pos.slot < 0 {
-                if pos.page > 0 { pos.page -= 1; pos.slot = p[pos.page].count - 1 } else { pos.slot = 0 }
-            } else if pos.slot >= p[pos.page].count {
-                if pos.page + 1 < p.count { pos.page += 1; pos.slot = 0 } else { pos.slot = p[pos.page].count - 1 }
-            }
+            let start = pos
+            repeat {
+                pos.slot += dx
+                if pos.slot < 0 {
+                    guard pos.page > 0 else { pos = start; break }
+                    pos.page -= 1; pos.slot = p[pos.page].count - 1
+                } else if pos.slot >= p[pos.page].count {
+                    guard pos.page + 1 < p.count else { pos = start; break }
+                    pos.page += 1; pos.slot = 0
+                }
+            } while !isValid(pos)
         }
         if dy != 0 {
-            let target = pos.slot + dy * cols
-            if target >= 0 && target < p[pos.page].count { pos.slot = target }
+            var target = pos.slot + dy * cols
+            while target >= 0 && target < p[pos.page].count {
+                if !p[pos.page][target].isGap { pos.slot = target; break }
+                target += dy * cols
+            }
         }
         selection = pos
         if openFolderID != nil {
@@ -184,13 +195,17 @@ extension LauncherModel {
             if !isEditing { launch(app) }
         case .folder(let folder, _):
             openFolder(folder.id)
+        case .gap: break
         }
     }
 
 
 
+    /// The recent apps row: only while scrolling, where an extra row can't upset the pages.
+    var showsFrequentRow: Bool { settings.showFrequent && settings.browseStyle == .scroll }
+
     func updateFrequentApps() {
-        guard settings.showFrequent else {
+        guard showsFrequentRow else {
             if !frequentApps.isEmpty { frequentApps = [] }
             return
         }
@@ -261,6 +276,7 @@ extension LauncherModel {
         switch entry {
         case .app(let app): return newAppIDs.contains(app.id)
         case .folder(_, let apps): return apps.contains { newAppIDs.contains($0.id) }
+        case .gap: return false
         }
     }
 
@@ -303,13 +319,14 @@ extension LauncherModel {
         switch entry {
         case .app(let app): return badges[app.id]
         case .folder(_, let apps): return DockBadges.sum(apps.compactMap { badges[$0.id] })
+        case .gap: return nil
         }
     }
 
     /// 1…9 for the first nine items of the page on screen, while ⌘ is held.
     /// With the recent apps row showing, ⌘1…⌘9 open its apps instead of the page's first nine.
     var shortcutsUseRecentRow: Bool {
-        settings.showFrequent && !frequentApps.isEmpty && !isSearching && openFolderID == nil
+        showsFrequentRow && !frequentApps.isEmpty && !isSearching && openFolderID == nil
     }
 
     func frequentShortcutNumber(of app: AppItem) -> Int? {
@@ -320,7 +337,7 @@ extension LauncherModel {
 
     func shortcutNumber(of entry: GridEntry) -> Int? {
         guard showShortcutNumbers, !shortcutsUseRecentRow, openFolderID == nil, pages.indices.contains(currentPage),
-              let index = pages[currentPage].firstIndex(where: { $0.id == entry.id }), index < 9 else { return nil }
+              let index = shortcutEntries.firstIndex(where: { $0.id == entry.id }), index < 9 else { return nil }
         return index + 1
     }
 
@@ -332,10 +349,15 @@ extension LauncherModel {
             launch(frequentApps[number - 1])
             return
         }
-        guard openFolderID == nil, pages.indices.contains(currentPage), number >= 1,
-              number <= pages[currentPage].count else { return }
+        let entries = shortcutEntries
+        guard openFolderID == nil, number >= 1, number <= entries.count else { return }
         showShortcutNumbers = false
-        activate(pages[currentPage][number - 1])
+        activate(entries[number - 1])
+    }
+
+    /// The page on screen without its empty cells.
+    private var shortcutEntries: [GridEntry] {
+        pages.indices.contains(currentPage) ? pages[currentPage].filter { !$0.isGap } : []
     }
     func close() { onClose?() }
 
@@ -409,6 +431,8 @@ extension LauncherModel {
             spaceList = nil
         } else if isSearching {
             query = ""
+        } else if categoryFilter != nil {
+            withAnimation(.easeInOut(duration: 0.22)) { categoryFilter = nil }
         } else {
             close()
         }
