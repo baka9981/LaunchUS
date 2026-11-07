@@ -938,3 +938,7 @@
 "补集（非）" = "Complement (not)";
 "规则" = "Rule";
 "规则还没写完：括号要配对，符号两边都要有内容" = "The rule isn't finished: brackets must pair up and every symbol needs something on each side";
+"每天检查一次" = "Checks once a day";
+"和开发者分享匿名使用信息" = "Share Anonymous Usage Info";
+"已隐藏。想找回来，点页面圆点右边的虚线小圆点" = "Hidden. To get it back, click the dotted circle to the right of the page dots";
+"看看" = "Show Me";

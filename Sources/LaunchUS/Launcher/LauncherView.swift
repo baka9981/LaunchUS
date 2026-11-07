@@ -245,7 +245,8 @@ struct LauncherView: View {
                             .transition(.opacity)
 
                         PageDots(count: model.pageCount, current: model.currentPage,
-                                 phantom: settings.hiddenDotEntrance && !model.isSearching ? { model.revealHidden() } : nil) {
+                                 phantom: settings.hiddenDotEntrance && !model.isSearching ? { model.revealHidden() } : nil,
+                                 pointAtPhantom: model.tip == .hiddenDot) {
                             model.goToPage($0)
                         }
                             .position(x: geo.size.width / 2, y: metrics.dotsY)

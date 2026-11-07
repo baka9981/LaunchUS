@@ -57,7 +57,11 @@ if [[ -z "${FEED_URL:-}" && -n "${DOWNLOAD_URL:-}" ]]; then
     FEED_URL="$DOWNLOAD_URL/appcast.xml"
 fi
 if [[ -n "${FEED_URL:-}" ]]; then
-    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $FEED_URL" "$APP/Contents/Info.plist"
+    # Checks once a day without asking first (the Mac stays on for weeks, and Sparkle's
+    # timer keeps going while LaunchUS runs); turning it off in Settings is remembered.
+    /usr/libexec/PlistBuddy -c "Add :SUFeedURL string $FEED_URL" \
+        -c "Add :SUEnableAutomaticChecks bool true" \
+        -c "Add :SUScheduledCheckInterval integer 86400" "$APP/Contents/Info.plist"
 fi
 
 ICONSET="$(mktemp -d)/AppIcon.iconset"

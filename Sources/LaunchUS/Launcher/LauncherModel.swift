@@ -1002,6 +1002,7 @@ final class LauncherModel {
     func revealHidden() {
         guard !isAuthenticating else { return }
         phantomSlotArmed = false
+        if tip == .hiddenDot { dismissTip() }
         Task { @MainActor in
             if !hiddenUnlocked, settings.hiddenRequireAuth {
                 isAuthenticating = true

@@ -311,6 +311,8 @@ final class Settings {
     var folderBrowseStyle: BrowseStyle { didSet { save(folderBrowseStyle.rawValue, "folderBrowseStyle") } }
     /// Window mode's row of category tabs under the search field.
     var showCategoryBar: Bool { didSet { save(showCategoryBar, "showCategoryBar") } }
+    /// The daily anonymous ping (Heartbeat): on unless the user turns it off.
+    var shareUsage: Bool { didSet { save(shareUsage, "shareUsage") } }
     /// Tab keys in the order the user put them; tabs not in it keep their default place after these.
     var categoryTabOrder: [String] { didSet { save(categoryTabOrder, "categoryTabOrder") } }
     var hiddenCategoryTabs: [String] { didSet { save(hiddenCategoryTabs, "hiddenCategoryTabs") } }
@@ -448,6 +450,7 @@ final class Settings {
         browseStyle = BrowseStyle(rawValue: value("browseStyle", "")) ?? .paged
         folderBrowseStyle = BrowseStyle(rawValue: value("folderBrowseStyle", "")) ?? .paged
         showCategoryBar = value("showCategoryBar", true)
+        shareUsage = value("shareUsage", true)
         categoryTabOrder = value("categoryTabOrder", [String]())
         hiddenCategoryTabs = value("hiddenCategoryTabs", [String]())
         columns = min(10, max(4, value("columns", 7)))

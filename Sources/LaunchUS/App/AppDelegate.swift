@@ -30,6 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         )
         Updater.shared.start()
+        Heartbeat.smartBarInUse = { [weak self] in !(self?.launcher.model.categoryTabs.isEmpty ?? true) }
+        Heartbeat.start()
         ICloudSync.onRemoteChange = { [weak self] backup in self?.launcher.model.applySynced(backup) }
         hotCorner = HotCornerWatcher { [weak self] in self?.launcher.toggle() }
         // Before the first scan, so icons are drawn light or dark only once.
@@ -97,6 +99,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Writes the chosen icon onto the app itself, so the Dock and Finder keep it after LaunchUS quits.
+    /// An update replaces the whole app and drops it, so it's checked again at every launch.
+    private func keepAppIcon(_ style: AppIconStyle) {
+        guard ProcessInfo.processInfo.environment["LAUNCHUS_DEMO"] == nil else { return }
+        let path = Bundle.main.bundlePath
+        let hasCustom = FileManager.default.fileExists(atPath: path + "/Icon\r")
+        let defaults = UserDefaults.standard
+        // The default style is the icon the app ships with: only a custom one left over needs taking off.
+        if style == .grid ? !hasCustom : hasCustom && defaults.integer(forKey: "appliedAppIcon") == style.rawValue {
+            return
+        }
+        guard FileManager.default.isWritableFile(atPath: path) else { return }
+        let image = style == .grid ? nil : IconArt.image(style, size: 1024)
+        if NSWorkspace.shared.setIcon(image, forFile: path, options: []) {
+            defaults.set(style.rawValue, forKey: "appliedAppIcon")
+        }
+    }
+
     private func apply(_ key: String) {
         switch key {
         case "hotKey":
@@ -133,6 +153,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         case "appIcon":
             NSApp.applicationIconImage = IconArt.image(settings.appIcon)
+            keepAppIcon(settings.appIcon)
         case "dynamicCalendar":
             launcher.catalog.refreshDynamicIcons()
         case "appearance":

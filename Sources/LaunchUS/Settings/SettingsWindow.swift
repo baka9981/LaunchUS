@@ -962,6 +962,7 @@ struct AdvancedTab: View {
                         .toggleStyle(.checkbox)
                         .font(.system(size: 12))
                         .onChange(of: autoCheck) { _, on in Updater.shared.automaticallyChecks = on }
+                        .help(String(localized: "每天检查一次"))
                 }
             }
         }
@@ -1076,6 +1077,9 @@ struct AdvancedTab: View {
                 }
                 Row(title: String(localized: "数据文件夹"), info: String(localized: "布局、文件夹、启动项、自定义图标和备份都存在这里")) {
                     Button(String(localized: "在访达中显示")) { model.reveal(LayoutStore.directory.path) }
+                }
+                Row(title: String(localized: "和开发者分享匿名使用信息")) {
+                    Toggle("", isOn: $settings.shareUsage).toggleStyle(.switch).labelsHidden().controlSize(.small)
                 }
                 Row(title: String(localized: "诊断信息"),
                     info: String(localized: "反馈问题时附上这个文件。包含版本、设置和最近的日志，不含 App 列表和暗号")) {

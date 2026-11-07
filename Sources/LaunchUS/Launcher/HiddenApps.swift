@@ -28,15 +28,33 @@ enum OwnerAuth {
 /// An invisible page dot after the last one; hovering shows a dashed outline.
 struct PhantomDot: View {
     let action: () -> Void
+    /// Shown (and pulsing) while a tip points at it.
+    var pointedAt = false
     @State private var hovering = false
+    @State private var pulse = false
     @Environment(\.windowedStyle) private var windowed
 
     var body: some View {
+        let ink = windowed ? Color.primary : .white
         Circle()
-            .strokeBorder(windowed ? Color.primary.opacity(0.45) : .white.opacity(0.7),
+            .strokeBorder(ink.opacity(pointedAt ? 0.9 : windowed ? 0.45 : 0.7),
                           style: StrokeStyle(lineWidth: 1, dash: [2, 1.6]))
             .frame(width: 8, height: 8)
-            .opacity(hovering ? 1 : 0)
+            .background {
+                if pointedAt {
+                    Circle()
+                        .stroke(ink.opacity(pulse ? 0 : 0.6), lineWidth: 1.5)
+                        .frame(width: 8, height: 8)
+                        .scaleEffect(pulse ? 2.6 : 1)
+                        .onAppear {
+                            pulse = false
+                            withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { pulse = true }
+                        }
+                        .onDisappear { pulse = false }
+                }
+            }
+            .opacity(hovering || pointedAt ? 1 : 0)
+            .animation(.easeOut(duration: 0.2), value: pointedAt)
             .padding(4)
             .contentShape(Rectangle())
             .onHover { inside in withAnimation(.easeOut(duration: 0.15)) { hovering = inside } }

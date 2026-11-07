@@ -194,6 +194,10 @@ extension LauncherModel {
             if let folderID = folderContaining(id) { removeApp(id, fromFolder: folderID) }
         }
         reconcile(forceSave: true)
+        // The first time: point at the dot that brings them back (it's invisible until hovered).
+        if !ids.isEmpty, settings.hiddenDotEntrance, settings.browseStyle != .scroll, !isSearching {
+            offerTip(.hiddenDot)
+        }
     }
 
     /// Moves the selected apps out of their folders, onto the end of the current page.

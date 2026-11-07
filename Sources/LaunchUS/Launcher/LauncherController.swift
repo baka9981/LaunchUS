@@ -176,6 +176,7 @@ final class LauncherController {
 
     /// `interactive`: a pinch is under way and drives how shown the launcher is until it ends.
     private func show(interactive: Bool) {
+        Heartbeat.countOpen()
         hideToken += 1
         isHiding = false
         let screen = targetScreen()

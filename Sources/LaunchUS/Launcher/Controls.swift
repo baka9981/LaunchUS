@@ -252,6 +252,8 @@ struct PageDots: View {
     let current: Int
     /// Secret entrance: an invisible extra dot after the last one.
     var phantom: (() -> Void)?
+    /// The first-hide tip is pointing at it: show it without hovering.
+    var pointAtPhantom = false
     let select: (Int) -> Void
     @Environment(\.windowedStyle) private var windowed
 
@@ -274,7 +276,7 @@ struct PageDots: View {
         .opacity(count > 1 ? 1 : 0)
         // Outside the stack so the real dots stay centred.
         .overlay(alignment: .trailing) {
-            if let phantom { PhantomDot(action: phantom).offset(x: 20) }
+            if let phantom { PhantomDot(action: phantom, pointedAt: pointAtPhantom).offset(x: 20) }
         }
     }
 }
