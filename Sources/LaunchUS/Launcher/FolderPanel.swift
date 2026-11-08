@@ -88,6 +88,12 @@ struct FolderPanel: View {
                     .frame(width: windowed ? rect.width - 40 : rect.width * 0.4)
                     .position(x: rect.midX, y: metrics.folderTitleCenterY)
 
+                // The folder as an app group: every app in it at once.
+                if apps.count >= 2, !model.isEditing {
+                    OpenAllButton(windowed: windowed) { model.openAll(folder.id) }
+                        .position(x: rect.maxX - 56, y: metrics.folderTitleCenterY)
+                }
+
                 if let query = folder.query {
                     Label(query, systemImage: "sparkles")
                         .font(.system(size: 11))
@@ -197,3 +203,26 @@ struct FolderPanel: View {
 }
 
 /// The icon following the pointer while dragging.
+
+/// "全部打开" beside an open folder's name.
+private struct OpenAllButton: View {
+    let windowed: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Label(String(localized: "全部打开"), systemImage: "square.stack.3d.forward.dottedline")
+                .font(.system(size: 12, weight: .medium))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .foregroundStyle(windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white.opacity(hovering ? 0.95 : 0.75)))
+                .background(Capsule().fill(windowed ? Color.primary.opacity(hovering ? 0.12 : 0.07)
+                                                    : Color.white.opacity(hovering ? 0.22 : 0.12)))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(String(localized: "打开这个文件夹里的全部 App"))
+    }
+}

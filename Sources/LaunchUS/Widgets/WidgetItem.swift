@@ -69,6 +69,8 @@ enum BuiltInWidget: String, CaseIterable {
     case timer = "launchus.timer"
     case actions = "launchus.actions"
     case clipboard = "launchus.clipboard"
+    case group = "launchus.group"
+    case photo = "launchus.photo"
 
     /// How the gallery groups widgets.
     enum Category: CaseIterable {
@@ -87,7 +89,7 @@ enum BuiltInWidget: String, CaseIterable {
     var category: Category {
         switch self {
         case .clock, .analogClock, .calendar, .countdown, .progress: .time
-        case .note, .todo, .apps, .timer, .actions, .clipboard: .tools
+        case .note, .todo, .apps, .timer, .actions, .clipboard, .group, .photo: .tools
         case .system, .battery, .network, .storage: .system
         }
     }
@@ -109,6 +111,8 @@ enum BuiltInWidget: String, CaseIterable {
         case .actions: String(localized: "快捷操作")
         case .todo: String(localized: "待办")
         case .clipboard: String(localized: "剪贴板")
+        case .group: String(localized: "App 组")
+        case .photo: String(localized: "照片")
         }
     }
 
@@ -129,6 +133,8 @@ enum BuiltInWidget: String, CaseIterable {
         case .actions: String(localized: "锁屏、截屏、深色模式、静音、睡眠、保持唤醒和清空废纸篓，一点就做。")
         case .todo: String(localized: "待办清单。点一项打勾，点 + 直接在卡片上添加，右键清除已完成。")
         case .clipboard: String(localized: "最近拷贝的文字，点一条重新拷贝。只存在内存里，退出就清空，密码管理器拷贝的不记录。")
+        case .group: String(localized: "一个文件夹里的 App，点一下全部打开，比如把写代码要用的编辑器、终端和浏览器放在一起。右键换文件夹。")
+        case .photo: String(localized: "放一张自己的照片。右键选图片，还能像背景一样调模糊、颜色、暗角和颗粒。")
         }
     }
 
@@ -149,6 +155,8 @@ enum BuiltInWidget: String, CaseIterable {
         case .actions: "bolt.fill"
         case .todo: "checklist"
         case .clipboard: "doc.on.clipboard"
+        case .group: "square.stack.3d.forward.dottedline"
+        case .photo: "photo"
         }
     }
 
@@ -169,6 +177,8 @@ enum BuiltInWidget: String, CaseIterable {
         case .actions: (Color(red: 0.35, green: 0.85, blue: 0.85), Color(red: 0.1, green: 0.55, blue: 0.65))
         case .todo: (Color(red: 0.4, green: 0.75, blue: 1), Color(red: 0.15, green: 0.45, blue: 0.95))
         case .clipboard: (Color(red: 0.75, green: 0.6, blue: 0.45), Color(red: 0.5, green: 0.36, blue: 0.25))
+        case .group: (Color(red: 1, green: 0.55, blue: 0.75), Color(red: 0.85, green: 0.25, blue: 0.5))
+        case .photo: (Color(red: 0.55, green: 0.85, blue: 1), Color(red: 0.95, green: 0.6, blue: 0.3))
         }
     }
 
@@ -179,7 +189,7 @@ enum BuiltInWidget: String, CaseIterable {
         case .calendar, .countdown, .progress: (String(localized: "打开日历"), "/System/Applications/Calendar.app")
         case .system, .network: (String(localized: "打开活动监视器"), "/System/Applications/Utilities/Activity Monitor.app")
         case .storage: (String(localized: "打开磁盘工具"), "/System/Applications/Utilities/Disk Utility.app")
-        case .battery, .note, .todo, .apps, .timer, .actions, .clipboard: nil
+        case .battery, .note, .todo, .apps, .timer, .actions, .clipboard, .group, .photo: nil
         }
         if let (title, path) = app {
             return FileManager.default.fileExists(atPath: path) ? (title, URL(fileURLWithPath: path)) : nil

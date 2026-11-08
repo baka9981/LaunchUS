@@ -51,11 +51,16 @@ final class WidgetStore {
         var notes: [String: Note] = [:]
         var timers: [String: TimerState] = [:]
         var todos: [String: [Todo]] = [:]
+        var groups: [String: String] = [:]
+        var photos: [String: Photo] = [:]
 
-        init(notes: [String: Note], timers: [String: TimerState], todos: [String: [Todo]]) {
+        init(notes: [String: Note], timers: [String: TimerState], todos: [String: [Todo]],
+             groups: [String: String], photos: [String: Photo]) {
             self.notes = notes
             self.timers = timers
             self.todos = todos
+            self.groups = groups
+            self.photos = photos
         }
 
         /// Older files have no to-dos yet.
@@ -64,12 +69,17 @@ final class WidgetStore {
             notes = try c.decodeIfPresent([String: Note].self, forKey: .notes) ?? [:]
             timers = try c.decodeIfPresent([String: TimerState].self, forKey: .timers) ?? [:]
             todos = try c.decodeIfPresent([String: [Todo]].self, forKey: .todos) ?? [:]
+            groups = try c.decodeIfPresent([String: String].self, forKey: .groups) ?? [:]
+            photos = try c.decodeIfPresent([String: Photo].self, forKey: .photos) ?? [:]
         }
     }
 
     private(set) var notes: [String: Note] = [:]
     private(set) var timers: [String: TimerState] = [:]
     private(set) var todos: [String: [Todo]] = [:]
+    /// App group widgets: which folder each one opens.
+    private(set) var groups: [String: String] = [:]
+    private(set) var photos: [String: Photo] = [:]
     @ObservationIgnored private var saveWork: DispatchWorkItem?
     @ObservationIgnored private var rings: [String: DispatchWorkItem] = [:]
     /// Tests keep their notes to themselves.
@@ -82,6 +92,8 @@ final class WidgetStore {
             notes = file.notes
             timers = file.timers
             todos = file.todos
+            groups = file.groups
+            photos = file.photos
         }
         for id in timers.keys { schedule(id) }
     }
@@ -214,12 +226,33 @@ final class WidgetStore {
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
 
-    /// A removed widget takes its note and timer with it.
+    // MARK: Groups and photos
+
+    func group(_ id: String) -> String? { groups[id] }
+
+    func setGroup(_ folderID: String?, _ id: String) {
+        groups[id] = folderID
+        save()
+    }
+
+    func photo(_ id: String) -> Photo { photos[id] ?? Photo() }
+
+    func setPhoto(_ photo: Photo, _ id: String) {
+        guard photos[id] != photo else { return }
+        if let old = photos[id]?.file, old != photo.file { WidgetPhotos.remove(old) }
+        photos[id] = photo
+        save(soon: true)
+    }
+
+    /// A removed widget takes its note, timer and picture with it.
     func forget(_ id: String) {
-        guard notes[id] != nil || timers[id] != nil || todos[id] != nil else { return }
+        guard notes[id] != nil || timers[id] != nil || todos[id] != nil || groups[id] != nil || photos[id] != nil else { return }
         notes[id] = nil
         timers[id] = nil
         todos[id] = nil
+        groups[id] = nil
+        if let file = photos[id]?.file { WidgetPhotos.remove(file) }
+        photos[id] = nil
         rings[id]?.cancel()
         rings[id] = nil
         save()
@@ -230,7 +263,7 @@ final class WidgetStore {
         saveWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let file = File(notes: notes, timers: timers, todos: todos)
+            let file = File(notes: notes, timers: timers, todos: todos, groups: groups, photos: photos)
             guard let data = try? JSONEncoder().encode(file) else { return }
             try? FileManager.default.createDirectory(at: LayoutStore.directory, withIntermediateDirectories: true)
             try? data.write(to: Self.url, options: .atomic)

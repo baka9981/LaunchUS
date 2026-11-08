@@ -360,7 +360,7 @@ private struct CurveChip: View {
 
 // MARK: - Building blocks
 
-private struct TunerGroup<Content: View>: View {
+struct TunerGroup<Content: View>: View {
     let title: String
     @ViewBuilder let content: () -> Content
 
@@ -373,7 +373,7 @@ private struct TunerGroup<Content: View>: View {
 }
 
 /// Name, slider, value and a reset arrow on one line; `track` draws an optional colour scale under it.
-private struct TunerSlider<Track: View>: View {
+struct TunerSlider<Track: View>: View {
     let title: String
     @Binding var value: Double
     let range: ClosedRange<Double>

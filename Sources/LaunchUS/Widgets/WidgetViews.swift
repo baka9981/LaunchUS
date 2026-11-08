@@ -151,8 +151,8 @@ struct WidgetCard: View {
         let isPlugin = provider?.isPlugin == true
         let note = widget.kind == BuiltInWidget.note.rawValue ? WidgetStore.shared.note(widget.id) : nil
         content(provider)
-            // Plugins lay out their own margins over the whole card.
-            .padding(isPlugin ? 0 : padding)
+            // Plugins lay out their own margins over the whole card, and a photo fills it.
+            .padding(isPlugin || widget.kind == BuiltInWidget.photo.rawValue ? 0 : padding)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .foregroundStyle(note != nil ? AnyShapeStyle(Color.black.opacity(0.8))
                              : windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
@@ -196,6 +196,8 @@ struct WidgetCard: View {
         case .builtIn(.actions)?: ActionsWidget(size: widget.size, unit: unit, card: size)
         case .builtIn(.todo)?: TodoWidget(id: widget.id, size: widget.size, unit: unit, card: size, editing: editing)
         case .builtIn(.clipboard)?: ClipboardWidget(id: widget.id, size: widget.size, unit: unit, card: size)
+        case .builtIn(.group)?: GroupWidget(id: widget.id, size: widget.size, unit: unit, card: size)
+        case .builtIn(.photo)?: PhotoWidget(id: widget.id, unit: unit, card: size)
         case .plugin(let folder, let manifest)?:
             PluginWidgetView(folder: folder, manifest: manifest, size: widget.size, frame: size, unit: unit,
                              dark: !windowed || colorScheme == .dark, live: live,

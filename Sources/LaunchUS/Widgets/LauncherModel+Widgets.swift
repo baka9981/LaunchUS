@@ -30,6 +30,9 @@ extension LauncherModel {
         let widget = WidgetItem(kind: kind, size: provider.fit(size))
         layout[index].insert(.widget(widget), at: min(max(0, cell), layout[index].count))
         if kind == BuiltInWidget.calendar.rawValue { WidgetEvents.shared.requestAccess() }
+        if kind == BuiltInWidget.group.rawValue, let folder = firstGroupCandidate {
+            WidgetStore.shared.setGroup(folder.id, widget.id)
+        }
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
         return widget
     }
@@ -87,6 +90,10 @@ extension LauncherModel {
                 case .preset(let minutes): WidgetStore.shared.startTimer(widget.id, minutes: minutes)
                 }
             }
+        case .group?:
+            openGroupWidget(widget)
+        case .photo?:
+            openPhotoWidget(widget)
         case .apps?:
             if let point, let app = AppsWidget.app(at: point, size: widget.size, card: card) { launch(app) }
         case .actions?:

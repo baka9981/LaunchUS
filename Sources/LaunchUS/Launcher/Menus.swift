@@ -247,6 +247,24 @@ enum LauncherMenus {
                 menu.add(String(localized: "清除已完成"), symbol: "checkmark.circle", enabled: list.contains(where: \.done)) {
                     WidgetStore.shared.clearDoneTodos(widget.id)
                 }
+            case .group?:
+                let current = WidgetStore.shared.group(widget.id)
+                menu.add(String(localized: "全部打开"), symbol: "square.stack.3d.forward.dottedline", enabled: current != nil) {
+                    model.openGroupWidget(widget)
+                }
+                menu.addSubmenu(String(localized: "选择文件夹"), symbol: "folder") { sub in
+                    let folders = model.groupFolders
+                    if folders.isEmpty { sub.add(String(localized: "还没有文件夹"), enabled: false) {} }
+                    for folder in folders {
+                        sub.add(folder.name, checked: folder.id == current) { WidgetStore.shared.setGroup(folder.id, widget.id) }
+                    }
+                }
+            case .photo?:
+                let photo = WidgetStore.shared.photo(widget.id)
+                menu.add(String(localized: "选择图片…"), symbol: "photo") { model.choosePhoto(for: widget.id) }
+                menu.add(String(localized: "调整…"), symbol: "slider.horizontal.3", enabled: photo.file != nil) {
+                    model.sheet = .photoWidget(widget.id)
+                }
             case .clipboard?:
                 menu.add(String(localized: "清空记录"), symbol: "trash", enabled: !ClipboardHistory.shared.items.isEmpty) {
                     ClipboardHistory.shared.clear()

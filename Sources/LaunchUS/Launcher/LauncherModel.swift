@@ -67,6 +67,8 @@ enum LauncherSheet: Hashable {
     case message(title: String, text: String, revealPath: String?)
     /// Choosing a widget to add: the built-in ones and installed plugins.
     case widgetGallery
+    /// A photo widget's picture and its blur, colour and texture.
+    case photoWidget(String)
 
     /// The manager and the smart bar editor: big cards that take most of the launcher.
     var isLarge: Bool {

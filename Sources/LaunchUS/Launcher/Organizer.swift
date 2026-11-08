@@ -128,6 +128,8 @@ struct SheetCard: View {
                 ProfileEditor(model: model, renaming: name)
             case .folderShortcut(let id):
                 FolderShortcutCard(model: model, folderID: id)
+            case .photoWidget(let id):
+                PhotoWidgetCard(model: model, id: id)
             case .message(let title, let text, let revealPath):
                 MessageCard(model: model, title: title, text: text, revealPath: revealPath)
             }
