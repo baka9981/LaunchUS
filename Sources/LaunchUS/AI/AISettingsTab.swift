@@ -131,7 +131,6 @@ struct AITab: View {
                 .onChange(of: settings.aiFormat) { _, _ in testResult = nil; clearModels() }
                 .onChange(of: settings.aiBaseURL) { _, _ in clearModels() }
             }
-            MCPSection()
         }
     }
 
@@ -184,12 +183,23 @@ struct AITab: View {
     }
 }
 
-/// How to add LaunchUS to Claude Code, Claude Desktop, Cursor and other MCP clients.
-private struct MCPSection: View {
+/// How to add LaunchUS to Claude Code, Codex, Claude Desktop, Cursor and other MCP clients.
+struct MCPSection: View {
     private var executable: String {
         Bundle.main.executablePath ?? "/Applications/LaunchUS.app/Contents/MacOS/LaunchUS"
     }
     private var command: String { "claude mcp add launchus -- \"\(executable)\" --mcp" }
+    private var codexCommand: String { "codex mcp add launchus -- \"\(executable)\" --mcp" }
+    /// The same, written into Codex's `~/.codex/config.toml` by hand (the Codex app and IDE
+    /// extension read it too).
+    private var codexToml: String {
+        let path = executable.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        return """
+        [mcp_servers.launchus]
+        command = "\(path)"
+        args = ["--mcp"]
+        """
+    }
     private var json: String {
         """
         {
@@ -205,12 +215,14 @@ private struct MCPSection: View {
 
     var body: some View {
         SettingsSection(title: "MCP") {
-            Text("让 Claude、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。")
+            Text("让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 4)
             Card {
                 snippet(title: "Claude Code", text: command)
+                snippet(title: "Codex", text: codexCommand)
+                snippet(title: String(localized: "Codex（写进 ~/.codex/config.toml）"), text: codexToml)
                 snippet(title: String(localized: "其他客户端（JSON 配置）"), text: json)
             }
             Text("可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout")

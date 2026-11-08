@@ -5,7 +5,7 @@ LaunchUS 的小组件和 App 图标一起放在网格里，占 2×2、4×2 或 4
 
 - **系统小组件**：LaunchUS 自带，ID 以 `launchus.` 开头：
   - 时间与日程：时钟与日期（`launchus.clock`）、指针时钟（`launchus.analog-clock`）、日历与提醒事项（`launchus.calendar`）、节日倒数（`launchus.countdown`）、时间进度（`launchus.progress`）。
-  - 实用工具：便签（`launchus.note`）、常用应用（`launchus.apps`）、计时器（`launchus.timer`）、快捷操作（`launchus.actions`）。
+  - 实用工具：便签（`launchus.note`，支持 Markdown）、待办（`launchus.todo`）、常用应用（`launchus.apps`）、计时器（`launchus.timer`）、快捷操作（`launchus.actions`）、剪贴板（`launchus.clipboard`，只存在内存里）。
   - 系统：系统状态（`launchus.system`）、电池（`launchus.battery`）、网络（`launchus.network`）、存储空间（`launchus.storage`）。
 - **插件小组件**：任何人用 HTML / CSS / JavaScript 写的外置插件，本文就是它的规范。
 

@@ -64,9 +64,11 @@ enum BuiltInWidget: String, CaseIterable {
     case network = "launchus.network"
     case storage = "launchus.storage"
     case note = "launchus.note"
+    case todo = "launchus.todo"
     case apps = "launchus.apps"
     case timer = "launchus.timer"
     case actions = "launchus.actions"
+    case clipboard = "launchus.clipboard"
 
     /// How the gallery groups widgets.
     enum Category: CaseIterable {
@@ -85,7 +87,7 @@ enum BuiltInWidget: String, CaseIterable {
     var category: Category {
         switch self {
         case .clock, .analogClock, .calendar, .countdown, .progress: .time
-        case .note, .apps, .timer, .actions: .tools
+        case .note, .todo, .apps, .timer, .actions, .clipboard: .tools
         case .system, .battery, .network, .storage: .system
         }
     }
@@ -105,6 +107,8 @@ enum BuiltInWidget: String, CaseIterable {
         case .apps: String(localized: "常用应用")
         case .timer: String(localized: "计时器")
         case .actions: String(localized: "快捷操作")
+        case .todo: String(localized: "待办")
+        case .clipboard: String(localized: "剪贴板")
         }
     }
 
@@ -119,10 +123,12 @@ enum BuiltInWidget: String, CaseIterable {
         case .battery: String(localized: "Mac 的电量和剩余时间，以及蓝牙键盘、鼠标和触控板的电量。")
         case .network: String(localized: "实时上传和下载速度，最近两分钟的曲线和本机地址。")
         case .storage: String(localized: "启动磁盘和外接磁盘的已用和可用空间。")
-        case .note: String(localized: "随手记点东西。点一下直接在卡片上写，右键换纸的颜色。")
+        case .note: String(localized: "随手记点东西，支持 Markdown。点一下直接在卡片上写，右键换纸的颜色。")
         case .apps: String(localized: "固定在最近一行的 App 和最近打开的 App，点图标直接打开。")
         case .timer: String(localized: "番茄钟和倒计时。点一下开始或暂停，右键选时长，时间到了会提醒。")
         case .actions: String(localized: "锁屏、截屏、深色模式、静音、睡眠、保持唤醒和清空废纸篓，一点就做。")
+        case .todo: String(localized: "待办清单。点一项打勾，点 + 直接在卡片上添加，右键清除已完成。")
+        case .clipboard: String(localized: "最近拷贝的文字，点一条重新拷贝。只存在内存里，退出就清空，密码管理器拷贝的不记录。")
         }
     }
 
@@ -141,6 +147,8 @@ enum BuiltInWidget: String, CaseIterable {
         case .apps: "square.grid.3x3.fill"
         case .timer: "timer"
         case .actions: "bolt.fill"
+        case .todo: "checklist"
+        case .clipboard: "doc.on.clipboard"
         }
     }
 
@@ -159,6 +167,8 @@ enum BuiltInWidget: String, CaseIterable {
         case .apps: (Color(red: 0.55, green: 0.5, blue: 1), Color(red: 0.32, green: 0.25, blue: 0.85))
         case .timer: (Color(red: 1, green: 0.45, blue: 0.4), Color(red: 0.88, green: 0.2, blue: 0.25))
         case .actions: (Color(red: 0.35, green: 0.85, blue: 0.85), Color(red: 0.1, green: 0.55, blue: 0.65))
+        case .todo: (Color(red: 0.4, green: 0.75, blue: 1), Color(red: 0.15, green: 0.45, blue: 0.95))
+        case .clipboard: (Color(red: 0.75, green: 0.6, blue: 0.45), Color(red: 0.5, green: 0.36, blue: 0.25))
         }
     }
 
@@ -169,7 +179,7 @@ enum BuiltInWidget: String, CaseIterable {
         case .calendar, .countdown, .progress: (String(localized: "打开日历"), "/System/Applications/Calendar.app")
         case .system, .network: (String(localized: "打开活动监视器"), "/System/Applications/Utilities/Activity Monitor.app")
         case .storage: (String(localized: "打开磁盘工具"), "/System/Applications/Utilities/Disk Utility.app")
-        case .battery, .note, .apps, .timer, .actions: nil
+        case .battery, .note, .todo, .apps, .timer, .actions, .clipboard: nil
         }
         if let (title, path) = app {
             return FileManager.default.fileExists(atPath: path) ? (title, URL(fileURLWithPath: path)) : nil

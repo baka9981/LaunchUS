@@ -234,16 +234,22 @@ enum LauncherMenus {
             switch BuiltInWidget(rawValue: widget.kind) {
             case .note?:
                 let note = WidgetStore.shared.note(widget.id)
-                menu.add(String(localized: "编辑便签"), symbol: "square.and.pencil") {
-                    model.activateWidget(widget, at: nil, card: .zero)
-                }
                 menu.addSubmenu(String(localized: "颜色"), symbol: "paintpalette") { sub in
                     for color in NoteColor.allCases {
                         sub.add(color.title, checked: note.color == color) { WidgetStore.shared.setNoteColor(color, widget.id) }
                     }
                 }
-                menu.add(String(localized: "清空便签"), symbol: "eraser", enabled: !note.text.isEmpty) {
-                    WidgetStore.shared.setNoteText("", widget.id)
+            case .todo?:
+                let list = WidgetStore.shared.todoList(widget.id)
+                menu.add(String(localized: "添加待办"), symbol: "plus.circle") {
+                    model.activateWidget(widget, at: nil, card: .zero)
+                }
+                menu.add(String(localized: "清除已完成"), symbol: "checkmark.circle", enabled: list.contains(where: \.done)) {
+                    WidgetStore.shared.clearDoneTodos(widget.id)
+                }
+            case .clipboard?:
+                menu.add(String(localized: "清空记录"), symbol: "trash", enabled: !ClipboardHistory.shared.items.isEmpty) {
+                    ClipboardHistory.shared.clear()
                 }
             case .timer?:
                 let timer = WidgetStore.shared.timer(widget.id)

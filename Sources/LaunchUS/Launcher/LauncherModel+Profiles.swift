@@ -190,6 +190,15 @@ extension LauncherModel {
         if group == .hidden { whenHiddenUnlocked(reason: String(localized: "修改隐藏的 App 设置"), apply) } else { apply() }
     }
 
+    /// Settings › a profile › 还原设置: this profile's settings as a fresh install has them. Its
+    /// pages, hidden apps and AI key stay.
+    func resetProfileSettings() {
+        // The hidden apps' verification goes back to its default too.
+        whenHiddenUnlocked(reason: String(localized: "还原这个方案的设置")) { [self] in
+            ProfileSettings.restore(ProfileSettings.resetValues(defaultProfile: profiles.current.isEmpty), to: settings)
+        }
+    }
+
     /// Puts an automatic backup of this profile back: its pages and its hidden apps. Names,
     /// tags and icons are shared by all profiles, so they stay as they are.
     func restoreProfileBackup(from url: URL) throws {

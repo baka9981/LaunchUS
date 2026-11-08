@@ -695,7 +695,8 @@
 "网关" = "Gateway";
 "网关地址无效" = "The gateway address isn't valid";
 "计算" = "Calculator";
-"让 Claude、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。" = "Let AI tools like Claude and Cursor find, open and quit apps, open folders or groups, and switch layouts.";
+"让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。" = "Let AI tools like Claude, Codex and Cursor find, open and quit apps, open folders or groups, and switch layouts.";
+"Codex（写进 ~/.codex/config.toml）" = "Codex (in ~/.codex/config.toml)";
 "连接成功" = "Connected";
 "连接成功：%@" = "Connected: %@";
 "重试" = "Retry";
@@ -1250,7 +1251,6 @@
 "会用启动台的页面和文件夹替换这个方案的布局，名称、标签和隐藏设置保持不变。现在的布局会先自动备份。" = "This replaces this layout's pages with Launchpad's pages and folders. Names, tags and hidden apps stay. The current layout is backed up first.";
 "卸载 App" = "Uninstall Apps";
 "右键点按 App 即可隐藏" = "Right-click an app to hide it";
-"启动与语言" = "Startup and Language";
 "存为样式…" = "Save as Style…";
 "导入或导出所有方案的布局、文件夹、名称、别名、标签和隐藏设置，用于备份或在设备之间迁移" = "Import or export the pages, folders, names, aliases, tags and hidden apps of every layout, to back up or move to another Mac";
 "我的样式 %lld" = "My Style %lld";
@@ -1286,7 +1286,6 @@
 /* Tool widgets */
 "%lld 分钟" = "%lld min";
 "%lld 分钟的计时结束了。" = "Your %lld-minute timer is done.";
-"买牛奶\n周五前交报告\n给妈妈打电话" = "Buy milk\nSend the report by Friday\nCall Mom";
 "便签" = "Note";
 "保持唤醒" = "Keep Awake";
 "关闭显示器" = "Display Off";
@@ -1312,10 +1311,8 @@
 "重置" = "Reset";
 "锁屏" = "Lock Screen";
 "锁屏、截屏、深色模式、静音、睡眠、保持唤醒和清空废纸篓，一点就做。" = "Lock, screenshot, dark mode, mute, sleep, keep awake and empty Trash, one click each.";
-"随手记点东西。点一下直接在卡片上写，右键换纸的颜色。" = "Jot things down. Click to write right on the card, right-click to change the paper colour.";
 "静音" = "Mute";
 "这个方案在程序坞有自己的图标，开着的方案各一个；点按打开这个方案，右键可直接打开 App" = "This profile gets its own Dock icon, one for each profile that has it on; click to open the profile, right-click to open apps directly";
-"这个方案在程序坞的图标；默认方案的就是 LaunchUS 自己的图标" = "This profile's icon in the Dock; the default profile's is LaunchUS's own icon";
 "切换到这个方案" = "Switch to this profile";
 "删除方案…" = "Delete Profile…";
 "每个方案有自己的页面、文件夹、隐藏的 App 和设置。点「编辑」进入它的设置。" = "Each profile has its own pages, folders, hidden apps and settings. Click Edit to open its settings.";
@@ -1323,6 +1320,35 @@
 "默认方案不能重命名或删除" = "The default profile can't be renamed or deleted";
 "返回方案列表" = "Back to the profile list";
 "这些设置只属于这个方案，切换方案时一起切换。" = "These settings belong to this profile only and switch with it.";
-"此方案图标" = "Profile Icon";
 "打开（设置页）" = "Open";
 "行为（设置页）" = "Behavior";
+"还原「%@」的设置？" = "Reset the settings of “%@”?";
+"还原设置" = "Reset Settings";
+"还原这个方案的设置" = "reset this profile’s settings";
+"方案（设置页）" = "Layout";
+"这个方案在方案列表和程序坞里的图标；默认方案的就是 LaunchUS 自己的图标" = "This layout’s icon in the list of layouts and in the Dock. The default layout’s is LaunchUS’s own icon";
+"这个方案的设置回到刚安装时的样子；页面、隐藏的 App、显示方式、图标和语言不变" = "This layout’s settings go back to how they were when LaunchUS was installed. Its pages, hidden apps, way of showing, icon and language stay";
+"除了显示方式、图标和语言，这个方案的设置都会回到默认。页面和隐藏的 App 不变。" = "All of this layout’s settings go back to their defaults, except its way of showing, icon and language. Its pages and hidden apps stay.";
+"此方案图标" = "Profile Icon";
+
+/* To-do, clipboard and Markdown notes */
+"## 今天\n- [x] 买牛奶\n- [ ] 周五前交**报告**\n- 给妈妈打电话" = "## Today\n- [x] Buy milk\n- [ ] Send the **report** by Friday\n- Call Mom";
+"下午三点在 2 号会议室" = "3 PM in meeting room 2";
+"买牛奶" = "Buy milk";
+"剪贴板" = "Clipboard";
+"回复邮件" = "Reply to emails";
+"已拷贝" = "Copied";
+"待办" = "To Do";
+"待办清单。点一项打勾，点 + 直接在卡片上添加，右键清除已完成。" = "A to-do list. Click an item to check it off, click + to add one right on the card, right-click to clear finished ones.";
+"拷贝的文字会显示在这里" = "Text you copy shows up here";
+"收货地址：上海市…" = "Ship to: 1 Infinite Loop…";
+"整理桌面" = "Tidy the desktop";
+"新的待办" = "New to-do";
+"最近拷贝的文字，点一条重新拷贝。只存在内存里，退出就清空，密码管理器拷贝的不记录。" = "Text you copied lately; click one to copy it again. Kept in memory only and cleared when you quit. Copies from password managers are skipped.";
+"添加待办" = "Add To-Do";
+"清空记录" = "Clear History";
+"清除已完成" = "Clear Completed";
+"点 + 添加一项" = "Click + to add one";
+"还有 %lld 项" = "%lld more";
+"随手记点东西，支持 Markdown。点一下直接在卡片上写，右键换纸的颜色。" = "Jot things down, with Markdown. Click to write right on the card, right-click to change the paper color.";
+"预约体检" = "Book a checkup";

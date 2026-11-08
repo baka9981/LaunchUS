@@ -92,10 +92,10 @@ struct SheetCard: View {
     private var card: some View {
         ViewThatFits(in: .vertical) {
             cardContent
-            ScrollView { cardContent }.scrollIndicators(.never)
+            // Only when it doesn't fit: a frame on the card itself would stretch it to the room.
+            ScrollView { cardContent }.scrollIndicators(.never).frame(height: room.height)
         }
         .frame(width: 420)
-        .frame(maxHeight: room.height)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -382,8 +382,6 @@ struct SmartBarEditor: View {
     @State private var selected: String?
     @State private var name = ""
     @State private var query = ""
-    @State private var newInBar = true
-    @State private var newOnPages = true
     /// Set while a picked folder's name and condition are being loaded, so loading them isn't
     /// taken for an edit (the name would otherwise be saved with the previous one's condition).
     @State private var loading = false
@@ -461,9 +459,20 @@ struct SmartBarEditor: View {
             }
             Divider()
             HStack {
-                Text("勾选决定显示在哪里，拖动调整智能栏里的顺序").font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
-                Button(String(localized: "完成"), action: close).keyboardShortcut(.defaultAction)
+                if selected == nil {
+                    if !model.allCategoryTabs.isEmpty {
+                        Button(String(localized: "取消")) {
+                            if let first = model.allCategoryTabs.first.flatMap({ model.smartFolder(forTab: $0.key) }) { pick(first.id) }
+                        }
+                    }
+                    Button(String(localized: "创建"), action: create)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty || !AppSearch.isComplete(AppSearch.tokens(query)))
+                    Button(String(localized: "关闭"), action: close)
+                } else {
+                    Button(String(localized: "关闭"), action: close).keyboardShortcut(.defaultAction)
+                }
             }
             .padding(.horizontal, 20).padding(.vertical, 12)
         }
@@ -482,7 +491,10 @@ struct SmartBarEditor: View {
         VStack(alignment: .leading, spacing: 14) {
             ScrollView { fields.padding(20) }
                 .scrollBounceBehavior(.basedOnSize)
-            bottomRow.padding([.horizontal, .bottom], 20)
+            if let selected {
+                Button(String(localized: "删除智能文件夹"), role: .destructive) { delete(selected) }
+                    .padding([.horizontal, .bottom], 20)
+            }
         }
     }
 
@@ -508,7 +520,7 @@ struct SmartBarEditor: View {
                 .padding(10)
                 .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
-            FieldRow(label: String(localized: "名称")) {
+            FieldRow(label: String(localized: "文件夹名称")) {
                 TextField(LauncherModel.smartFolderName(for: query), text: $name)
                     .textFieldStyle(CardFieldStyle()).focused($focus, equals: 0)
                     .onChange(of: name) { apply() }
@@ -521,25 +533,6 @@ struct SmartBarEditor: View {
                     .font(.system(size: 11)).foregroundStyle(complete ? AnyShapeStyle(.secondary) : AnyShapeStyle(.orange))
             }
         }
-    }
-
-    @ViewBuilder private var bottomRow: some View {
-            HStack {
-                if let selected {
-                    Button(String(localized: "删除智能文件夹"), role: .destructive) { delete(selected) }
-                } else {
-                    Toggle(String(localized: "智能栏"), isOn: $newInBar).toggleStyle(.checkbox)
-                    Toggle(String(localized: "主界面"), isOn: $newOnPages).toggleStyle(.checkbox)
-                    Spacer()
-                    if !model.allCategoryTabs.isEmpty {
-                        Button(String(localized: "取消")) {
-                            if let first = model.allCategoryTabs.first.flatMap({ model.smartFolder(forTab: $0.key) }) { pick(first.id) }
-                        }
-                    }
-                    Button(String(localized: "创建"), action: create)
-                        .disabled(query.trimmingCharacters(in: .whitespaces).isEmpty || !AppSearch.isComplete(AppSearch.tokens(query)))
-                }
-            }
     }
 
     private func pick(_ id: String) {
@@ -555,8 +548,6 @@ struct SmartBarEditor: View {
         selected = nil
         name = ""
         query = initial
-        newInBar = true
-        newOnPages = true
         DispatchQueue.main.async { focus = initial.isEmpty ? 1 : 0 }
     }
 
@@ -571,8 +562,8 @@ struct SmartBarEditor: View {
     }
 
     private func create() {
-        guard let id = model.saveSmartFolder(nil, name: name, query: query, onPages: newOnPages) else { return }
-        if !newInBar { model.setCategoryTab(LauncherModel.smartTabPrefix + id, hidden: true) }
+        // In the smart bar and on the pages; the list's checkboxes change either.
+        guard let id = model.saveSmartFolder(nil, name: name, query: query, onPages: true) else { return }
         pick(id)
     }
 
@@ -642,13 +633,16 @@ struct FormulaBuilder: View {
                 section(String(localized: "标签"), items: tags.map { "#" + $0 })
             }
             section(String(localized: "App Store 分类"), items: AppCategoryName.Group.allCases.map(AppSearch.categoryToken))
-            HStack(spacing: 6) {
-                TextField(String(localized: "名称里的关键词"), text: $keyword)
-                    .textFieldStyle(.roundedBorder).controlSize(.small).frame(width: 150)
-                    .onSubmit(addKeyword)
-                Button(String(localized: "加入"), action: addKeyword)
-                    .controlSize(.small)
-                    .disabled(keyword.trimmingCharacters(in: .whitespaces).isEmpty)
+            VStack(alignment: .leading, spacing: 5) {
+                Text("名称").font(.system(size: 11)).foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    TextField(String(localized: "名称里的关键词"), text: $keyword)
+                        .textFieldStyle(.roundedBorder).controlSize(.small).frame(width: 150)
+                        .onSubmit(addKeyword)
+                    Button(String(localized: "加入"), action: addKeyword)
+                        .controlSize(.small)
+                        .disabled(keyword.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
             }
         }
     }

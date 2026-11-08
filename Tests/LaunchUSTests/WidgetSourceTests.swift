@@ -128,6 +128,56 @@ struct ToolWidgetTests {
         #expect(TimerWidget.hit(CGPoint(x: presets[3].midX + first, y: presets[3].midY + first), size: .medium, card: medium) == .preset(45))
     }
 
+    @Test func markdownBlocks() {
+        let text = "# 标题\n## 小标题\n- [ ] 要做\n- [x] 做完\n* 要点\n3. 第三\n> 引用\n---\n\n**粗体** 正文\n#不是标题"
+        #expect(Markdown.blocks(text) == [
+            .heading(1, "标题"), .heading(2, "小标题"), .task(false, "要做"), .task(true, "做完"), .bullet("要点"),
+            .numbered("3", "第三"), .quote("引用"), .rule, .blank, .paragraph("**粗体** 正文"), .paragraph("#不是标题"),
+        ])
+        #expect(String(Markdown.inline("**粗体** 和 `code`").characters) == "粗体 和 code")
+        #expect(Markdown.blocks("<hr>\n<HR />") == [.rule, .rule])
+    }
+
+    @Test func todosAddToggleAndClear() {
+        let s = store()
+        let id = "test-" + UUID().uuidString
+        s.addTodo("  ", id)
+        #expect(s.todoList(id).isEmpty)
+        s.addTodo("一", id)
+        s.addTodo("二", id)
+        let first = s.todoList(id)[0].id
+        s.toggleTodo(first, id)
+        #expect(TodoWidget.ordered(s.todoList(id)).map(\.text) == ["二", "一"])
+        s.clearDoneTodos(id)
+        #expect(s.todoList(id).map(\.text) == ["二"])
+        s.forget(id)
+        #expect(s.todoList(id).isEmpty)
+    }
+
+    @Test func todoHits() {
+        let card = CGSize(width: 200, height: 200)
+        let id = "test-" + UUID().uuidString
+        let (_, add, rows) = TodoWidget.layout(.small, card: card)
+        let inset = ToolGrid.content(card).inset
+        #expect(rows.count == 4)
+        #expect(TodoWidget.hit(CGPoint(x: add.midX + inset, y: add.midY + inset), id: id, size: .small, card: card) == .add)
+        // An empty line adds too.
+        #expect(TodoWidget.hit(CGPoint(x: rows[2].midX + inset, y: rows[2].midY + inset), id: id, size: .small, card: card) == .add)
+        #expect(TodoWidget.layout(.medium, card: CGSize(width: 400, height: 200)).rows.count == 8)
+    }
+
+    @Test func clipboardKeepsRecentDistinctText() {
+        let history = ClipboardHistory()
+        history.record("a")
+        history.record("b")
+        history.record("a")
+        history.record("   ")
+        #expect(history.items == ["a", "b"])
+        for i in 0..<30 { history.record("\(i)") }
+        #expect(history.items.count == ClipboardHistory.limit)
+        #expect(ClipboardHistory.preview("第一行\n\n  第二行 ") == "第一行 ⏎ 第二行")
+    }
+
     @Test func timerClock() {
         #expect(TimerWidget.clock(25 * 60) == "25:00")
         #expect(TimerWidget.clock(59.2) == "01:00")

@@ -219,9 +219,14 @@ final class LauncherController {
             return
         }
         DispatchQueue.main.async { self.model.focusRequest += 1 }
-        finishShowing(animation: settings.motion(.easeOut(duration: 0.22), duration: 0.26))
+        finishShowing(animation: settings.motion(.easeOut(duration: 0.22), duration: 0.26).speed(openCloseRate))
         writeDebugSnapshotIfRequested()
     }
+
+    /// Opening and closing grow the content from 110% while it fades in. In a window that's
+    /// far fewer points than on the whole screen, so at the same pace it looks slower; the
+    /// window runs it faster to look as quick at the same speed setting.
+    private var openCloseRate: Double { settings.displayMode == .window ? 1.3 : 1 }
 
     private func finishShowing(animation: Animation) {
         DispatchQueue.main.async {
@@ -389,11 +394,11 @@ final class LauncherController {
         model.endDrag()
         dockBadges.stop()
         pinchOpening = false
-        withAnimation(settings.motion(.easeIn(duration: 0.16), duration: 0.18)) {
+        withAnimation(settings.motion(.easeIn(duration: 0.16), duration: 0.18).speed(openCloseRate)) {
             model.isPresented = false
             model.gestureProgress = nil
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + settings.animationSpeed.duration(settings.motionCurve == nil ? 0.17 : 0.19)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + settings.animationSpeed.duration(settings.motionCurve == nil ? 0.17 : 0.19) / openCloseRate) {
             guard self.hideToken == token else { return }
             self.panel.orderOut(nil)
             self.model.didHide()

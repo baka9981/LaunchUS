@@ -7,17 +7,18 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     // The list of layout profiles; the one being edited's settings; LaunchUS's own (what it
     // has only one of).
     case profiles
-    case display, appearance, organize, general, behavior, hidden, apps, ai
+    case display, appearance, organize, general, behavior, hidden, apps, ai, manage
     case advanced
     var id: String { rawValue }
 
-    static let profileTabs: [SettingsTab] = [.display, .appearance, .organize, .general, .behavior, .apps, .hidden, .ai]
+    static let profileTabs: [SettingsTab] = [.display, .appearance, .organize, .general, .behavior, .apps, .hidden, .ai, .manage]
     /// The pages along the top; a profile's tabs are under 布局方案.
     static let topTabs: [SettingsTab] = [.profiles, .advanced]
 
     var isProfileTab: Bool { Self.profileTabs.contains(self) }
 
-    /// The settings group the tab shows, for copying it from another profile.
+    /// The settings group the tab shows, for copying it from another profile. 方案 has none: its
+    /// name and language are what tell profiles apart.
     var group: ProfileSettings.Group? {
         switch self {
         case .display: .display
@@ -39,7 +40,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case "profile", "layouts": .profiles
         case "layout": .organize
         case "triggers", "open", "opening": .general
-        case "backup", "backups": .organize
+        case "backup", "backups": .manage
         case let other: SettingsTab(rawValue: other)
         }
     }
@@ -55,6 +56,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .hidden: String(localized: "隐藏")
         case .apps: "Apps"
         case .ai: "AI"
+        case .manage: String(localized: "方案（设置页）", defaultValue: "方案")
         case .advanced: String(localized: "通用")
         }
     }
@@ -70,6 +72,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .hidden: "eye.slash"
         case .apps: "square.grid.2x2"
         case .ai: "sparkles"
+        case .manage: "rectangle.stack"
         case .advanced: "gearshape"
         }
     }
@@ -151,6 +154,7 @@ struct SettingsView: View {
                     case .hidden: HiddenAppsTab(model: model, settings: settings)
                     case .ai: AITab(settings: settings).id(profile)  // its key and chats are the profile's
                     case .apps: AppsTab(model: model, settings: settings, actions: actions)
+                    case .manage: ManageTab(model: model, settings: settings)
                     case .advanced: AdvancedTab(model: model, settings: settings)
                     }
                 }
@@ -558,14 +562,13 @@ struct GeneralTab: View {
         }
         MenuBarDockSection(model: model, settings: settings)
         StartupSection(model: model, settings: settings)
-        ProfileManageSection(model: model)
         .onReceive(poll) { _ in
             trusted = Permissions.accessibility
         }
     }
 }
 
-/// How the profile behaves once it's open: where it shows, editing and searching.
+/// How the profile behaves once it's open: going back home, closing, editing and searching.
 struct BehaviorTab: View {
     let model: LauncherModel
     @Bindable var settings: Settings
@@ -573,9 +576,6 @@ struct BehaviorTab: View {
     var body: some View {
         SettingsSection(title: String(localized: "行为")) {
             Card {
-                Row(title: String(localized: "显示在")) {
-                    MenuPicker(selection: $settings.targetScreen, options: TargetScreen.allCases, title: \.title)
-                }
                 Row(title: String(localized: "回到主页面"), info: settings.browseStyle == .scroll
                         ? String(localized: "再次打开时，隔多久回到最上面；在这之前会停在上次浏览的位置")
                         : String(localized: "再次打开时，隔多久回到第一页；在这之前会停在上次浏览的位置")) {
@@ -715,6 +715,9 @@ struct DisplayTab: View {
                         ForEach(DisplayMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
+                }
+                Row(title: String(localized: "显示在")) {
+                    MenuPicker(selection: $settings.targetScreen, options: TargetScreen.allCases, title: \.title)
                 }
                 if full {
                     Row(title: String(localized: "隐藏程序坞"),
@@ -1217,7 +1220,6 @@ struct OrganizeTab: View {
                 }
             }
         }
-        AutoBackupSection(model: model, settings: settings)
         Color.clear.frame(height: 0)
         .sheet(isPresented: $showRules) {
             RulesSheet(rules: $rules) {
@@ -1324,6 +1326,7 @@ struct AdvancedTab: View {
             }
         }
         BackupSection(model: model, settings: settings)
+        MCPSection()  // one server for every profile
         SettingsSection(title: String(localized: "数据与隐私")) {
             Card {
                 Row(title: String(localized: "数据文件夹"), info: String(localized: "布局、文件夹、启动项、自定义图标和备份都存在这里")) {
@@ -1457,7 +1460,7 @@ struct BackupSection: View {
 
 }
 
-/// 整理 › 自动备份: the profile's own backups, one per change.
+/// 方案 › 自动备份: the profile's own backups, one per change.
 struct AutoBackupSection: View {
     let model: LauncherModel
     @Bindable var settings: Settings
@@ -1504,7 +1507,7 @@ struct AutoBackupSection: View {
     }
 }
 
-/// 通用 › 启动与语言: whether this profile starts with the Mac, and its language.
+/// 打开 › 启动: whether this profile starts with the Mac.
 struct StartupSection: View {
     let model: LauncherModel
     @Bindable var settings: Settings
@@ -1514,24 +1517,11 @@ struct StartupSection: View {
     var body: some View {
         let current = model.currentProfile
         let otherAtLogin = model.profileNames.first { $0 != current && model.startsAtLogin($0) }
-        SettingsSection(title: String(localized: "启动与语言")) {
+        SettingsSection(title: String(localized: "启动")) {
             Card {
                 Row(title: String(localized: "开机自启动"), subtitle: loginSubtitle(otherAtLogin),
                     info: String(localized: "登录 Mac 时启动 LaunchUS，并切换到这个方案")) {
                     Toggle("", isOn: $settings.startAtLogin).toggleStyle(.switch).labelsHidden()
-                }
-                Row(title: String(localized: "语言"), info: String(localized: "切换到语言不同的方案时，LaunchUS 会自动重启一下")) {
-                    MenuPicker(selection: Binding(get: { settings.language }, set: { new in
-                        guard new != settings.language else { return }
-                        settings.language = new
-                        let alert = NSAlert()
-                        alert.messageText = String(localized: "重启 LaunchUS 后生效")
-                        alert.addButton(withTitle: String(localized: "现在重启"))
-                        alert.addButton(withTitle: String(localized: "稍后"))
-                        if Modal.run({ alert.runModal() }) == .alertFirstButtonReturn {
-                            AppRelauncher.relaunch(opening: URL(string: "launchus://settings?tab=general"))
-                        }
-                    }), options: AppLanguage.allCases, title: \.title)
                 }
             }
         }
@@ -1549,7 +1539,7 @@ struct StartupSection: View {
     }
 }
 
-/// 通用 › 菜单栏与程序坞: this profile's own menu bar icon, and the Dock while it's active.
+/// 打开 › 菜单栏与程序坞: this profile's own menu bar icon and Dock icon.
 struct MenuBarDockSection: View {
     let model: LauncherModel
     @Bindable var settings: Settings
@@ -1593,7 +1583,7 @@ struct MenuBarDockSection: View {
                         Toggle("", isOn: $settings.showDockIcon).toggleStyle(.switch).labelsHidden()
                     }
                 }
-                Row(title: String(localized: "此方案图标"), info: String(localized: "这个方案在程序坞的图标；默认方案的就是 LaunchUS 自己的图标")) {
+                Row(title: String(localized: "此方案图标"), info: String(localized: "这个方案在方案列表和程序坞里的图标；默认方案的就是 LaunchUS 自己的图标")) {
                     HStack(spacing: 12) {
                         ForEach(AppIconStyle.allCases, id: \.self) { style in
                             Button { settings.appIcon = style } label: {

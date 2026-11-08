@@ -46,7 +46,17 @@ extension LauncherModel {
         guard !isEditing else { return }
         switch BuiltInWidget(rawValue: widget.kind) {
         case .note?:
-            withAnimation(.easeOut(duration: 0.15)) { editingNoteID = widget.id }
+            // Straight swap, no fade: the text stays where it was and the caret appears.
+            editingNoteID = widget.id
+        case .todo?:
+            switch point.flatMap({ TodoWidget.hit($0, id: widget.id, size: widget.size, card: card) }) ?? .add {
+            case .add: editingNoteID = widget.id
+            case .item(let item): withAnimation(.easeInOut(duration: 0.2)) { WidgetStore.shared.toggleTodo(item, widget.id) }
+            }
+        case .clipboard?:
+            if let point, let text = ClipboardWidget.item(at: point, id: widget.id, size: widget.size, card: card) {
+                ClipboardHistory.shared.copy(text)
+            }
         case .timer?:
             let hit = point.flatMap { TimerWidget.hit($0, size: widget.size, card: card) } ?? .toggle
             withAnimation(.easeInOut(duration: 0.2)) {
@@ -71,7 +81,7 @@ extension LauncherModel {
 
     func endNoteEditing() {
         guard editingNoteID != nil else { return }
-        withAnimation(.easeOut(duration: 0.15)) { editingNoteID = nil }
+        editingNoteID = nil
     }
 
     /// Clicking a widget opens what it comes from; a missing plugin's widget opens the gallery.

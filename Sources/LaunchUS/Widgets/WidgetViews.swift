@@ -115,9 +115,9 @@ struct WidgetCell: View {
             }
     }
 
-    /// Widgets with buttons of their own don't darken as a whole when pressed.
+    /// Widgets with buttons of their own, and the note (it turns into a text field), don't darken as a whole when pressed.
     private static func pressesInside(_ widget: WidgetItem) -> Bool {
-        [BuiltInWidget.apps.rawValue, BuiltInWidget.actions.rawValue].contains(widget.kind)
+        [BuiltInWidget.note, .apps, .actions, .todo, .clipboard].map(\.rawValue).contains(widget.kind)
     }
 }
 
@@ -194,6 +194,8 @@ struct WidgetCard: View {
         case .builtIn(.apps)?: AppsWidget(size: widget.size, unit: unit, card: size)
         case .builtIn(.timer)?: TimerWidget(id: widget.id, size: widget.size, unit: unit, card: size, live: live)
         case .builtIn(.actions)?: ActionsWidget(size: widget.size, unit: unit, card: size)
+        case .builtIn(.todo)?: TodoWidget(id: widget.id, size: widget.size, unit: unit, card: size, editing: editing)
+        case .builtIn(.clipboard)?: ClipboardWidget(id: widget.id, size: widget.size, unit: unit, card: size)
         case .plugin(let folder, let manifest)?:
             PluginWidgetView(folder: folder, manifest: manifest, size: widget.size, frame: size, unit: unit,
                              dark: !windowed || colorScheme == .dark, live: live,

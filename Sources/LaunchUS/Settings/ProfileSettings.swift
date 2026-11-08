@@ -12,7 +12,7 @@ import Foundation
 enum ProfileSettings {
     /// The profile's settings tabs. A profile can copy a group from another one.
     enum Group: String, Codable, CaseIterable, Identifiable {
-        case display, appearance, organize, general, behavior, hidden, apps, ai
+        case display, appearance, organize, general, behavior, hidden, apps, ai, manage
         var id: String { rawValue }
 
         var title: String {
@@ -25,6 +25,7 @@ enum ProfileSettings {
             case .hidden: String(localized: "隐藏")
             case .apps: "Apps"
             case .ai: "AI"
+            case .manage: String(localized: "方案（设置页）", defaultValue: "方案")
             }
         }
     }
@@ -56,6 +57,7 @@ enum ProfileSettings {
     static let fields: [Field] = [
         // 显示
         Field(.display, "displayMode", \.displayMode),
+        Field(.display, "targetScreen", \.targetScreen),
         Field(.display, "hideDock", \.hideDock),
         Field(.display, "windowSize", \.windowSize, fit: clamp(Settings.windowSizeRange)),
         Field(.display, "iconScale", \.fullIconScale, fit: clamp(0.6...1.3)),
@@ -99,7 +101,6 @@ enum ProfileSettings {
         Field(.organize, "freePlacement", \.freePlacement),
         Field(.organize, "categoryTabOrder", \.categoryTabOrder),
         Field(.organize, "hiddenCategoryTabs", \.hiddenCategoryTabs),
-        Field(.organize, "autoBackupCount", \.autoBackupCount, fit: clamp(0...50)),
         // 打开: how this profile opens
         Field(.general, "hotKey", \.hotKey),
         Field(.general, "f4Key", \.f4Key),
@@ -107,21 +108,22 @@ enum ProfileSettings {
         Field(.general, "pinchFingers", \.pinchFingers),
         Field(.general, "hotCorner", \.hotCorner),
         // 行为
-        Field(.behavior, "targetScreen", \.targetScreen),
         Field(.behavior, "returnHome", \.returnHome),
         Field(.behavior, "clickBackgroundToClose", \.clickBackgroundToClose),
         Field(.behavior, "multiSelectKey", \.multiSelectKey),
         Field(.behavior, "deleteBadges", \.deleteBadges),
         Field(.behavior, "searchEngine", \.searchEngine),
         Field(.behavior, "searchFiles", \.searchFiles),
-        // 打开 › 启动, 菜单栏与程序坞
-        Field(.general, "startAtLogin", \.startAtLogin),
-        Field(.general, "language", \.language),
+        // 打开 › 菜单栏与程序坞, 启动
         Field(.general, "showMenuBarIcon", \.showMenuBarIcon),
         Field(.general, "menuBarIcon", \.menuBarIcon),
         Field(.general, "showDockIcon", \.showDockIcon),
         Field(.general, "dockMenu", \.dockMenu),
         Field(.general, "appIcon", \.appIcon),
+        Field(.general, "startAtLogin", \.startAtLogin),
+        // 方案: the profile itself (never copied from another one)
+        Field(.manage, "language", \.language),
+        Field(.manage, "autoBackupCount", \.autoBackupCount, fit: clamp(0...50)),
         // Apps
         Field(.apps, "extraAppFolders", \.extraAppFolders),
         // 隐藏: how this profile's hidden apps are reached (the list itself is `hiddenAppsKey`)
@@ -208,6 +210,21 @@ enum ProfileSettings {
             file.settings[name] = values
         }
         return changed
+    }
+
+    /// What 还原设置 puts back: a fresh install's settings, without the way of showing, the icon
+    /// or the language (they're what the profile is). A profile other than the default one starts
+    /// without ways to open it, a login item or a menu bar icon, like a new profile.
+    static func resetValues(defaultProfile: Bool) -> [String: String] {
+        let suite = "LaunchUS.reset.\(UUID().uuidString)"
+        let blank = UserDefaults(suiteName: suite) ?? UserDefaults()
+        defer { blank.removePersistentDomain(forName: suite) }
+        var values = capture(Settings(defaults: blank))
+        values[modeKey] = nil
+        values["language"] = nil
+        values["appIcon"] = nil
+        if !defaultProfile { clearOpening(in: &values) }
+        return values
     }
 
     static func capture(_ settings: Settings) -> [String: String] {

@@ -560,6 +560,9 @@ final class LauncherModel {
 
     func refresh() {
         normalizeLayout()
+        if layout.joined().contains(where: { if case .widget(let w) = $0 { w.kind == BuiltInWidget.clipboard.rawValue } else { false } }) {
+            ClipboardHistory.shared.start()
+        }
         visibleApps = catalog.apps.compactMap { app in
             guard let m = meta[app.id] else { return app }
             if m.hidden { return nil }

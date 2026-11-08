@@ -59,6 +59,11 @@ struct ProfileSettingsTests {
         }
         #expect(ProfileSettings.keys(in: .organize).contains("sortOrder"))
         #expect(ProfileSettings.keys(in: .behavior).contains("searchEngine") && !ProfileSettings.keys(in: .general).contains("searchEngine"))
+        #expect(ProfileSettings.keys(in: .display).contains("targetScreen"))
+        #expect(ProfileSettings.keys(in: .manage) == ["language", "autoBackupCount"])
+        #expect(ProfileSettings.keys(in: .general).contains("appIcon"))
+        // 方案 is the profile itself: it has no 从其他方案复制.
+        #expect(SettingsTab.manage.group == nil && SettingsTab.profileTabs.last == .manage)
         #expect(Set(ProfileSettings.fields.map(\.key)).count == ProfileSettings.fields.count)
     }
 
@@ -191,5 +196,14 @@ struct ProfileSettingsTests {
         new.settings = ["": values]
         #expect(new.allProfiles.count == 1)
         #expect(ProfileSettings.hiddenApps(in: new.allProfiles[0].settings) == ["c"])
+    }
+
+    @Test func resetKeepsTheWayOfShowingTheIconAndTheLanguage() {
+        let main = ProfileSettings.resetValues(defaultProfile: true)
+        #expect(main[ProfileSettings.modeKey] == nil && main["language"] == nil && main["appIcon"] == nil)
+        #expect(main["searchEngine"] != nil && main["hotKey"] != "[null]")
+        // Another profile doesn't take the default one's shortcut, login item or menu bar icon.
+        let other = ProfileSettings.resetValues(defaultProfile: false)
+        #expect(other["hotKey"] == "[null]" && other["startAtLogin"] == "[false]" && other["showMenuBarIcon"] == "[false]")
     }
 }
