@@ -1,6 +1,7 @@
 import Foundation
 
-/// Past AI chats, one JSON file each under Application Support/LaunchUS/Chats. They stay on
+/// Past AI chats, one JSON file each under Application Support/LaunchUS/Chats (another layout
+/// profile's under `Profiles/<name>/Chats`, see `ProfileFolders`). They stay on
 /// this Mac: not in iCloud sync, backups or diagnostics. `Settings.aiHistoryCount` caps how
 /// many are kept; 0 keeps none.
 enum ChatHistory {
@@ -22,7 +23,7 @@ enum ChatHistory {
     /// Posted when the list changes.
     static let didChange = Notification.Name("ChatHistory.didChange")
 
-    static var directory: URL { LayoutStore.directory.appendingPathComponent("Chats", isDirectory: true) }
+    static var directory: URL { ProfileFolders.url("Chats") }
 
     private static func url(_ id: UUID) -> URL { directory.appendingPathComponent(id.uuidString + ".json") }
 

@@ -1,6 +1,6 @@
 import AppKit
 
-/// Settings › 高级 › 还原: back to a fresh install, then a relaunch.
+/// Settings › 通用 › 还原: back to a fresh install, then a relaunch.
 @MainActor
 enum FactoryReset {
     /// Moves the data folder (layout, folders, hidden apps, launch items, icons, backups, chats)

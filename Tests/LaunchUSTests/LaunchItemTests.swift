@@ -8,6 +8,8 @@ import Testing
         #expect(URLCommand(url: URL(string: "launchus://profile?name=%E5%B7%A5%E4%BD%9C")!) == .profile("工作"))
         #expect(URLCommand(url: URL(string: "launchus://layout?name=Home")!) == .profile("Home"))
         #expect(URLCommand(url: URL(string: "launchus://profile")!) == nil)
+        #expect(URLCommand(url: URL(string: "launchus://toggle?profile=%E5%B7%A5%E4%BD%9C")!) == .toggleProfile("工作"))
+        #expect(URLCommand(url: URL(string: "launchus://toggle")!) == .toggle)
     }
 
     @Test func profileNames() {

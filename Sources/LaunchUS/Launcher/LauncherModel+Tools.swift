@@ -194,10 +194,7 @@ extension LauncherModel {
             if let folderID = folderContaining(id) { removeApp(id, fromFolder: folderID) }
         }
         reconcile(forceSave: true)
-        // The first time: point at the dot that brings them back (it's invisible until hovered).
-        if !ids.isEmpty, settings.hiddenDotEntrance, settings.browseStyle != .scroll, !isSearching {
-            offerTip(.hiddenDot)
-        }
+        if !ids.isEmpty { offerHiddenDotTip() }
     }
 
     /// Moves the selected apps out of their folders, onto the end of the current page.
@@ -261,11 +258,95 @@ extension LauncherModel {
         refresh()
     }
 
-    func exportBackup(to url: URL) throws {
-        let backup = LayoutBackup(pages: layout, meta: meta, custom: customItems, barFolders: barFolders, profiles: profiles)
+    /// The chosen profiles' pages, settings and hidden apps, with the apps' names, tags, icons,
+    /// launch items and bar folders they share.
+    func backup(of names: [String]) -> LayoutBackup {
+        let chosen = profileNames.filter { names.contains($0) }
+        let first = chosen.contains(profiles.current) ? profiles.current : chosen.first ?? profiles.current
+        let pages = { [self] (name: String) in name == profiles.current ? layout : profiles.saved[name] ?? [] }
+        var values: [String: [String: String]] = [:]
+        for name in chosen {
+            values[name] = name == profiles.current ? currentProfileSettings() : profiles.settings[name]
+        }
+        // The apps' extras carry the first profile's hidden apps, as in older backups.
+        let hidden = ProfileSettings.hiddenApps(in: values[first]) ?? []
+        var shared = meta
+        for id in Set(shared.keys).union(hidden) {
+            var m = shared[id] ?? AppMeta()
+            m.hidden = hidden.contains(id)
+            shared[id] = m
+        }
+        var backup = LayoutBackup(pages: pages(first), meta: shared, custom: customItems, barFolders: barFolders)
+        backup.profile = first
+        backup.profiles = Dictionary(uniqueKeysWithValues: chosen.filter { $0 != first }.map { ($0, pages($0)) })
+        backup.settings = values
+        return backup
+    }
+
+    func exportBackup(of names: [String], to url: URL) throws {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try encoder.encode(backup).write(to: url, options: .atomic)
+        try encoder.encode(backup(of: names)).write(to: url, options: .atomic)
+    }
+
+    /// A free name for an imported profile that shouldn't replace the one called `name`, also
+    /// not one of `taken` (the names the other imported profiles get).
+    func unusedProfileName(like name: String, avoiding taken: Set<String> = []) -> String {
+        let base = LayoutProfiles.title(name)
+        var n = 2
+        while LayoutProfiles.resolve("\(base) \(n)", in: profiles) != nil || taken.contains("\(base) \(n)") { n += 1 }
+        return "\(base) \(n)"
+    }
+
+    /// Brings in profiles from a backup, each under the name it's given: an existing profile of
+    /// that name is replaced, any other name is added. The apps' names, tags and icons, launch
+    /// items and bar folders in the file join the ones here.
+    func importProfiles(_ chosen: [(profile: LayoutBackup.Profile, as: String)], from backup: LayoutBackup) {
+        guard !chosen.isEmpty, drag == nil else { return }
+        AutoBackup.snapshot()
+        let missing = (backup.custom ?? []).filter { item in !customItems.contains { $0.id == item.id } }
+        withCustomItems(missing.isEmpty ? nil : customItems + missing) { [self] in
+            var merged = meta
+            for (id, theirs) in backup.meta {
+                var m = theirs
+                m.hidden = meta[id]?.hidden ?? false
+                merged[id] = m
+            }
+            meta = merged
+            LayoutStore.save(meta: meta)
+            let newBar = (backup.barFolders ?? []).filter { f in !barFolders.contains { $0.id == f.id } }
+            if !newBar.isEmpty {
+                barFolders += newBar
+                LayoutStore.save(barFolders: barFolders)
+            }
+            var current: LayoutBackup.Profile?
+            for (profile, rawName) in chosen {
+                let name = LayoutProfiles.resolve(rawName, in: profiles) ?? rawName.trimmingCharacters(in: .whitespaces)
+                if name == profiles.current {
+                    current = profile
+                    continue
+                }
+                profiles.saved[name] = profile.pages
+                var values = profile.settings ?? profiles.settings[name] ?? {
+                    // An older backup has no settings: a new profile starts from these, without ways to open it.
+                    var v = currentProfileSettings()
+                    ProfileSettings.clearOpening(in: &v)
+                    return v
+                }()
+                if profile.settings == nil, ProfileSettings.hiddenApps(in: values) == nil {
+                    ProfileSettings.setHiddenApps([], in: &values)
+                }
+                profiles.settings[name] = values
+            }
+            LayoutProfiles.save(profiles)
+            profilesVersion += 1
+            if let current {
+                takeOn(current.pages, settings: current.settings, reopen: false)
+            } else {
+                NotificationCenter.default.post(name: Self.triggersChanged, object: nil)
+                refresh()
+            }
+        }
     }
 
     /// Takes over the system Launchpad's pages and folders; names, tags and hidden apps stay.
@@ -292,7 +373,14 @@ extension LauncherModel {
             guard let self else { return }
             ICloudSync.applying = true
             defer { ICloudSync.applying = false }
+            let ownHidden = hiddenIDs
             meta = backup.meta
+            if let profile = backup.profile, profile != profiles.current {
+                // Those are the other profile's hidden apps; this one keeps its own.
+                let theirs = Set(backup.meta.filter { $0.value.hidden }.map(\.key))
+                ProfileSettings.setHiddenApps(theirs, in: &profiles.settings[profile, default: [:]])
+                applyHiddenApps(ownHidden)
+            }
             LayoutStore.save(meta: meta)
             if let folders = backup.barFolders {
                 barFolders = folders
@@ -310,30 +398,6 @@ extension LauncherModel {
             LayoutStore.save(layout: layout)
             if let id = openFolderID, location(ofFolder: id) == nil { dropFolder() }
             currentPage = min(currentPage, max(0, layout.count - 1))
-            refresh()
-        }
-    }
-
-    func importBackup(from url: URL) throws {
-        let backup = try JSONDecoder().decode(LayoutBackup.self, from: Data(contentsOf: url))
-        withCustomItems(backup.custom) { [weak self] in
-            guard let self else { return }
-            meta = backup.meta
-            LayoutStore.save(meta: meta)
-            if let folders = backup.barFolders {
-                barFolders = folders
-                LayoutStore.save(barFolders: folders)
-            }
-            if let saved = backup.profiles {
-                // Older backups have no profiles; those keep the ones here.
-                profiles = LayoutProfiles.File(current: backup.profile ?? "", saved: saved)
-                LayoutProfiles.save(profiles)
-                profilesVersion += 1
-            }
-            layout = LayoutOps.reconcile(backup.pages, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage, free: freePlacement)
-            LayoutStore.save(layout: layout)
-            dropFolder()
-            currentPage = 0
             refresh()
         }
     }

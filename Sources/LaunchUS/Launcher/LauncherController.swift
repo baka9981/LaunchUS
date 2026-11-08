@@ -52,7 +52,7 @@ final class LauncherController {
         self.catalog = catalog
         model = LauncherModel(catalog: catalog)
         model.onLaunch = { [weak self] app in self?.launch(app) }
-        AppHotKeys.action = { [weak self] id in self?.openFromShortcut(id) }
+        HotKeyGroup.apps.action = { [weak self] id in self?.openFromShortcut(id) }
         model.onOpenFiles = { [weak self] urls, app in self?.open(urls, with: app) }
         model.onOpenGroup = { [weak self] apps in self?.openGroup(apps) }
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
@@ -73,7 +73,7 @@ final class LauncherController {
                 switch entry {
                 case .app(let app): [app.id]
                 case .folder(_, let apps): apps.prefix(9).map(\.id)
-                case .gap: []
+                case .gap, .widget: []
                 }
             }
         }
@@ -137,7 +137,10 @@ final class LauncherController {
         guard settings.displayMode == .window else { return screen.frame }
         let v = screen.visibleFrame
         // The system Apps window's size and proportions (844 × 576 on a 1728-point-wide screen), a little above centre.
-        let w = min(v.width * 0.49, 860).rounded(), h = min(v.height * 0.8, w / 1.465).rounded()
+        // 窗口大小 scales it, staying inside the screen.
+        let scale = settings.windowSize
+        let w = min(min(v.width * 0.49, 860) * scale, v.width * 0.94).rounded()
+        let h = min(v.height * 0.8 * max(1, scale), w / 1.465, v.height * 0.94).rounded()
         return NSRect(x: (v.midX - w / 2).rounded(), y: (v.midY - h / 2 + v.height * 0.03).rounded(), width: w, height: h)
     }
 
@@ -166,17 +169,28 @@ final class LauncherController {
 
     var isVisible: Bool { panel.isVisible && !isHiding }
 
-    func toggle() {
-        isVisible ? hide(restoreFocus: true) : show()
+    func toggle(via source: OpenSource = .other) {
+        isVisible ? hide(restoreFocus: true) : show(via: source)
     }
 
-    func show() {
-        show(interactive: false)
+    /// A profile's own shortcut or corner: opens the launcher on that profile, or closes it when
+    /// it's already showing that profile.
+    func toggleProfile(_ name: String, via source: OpenSource) {
+        if isVisible, model.currentProfile == name {
+            hide(restoreFocus: true)
+            return
+        }
+        model.switchProfile(name)
+        if !isVisible, !model.relaunchingForLanguage { show(via: source) }
+    }
+
+    func show(via source: OpenSource = .other) {
+        show(interactive: false, via: source)
     }
 
     /// `interactive`: a pinch is under way and drives how shown the launcher is until it ends.
-    private func show(interactive: Bool) {
-        Heartbeat.countOpen()
+    private func show(interactive: Bool, via source: OpenSource) {
+        Heartbeat.countOpen(via: source)
         hideToken += 1
         isHiding = false
         let screen = targetScreen()
@@ -234,7 +248,7 @@ final class LauncherController {
             if !isVisible {
                 guard !pinchOpening else { return }
                 pinchOpening = true
-                show(interactive: true)
+                show(interactive: true, via: .pinch)
             }
             guard pinchOpening else { return }
             model.gestureProgress = progress
@@ -311,10 +325,11 @@ final class LauncherController {
             }
             if let id = env["LAUNCHUS_UNINSTALL"] { self.model.sheet = .confirmTrash(id) }
             if let id = env["LAUNCHUS_EDIT"] { self.model.sheet = .editApp(id) }
-            // LAUNCHUS_SHEET=custom | custom:<id> | manager | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name>
+            // LAUNCHUS_SHEET=custom | custom:<id> | manager | widgets | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name>
             if let sheet = env["LAUNCHUS_SHEET"] {
                 if sheet == "custom" { self.model.sheet = .editCustom(nil) }
                 else if sheet == "manager" { self.model.sheet = .manager }
+                else if sheet == "widgets" { self.model.openWidgetGallery() }
                 else if ["stats", "duplicates", "leftovers"].contains(sheet) { self.model.sheet = .manager }
                 else if sheet == "whatsnew" { self.model.showWhatsNew = true }
                 else if sheet.hasPrefix("guide:") { self.model.showGuide = true }
@@ -326,7 +341,7 @@ final class LauncherController {
             }
             if let tab = env["LAUNCHUS_SETTINGS"].flatMap(SettingsTab.named) { self.model.openSettings(tab) }
             if let tuner = env["LAUNCHUS_TUNER"] {
-                self.model.openSettings(.appearance)
+                self.model.openSettings(tuner.hasPrefix("motion") ? .appearance : .display)
                 self.model.tuner = tuner.hasPrefix("motion") ? .motion : .background
                 // `background:<n>` also applies the n-th preset, to picture it.
                 if let n = tuner.split(separator: ":").last.flatMap({ Int($0) }), BackgroundStyle.presets.indices.contains(n) {
@@ -584,7 +599,7 @@ final class LauncherController {
         if let m = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { [weak self] event in
             guard let self, self.isVisible else { return event }
             let option = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .option
-            if option, !self.model.isEditing, !self.model.isSearching, !self.model.isRenaming, self.model.sheet == nil, !self.model.showSettings {
+            if option, !self.model.isEditing, !self.model.isSearching, !self.model.isRenaming, self.model.editingNoteID == nil, self.model.sheet == nil, !self.model.showSettings {
                 self.model.editingFromOption = true
                 withAnimation { self.model.isEditing = true }
             } else if !option, self.model.editingFromOption {
@@ -610,6 +625,12 @@ final class LauncherController {
         }
         if model.sheet != nil {
             // An editor card is open: its text fields and buttons get the keys, except Esc.
+            guard Int(event.keyCode) == kVK_Escape else { return event }
+            model.escape()
+            return nil
+        }
+        if model.editingNoteID != nil {
+            // Typing on a note: only Esc is ours (it puts the note down).
             guard Int(event.keyCode) == kVK_Escape else { return event }
             model.escape()
             return nil

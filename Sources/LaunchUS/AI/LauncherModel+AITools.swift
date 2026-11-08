@@ -57,7 +57,8 @@ extension LauncherModel {
                 case .folder(let folder):
                     if folder.isSmart { return "\(folder.name) (smart folder)" }
                     return "\(folder.name) [" + folder.apps.compactMap { app($0)?.name }.joined(separator: ", ") + "]"
-                case .gap: return "(empty)"
+                case .widget(let widget): return "(\(widget.kind) widget)"
+                case .gap, .cover: return "(empty)"
                 }
             }
             lines.append("Page \(index + 1): " + items.joined(separator: ", "))
@@ -154,7 +155,7 @@ extension LauncherModel {
         case .app(let id): detach(id)
         case .folder(let folder):
             if let loc = location(ofFolder: folder.id) { vacate(page: loc.page, slot: loc.slot) }
-        case .gap: break
+        case .widget, .gap, .cover: break
         }
     }
 

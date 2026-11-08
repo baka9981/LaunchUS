@@ -19,6 +19,11 @@ if arguments.contains("--mcp") {
     MainActor.assumeIsolated { MCPServer.run() }
 }
 
+// A profile's own Dock icon (DockTiles): this program run from a stand-in bundle.
+if DockTiles.runningAsTile {
+    MainActor.assumeIsolated { TileApp.run() }
+}
+
 // Before anything reads the settings: carry over what the app left under its old name.
 // Not while running from the installer disk, which first offers to move to /Applications.
 if !InstallLocation.isOnInstaller(Bundle.main.bundleURL) {
@@ -29,6 +34,10 @@ MainActor.assumeIsolated {
     let app = NSApplication.shared
     let delegate = AppDelegate()
     app.delegate = delegate
-    app.setActivationPolicy(Settings.shared.showDockIcon ? .regular : .accessory)
+    // The Dock icon is the default profile's; the other profiles have their own (DockTiles).
+    let profiles = LayoutProfiles.load()
+    let dock = profiles.current.isEmpty ? Settings.shared.showDockIcon
+        : ProfileSettings.value("showDockIcon", in: profiles.settings[""], as: Bool.self) ?? false
+    app.setActivationPolicy(dock ? .regular : .accessory)
     withExtendedLifetime(delegate) { app.run() }
 }

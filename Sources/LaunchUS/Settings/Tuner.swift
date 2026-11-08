@@ -63,7 +63,7 @@ private struct BackgroundTuner: View {
     }
 
     var body: some View {
-        TunerGroup(title: String(localized: "方案")) {
+        TunerGroup(title: String(localized: "样式")) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 66), spacing: 8)], spacing: 8) {
                 ForEach(BackgroundStyle.presets) { preset in
                     StyleChip(title: preset.title, style: preset.style, selected: preset.style.matches(style)) {
@@ -78,7 +78,7 @@ private struct BackgroundTuner: View {
             }
             if naming {
                 HStack(spacing: 6) {
-                    TextField(String(localized: "方案名称"), text: $name)
+                    TextField(String(localized: "样式名称"), text: $name)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(save)
                     Button(String(localized: "保存"), action: save)
@@ -88,8 +88,8 @@ private struct BackgroundTuner: View {
                 .controlSize(.small)
             } else {
                 HStack(spacing: 8) {
-                    Button(String(localized: "存为方案…")) {
-                        name = String(localized: "我的方案 \(settings.savedBackgroundStyles.count + 1)")
+                    Button(String(localized: "存为样式…")) {
+                        name = String(localized: "我的样式 \(settings.savedBackgroundStyles.count + 1)")
                         naming = true
                     }
                     .disabled(selectedSaved != nil || BackgroundStyle.presets.contains { $0.style.matches(style) })
@@ -222,7 +222,7 @@ private struct MotionTuner: View {
     @Bindable var settings: Settings
 
     var body: some View {
-        TunerGroup(title: String(localized: "方案")) {
+        TunerGroup(title: String(localized: "预设")) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 88), spacing: 8)], spacing: 8) {
                 CurveChip(title: String(localized: "系统弹簧"), curve: nil, selected: settings.motionCurve == nil) {
                     settings.motionCurve = nil

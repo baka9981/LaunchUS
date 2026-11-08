@@ -9,7 +9,7 @@ struct GuideView: View {
         .flatMap { $0.hasPrefix("guide:") ? Int($0.dropFirst(6)) : nil } ?? 0
     @State private var forward = true
 
-    private static let steps = 8
+    private static let steps = 9
 
     var body: some View {
         let settings = model.settings
@@ -18,12 +18,13 @@ struct GuideView: View {
                 Group {
                     switch step {
                     case 0: GuideWelcome(style: settings.appIcon)
-                    case 1: GuidePinch()
-                    case 2: GuideFolder()
-                    case 3: GuideEdit()
-                    case 4: GuideRightClick()
-                    case 5: GuideSearch()
-                    case 6: GuideCustomize()
+                    case 1: GuideMode(settings: settings)
+                    case 2: GuidePinch()
+                    case 3: GuideFolder()
+                    case 4: GuideEdit()
+                    case 5: GuideRightClick()
+                    case 6: GuideSearch()
+                    case 7: GuideCustomize()
                     default: GuideHidden()
                     }
                 }
@@ -87,18 +88,19 @@ struct GuideView: View {
         forward = delta > 0
         withAnimation(.spring(response: 0.4, dampingFraction: 0.88)) { step += delta }
         // Whoever saw the right-click card doesn't need the same hint after their first swipe.
-        if step == 4 { Tip.rightClick.markShown() }
+        if step == 5 { Tip.rightClick.markShown() }
     }
 
     private func title(_ settings: Settings) -> String {
         switch step {
         case 0: String(localized: "欢迎使用 LaunchUS")
-        case 1: String(localized: "随时打开")
-        case 2: String(localized: "拖动整理")
-        case 3: String(localized: "编辑与多选")
-        case 4: String(localized: "右键打开更多")
-        case 5: String(localized: "快速搜索")
-        case 6: String(localized: "按你的习惯来")
+        case 1: String(localized: "选择显示方式")
+        case 2: String(localized: "随时打开")
+        case 3: String(localized: "拖动整理")
+        case 4: String(localized: "编辑与多选")
+        case 5: String(localized: "右键打开更多")
+        case 6: String(localized: "快速搜索")
+        case 7: String(localized: "按你的习惯来")
         default: String(localized: "隐藏的 App")
         }
     }
@@ -106,12 +108,13 @@ struct GuideView: View {
     private func detail(_ settings: Settings) -> String {
         switch step {
         case 0: String(localized: "熟悉的启动台回来了：所有 App 一屏排开，翻页、文件夹、搜索都在这里。完全免费。")
-        case 1: String(localized: "按 \(settings.hotKey.display) 打开。也可以在设置里打开触控板捏合（拇指和三指）、F4 键或触发角。")
-        case 2: String(localized: "把一个 App 拖到另一个上面就会建立文件夹。拖到屏幕边缘可以翻到别的页面。")
-        case 3: String(localized: "长按图标或按住 ⌥ 进入编辑模式，按住 ⌘ 点击可以多选。右键选「编辑…」可以改名称、图标和标签，也可以移动或卸载。")
-        case 4: String(localized: "在空白处点右键，可以打开设置，新建启动项，整理文件夹，切换排序和布局方案。右键 App 或文件夹还有各自的操作。")
-        case 5: String(localized: "直接打字即可搜索，支持拼音和首字母，比如输入「wx」找到微信。输入 # 按标签筛选，输入 128*3 直接算出结果。")
-        case 6: String(localized: "⋯ 菜单里可以新建启动项（网址、文件或脚本），也能切换多套布局方案。编辑时把图标拖到屏幕底边，可以放进程序坞或访达。")
+        case 1: String(localized: "选一种开始用，点一下就能看到效果。之后可以在设置最上面的方案栏里新建更多方案，比如一套全屏、一套窗口，随时切换。")
+        case 2: String(localized: "按 \(settings.hotKey?.display ?? HotKeySpec.default.display) 打开。也可以在设置里打开触控板捏合（拇指和三指）、F4 键或触发角。")
+        case 3: String(localized: "把一个 App 拖到另一个上面就会建立文件夹。拖到屏幕边缘可以翻到别的页面。")
+        case 4: String(localized: "长按图标或按住 ⌥ 进入编辑模式，按住 ⌘ 点击可以多选。右键选「编辑…」可以改名称、图标和标签，也可以移动或卸载。")
+        case 5: String(localized: "在空白处点右键，可以打开设置，新建启动项，整理文件夹，切换排序和布局方案。右键 App 或文件夹还有各自的操作。")
+        case 6: String(localized: "直接打字即可搜索，支持拼音和首字母，比如输入「wx」找到微信。输入 # 按标签筛选，输入 128*3 直接算出结果。")
+        case 7: String(localized: "⋯ 菜单里可以新建启动项（网址、文件或脚本），也能切换多套布局方案。编辑时把图标拖到屏幕底边，可以放进程序坞或访达。")
         default: String(localized: "右键 App 选择「隐藏」，它就不会出现在网格里。最后一个分页圆点后面藏着入口，验证后才能看到。入口和暗号可在设置 › App 中调整。")
         }
     }
@@ -151,6 +154,22 @@ private struct GuideWelcome: View {
                 .shadow(color: .black.opacity(0.2), radius: 10, y: 5)
         }
         .onAppear { withAnimation(.spring(response: 0.7, dampingFraction: 0.7).delay(0.1)) { shown = true } }
+    }
+}
+
+/// The first layout profile's way of showing: full screen or window, applied at once.
+private struct GuideMode: View {
+    @Bindable var settings: Settings
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ForEach(DisplayMode.allCases, id: \.self) { mode in
+                DisplayModeCard(mode: mode, selected: settings.displayMode == mode, thumbHeight: 112) {
+                    settings.displayMode = mode
+                }
+            }
+        }
+        .padding(.horizontal, 8)
     }
 }
 

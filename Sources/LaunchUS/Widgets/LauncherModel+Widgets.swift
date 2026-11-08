@@ -1,0 +1,91 @@
+import AppKit
+import SwiftUI
+
+// Adding, resizing and removing widgets on the home grid.
+
+extension LauncherModel {
+    /// Widgets live on the home pages, not in search results or a category.
+    var canAddWidget: Bool { !isSearching && categoryFilter == nil }
+
+    func openWidgetGallery() {
+        guard canAddWidget else { return }
+        WidgetRegistry.shared.reload()
+        isEditing = false
+        sheet = .widgetGallery
+    }
+
+    /// Puts a new widget at the top of the page in view; the icons there move along.
+    func addWidget(_ kind: String, size: WidgetItem.Size) {
+        guard canAddWidget, let provider = WidgetRegistry.shared.provider(kind) else { return }
+        if layout.isEmpty { layout = [[]] }
+        let page = settings.sortOrder == .custom && settings.browseStyle == .paged ? min(currentPage, layout.count - 1) : 0
+        layout[page].insert(.widget(WidgetItem(kind: kind, size: provider.fit(size))), at: 0)
+        if kind == BuiltInWidget.calendar.rawValue { WidgetEvents.shared.requestAccess() }
+        withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
+    }
+
+    func resizeWidget(_ id: String, to size: WidgetItem.Size) {
+        guard let pos = location(of: "widget:" + id), case .widget(var widget) = layout[pos.page][pos.slot] else { return }
+        widget.size = size
+        layout[pos.page][pos.slot] = .widget(widget)
+        withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
+    }
+
+    func removeWidget(_ id: String) {
+        guard let pos = location(of: "widget:" + id) else { return }
+        if editingNoteID == id { editingNoteID = nil }
+        WidgetStore.shared.forget(id)
+        // Placed freely, its cells simply empty out; lined up, the icons after it close the gap.
+        layout[pos.page][pos.slot] = freePlacement ? .gap : .cover("")
+        withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
+    }
+
+    /// A click on a widget, at a point on its card (nil from the keyboard): the tools act on
+    /// the spot clicked, the rest open what they come from.
+    func activateWidget(_ widget: WidgetItem, at point: CGPoint?, card: CGSize) {
+        guard !isEditing else { return }
+        switch BuiltInWidget(rawValue: widget.kind) {
+        case .note?:
+            withAnimation(.easeOut(duration: 0.15)) { editingNoteID = widget.id }
+        case .timer?:
+            let hit = point.flatMap { TimerWidget.hit($0, size: widget.size, card: card) } ?? .toggle
+            withAnimation(.easeInOut(duration: 0.2)) {
+                switch hit {
+                case .toggle: WidgetStore.shared.toggleTimer(widget.id)
+                case .preset(let minutes): WidgetStore.shared.startTimer(widget.id, minutes: minutes)
+                }
+            }
+        case .apps?:
+            if let point, let app = AppsWidget.app(at: point, size: widget.size, card: card) { launch(app) }
+        case .actions?:
+            guard let point, let action = ActionsWidget.action(at: point, size: widget.size, card: card) else { return }
+            if action.closesLauncher { onClose?() }
+            // Let the launcher get out of the way before the screen locks or goes dark.
+            DispatchQueue.main.asyncAfter(deadline: .now() + (action.closesLauncher ? 0.35 : 0)) {
+                QuickActions.shared.perform(action)
+            }
+        default:
+            openWidgetApp(widget)
+        }
+    }
+
+    func endNoteEditing() {
+        guard editingNoteID != nil else { return }
+        withAnimation(.easeOut(duration: 0.15)) { editingNoteID = nil }
+    }
+
+    /// Clicking a widget opens what it comes from; a missing plugin's widget opens the gallery.
+    func openWidgetApp(_ widget: WidgetItem) {
+        guard let provider = WidgetRegistry.shared.provider(widget.kind) else {
+            openWidgetGallery()
+            return
+        }
+        guard let target = provider.openTarget else { return }
+        onClose?()
+        if target.url.isFileURL {
+            NSWorkspace.shared.openApplication(at: target.url, configuration: NSWorkspace.OpenConfiguration())
+        } else {
+            NSWorkspace.shared.open(target.url)
+        }
+    }
+}

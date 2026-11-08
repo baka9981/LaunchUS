@@ -1,6 +1,6 @@
 import Foundation
 
-/// Keeps the last few layouts in Backups/, one per change. Changes a few seconds apart
+/// Keeps the last few layouts of the active profile in its Backups/ (`ProfileFolders`), one per change. Changes a few seconds apart
 /// (a drag, then another) count as one, and a backup equal to the newest is skipped.
 enum AutoBackup {
     struct Entry: Identifiable, Hashable {
@@ -9,7 +9,7 @@ enum AutoBackup {
         var id: URL { url }
     }
 
-    static var directory: URL { LayoutStore.directory.appendingPathComponent("Backups", isDirectory: true) }
+    static var directory: URL { ProfileFolders.url("Backups") }
     /// 0 turns automatic backups off.
     static var limit: Int { UserDefaults.app.object(forKey: "autoBackupCount") as? Int ?? 10 }
     nonisolated(unsafe) private static var pending: DispatchWorkItem?

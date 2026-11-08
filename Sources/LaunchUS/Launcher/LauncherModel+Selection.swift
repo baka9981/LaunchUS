@@ -190,11 +190,15 @@ extension LauncherModel {
     }
 
     func activate(_ entry: GridEntry) {
+        if case .widget(let widget) = entry, editingNoteID == widget.id { return }
+        endNoteEditing()
         switch entry {
         case .app(let app):
             if !isEditing { launch(app) }
         case .folder(let folder, _):
             openFolder(folder.id)
+        case .widget(let widget):
+            if !isEditing { activateWidget(widget, at: nil, card: .zero) }
         case .gap: break
         }
     }
@@ -242,6 +246,7 @@ extension LauncherModel {
         }
         RecentLaunches.record(app.id)
         recentIDs = RecentLaunches.load()
+        widgetLaunches += 1
         updateFrequentApps()
         if newAppIDs.contains(app.id) {
             newApps?.new[app.id] = nil
@@ -264,7 +269,16 @@ extension LauncherModel {
     }
 
     func updateNewApps() {
-        let state = NewApps.update(newApps ?? NewApps.load(), apps: catalog.apps)
+        let elsewhere = profiles.saved.filter { $0.key != profiles.current }.values.reduce(into: Set<String>()) { ids, pages in
+            for item in pages.joined() {
+                switch item {
+                case .app(let id): ids.insert(id)
+                case .folder(let folder): ids.formUnion(folder.apps)
+                default: break
+                }
+            }
+        }
+        let state = NewApps.update(newApps ?? NewApps.load(), apps: catalog.apps, elsewhere: elsewhere)
         if state != newApps { NewApps.save(state) }
         newApps = state
         let ids = Set(state.new.keys)
@@ -276,7 +290,7 @@ extension LauncherModel {
         switch entry {
         case .app(let app): return newAppIDs.contains(app.id)
         case .folder(_, let apps): return apps.contains { newAppIDs.contains($0.id) }
-        case .gap: return false
+        case .gap, .widget: return false
         }
     }
 
@@ -319,7 +333,7 @@ extension LauncherModel {
         switch entry {
         case .app(let app): return badges[app.id]
         case .folder(_, let apps): return DockBadges.sum(apps.compactMap { badges[$0.id] })
-        case .gap: return nil
+        case .gap, .widget: return nil
         }
     }
 
@@ -357,7 +371,7 @@ extension LauncherModel {
 
     /// The page on screen without its empty cells.
     private var shortcutEntries: [GridEntry] {
-        pages.indices.contains(currentPage) ? pages[currentPage].filter { !$0.isGap } : []
+        pages.indices.contains(currentPage) ? pages[currentPage].filter { !$0.isGap && $0.widget == nil } : []
     }
     func close() { onClose?() }
 
@@ -376,7 +390,9 @@ extension LauncherModel {
 
     /// Click on empty space: leave the folder / jiggle mode first, then close the launcher.
     func backgroundTapped() {
-        if showGuide {
+        if editingNoteID != nil {
+            endNoteEditing()
+        } else if showGuide {
             finishGuide()
         } else if showWhatsNew {
             finishWhatsNew()
@@ -399,7 +415,9 @@ extension LauncherModel {
 
     /// Esc: finish renaming, close the folder, leave jiggle mode, clear the search, then close.
     func escape() {
-        if showGuide {
+        if editingNoteID != nil {
+            endNoteEditing()
+        } else if showGuide {
             finishGuide()
         } else if showWhatsNew {
             finishWhatsNew()

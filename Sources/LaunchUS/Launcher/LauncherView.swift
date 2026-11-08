@@ -174,6 +174,8 @@ struct LauncherView: View {
     @FocusState private var searchFocused: Bool
     /// The drag on empty space in progress is turning pages (not drawing a selection rectangle).
     @State private var dragIsPaging = false
+    /// The open sheet card's height, so a tall one in a short window isn't cut off at the top.
+    @State private var sheetHeight: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -358,8 +360,12 @@ struct LauncherView: View {
                         .zIndex(10)
                     SheetCard(model: model, sheet: sheet, room: CGSize(width: geo.size.width - 32, height: geo.size.height - 32))
                         .id(sheet)
-                        // The big editors sit centred so a small window shows all of them.
-                        .position(x: geo.size.width / 2, y: geo.size.height * (sheet.isLarge ? 0.5 : 0.42))
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { sheetHeight = $0 }
+                        // The big editors sit centred so a small window shows all of them; the
+                        // others a little higher, but never past the top.
+                        .position(x: geo.size.width / 2,
+                                  y: sheet.isLarge ? geo.size.height / 2
+                                      : min(max(geo.size.height * 0.42, sheetHeight / 2 + 16), geo.size.height / 2))
                         .transition(.scale(scale: 0.94).combined(with: .opacity))
                         .zIndex(10)
                 }
@@ -521,6 +527,13 @@ struct PageGrid: View, Equatable {
             // Empty cells (free placement) draw nothing and take no clicks.
             ForEach(Array(entries.enumerated()).filter { !$0.element.isGap }, id: \.element.id) { slot, entry in
                 let center = metrics.iconCenter(slot: slot)
+                if let widget = entry.widget {
+                    let rect = metrics.widgetRect(slot: slot, span: widget.size.span(columns: metrics.columns, rows: metrics.rows))
+                    WidgetCell(widget: widget, model: model, metrics: metrics, rect: rect,
+                               selected: model.openFolderID == nil && model.selection == GridPos(page: page, slot: slot))
+                        .fixedSize()
+                        .position(x: rect.midX, y: rect.minY - metrics.gridTop + WidgetCell.height(rect, metrics) / 2)
+                } else {
                 EntryView(
                     entry: entry, model: model, metrics: metrics, center: center, folderID: nil,
                     selected: model.openFolderID == nil && model.selection == GridPos(page: page, slot: slot)
@@ -528,6 +541,7 @@ struct PageGrid: View, Equatable {
                 .frame(maxWidth: metrics.cellSize.width - 8)
                 .fixedSize(horizontal: false, vertical: true)
                 .position(x: center.x, y: center.y - metrics.gridTop + metrics.stackOffset)
+                }
             }
             if phantomSlot {
                 let center = metrics.iconCenter(slot: entries.count)
@@ -540,6 +554,10 @@ struct PageGrid: View, Equatable {
             // Empty space falls through to the background's menu.
             let slot = entries.indices.first { slot in
                 guard !entries[slot].isGap else { return false }
+                if let widget = entries[slot].widget {
+                    let rect = metrics.widgetRect(slot: slot, span: widget.size.span(columns: metrics.columns, rows: metrics.rows))
+                    return rect.offsetBy(dx: 0, dy: -metrics.gridTop).contains(point)
+                }
                 let center = metrics.iconCenter(slot: slot)
                 return metrics.cellContains(point, stack: CGPoint(x: center.x, y: center.y - metrics.gridTop + metrics.stackOffset),
                                             title: entries[slot].title)
@@ -570,22 +588,29 @@ struct MenuLift: ViewModifier {
     let id: String
     let size: CGFloat
     var scale: CGFloat = 1.1
+    /// Hovering lifts it a little too (when turned on, and not while dragging or jiggling).
+    var hoverable = false
+    @State private var hovering = false
 
     func body(content: Content) -> some View {
         let open = MenuTarget.shared.id == id
+        let hover = hovering && hoverable && !open
         content
             .background {
-                if open {
+                if open || hover {
                     RoundedRectangle(cornerRadius: size * 0.18, style: .continuous)
-                        .fill(.black.opacity(0.35))
+                        .fill(.black.opacity(open ? 0.35 : 0.22))
                         .frame(width: size * 0.78, height: size * 0.78)
                         .blur(radius: size * 0.12)
-                        .offset(y: size * 0.07)
+                        .offset(y: size * (open ? 0.07 : 0.05))
                         .transition(.opacity)
                 }
             }
-            .scaleEffect(open ? scale : 1)
+            .scaleEffect(open ? scale : hover ? 1 + (scale - 1) * 0.6 : 1)
             .animation(.spring(response: 0.28, dampingFraction: 0.6), value: open)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: hover)
+            .onHover { hovering = $0 }
+            .onDisappear { hovering = false }
     }
 }
 
@@ -659,7 +684,7 @@ struct FrequentRow: View {
                         .inset(by: metrics.iconSize * 0.1))
                     .scaleEffect(model.dropTargetID == "frequent:" + app.id ? 1.12 : 1)
                     .animation(.spring(response: 0.25, dampingFraction: 0.7), value: model.dropTargetID == "frequent:" + app.id)
-                    .modifier(MenuLift(id: "frequent:" + app.id, size: metrics.iconSize, scale: 1.12))
+                    .modifier(MenuLift(id: "frequent:" + app.id, size: metrics.iconSize, scale: 1.12, hoverable: model.settings.hoverLift && model.drag == nil))
                     .help(app.name)
                     .onTapGesture { model.launch(app) }
                     .accessibilityElement(children: .ignore)
@@ -740,7 +765,8 @@ struct EntryView: View {
                       contentsOut: folderOpen)
                 .opacity(model.isStale(entry) && !model.isEditing ? 0.4 : 1)
                 // Only the icon lifts while its right-click menu is open, to show where it came from.
-                .modifier(MenuLift(id: entry.id, size: metrics.iconSize))
+                .modifier(MenuLift(id: entry.id, size: metrics.iconSize,
+                                    hoverable: model.settings.hoverLift && model.drag == nil && !model.isEditing && !isDragged))
                 // Icons carry ~10% transparent margin; only the visible tile is clickable.
                 .contentShape(RoundedRectangle(cornerRadius: metrics.iconSize * 0.18, style: .continuous)
                     .inset(by: metrics.iconSize * 0.1))
@@ -913,6 +939,7 @@ extension GridEntry {
         switch self {
         case .app(let app): app.name
         case .folder(let folder, _): folder.name
+        case .widget(let widget): WidgetCard.title(widget)
         case .gap: ""
         }
     }
@@ -974,6 +1001,11 @@ struct EntryIcon: View {
                         .opacity(contentsOut ? 0 : 1)
                     }
                     .scaleEffect(mergeTarget ? 1.12 : 1)
+            case .widget(let widget):
+                // A widget shrunk to an icon (search results never show one).
+                RoundedRectangle(cornerRadius: tile * 0.225, style: .continuous).fill(.white.opacity(0.18))
+                    .frame(width: tile, height: tile)
+                    .overlay(Image(systemName: WidgetRegistry.shared.provider(widget.kind)?.symbol ?? "puzzlepiece.extension").font(.system(size: tile * 0.45)).foregroundStyle(.white))
             case .gap:
                 EmptyView()
             }
@@ -1210,7 +1242,20 @@ struct DragOverlay: View {
     let metrics: GridMetrics
 
     var body: some View {
-        if model.drag == nil, let landing = model.landing, let entry = entry(for: landing.item) {
+        if model.drag == nil, let landing = model.landing, case .widget(let widget) = landing.item {
+            card(widget)
+                .scaleEffect(landing.scale)
+                .opacity(landing.opacity)
+                .position(landing.position)
+                .allowsHitTesting(false)
+        } else if let drag = model.drag, case .widget(let widget) = drag.item {
+            card(widget)
+                .scaleEffect(1.04)
+                .shadow(color: .black.opacity(0.25), radius: 14, y: 8)
+                .position(x: model.dragLocation.x - drag.grabOffset.width,
+                          y: model.dragLocation.y - drag.grabOffset.height)
+                .allowsHitTesting(false)
+        } else if model.drag == nil, let landing = model.landing, let entry = entry(for: landing.item) {
             EntryIcon(entry: entry, icons: model.catalog.icons, size: metrics.iconSize)
                 .scaleEffect(landing.scale)
                 .opacity(landing.opacity)
@@ -1248,6 +1293,11 @@ struct DragOverlay: View {
         }
     }
 
+    private func card(_ widget: WidgetItem) -> some View {
+        let rect = metrics.widgetRect(first: .zero, span: widget.size.span(columns: metrics.columns, rows: metrics.rows))
+        return WidgetCard(widget: widget, size: rect.size, live: false)
+    }
+
     private func entry(for item: LayoutItem) -> GridEntry? {
         switch item {
         case .app(let id):
@@ -1255,7 +1305,8 @@ struct DragOverlay: View {
         case .folder(let folder):
             let apps = folder.apps.compactMap { id in model.catalog.apps.first { $0.id == id } }
             return .folder(folder, apps)
-        case .gap: return nil
+        case .widget(let widget): return .widget(widget)
+        case .gap, .cover: return nil
         }
     }
 }
@@ -1288,10 +1339,8 @@ struct ScrollGrid: View {
     @State private var firstRow = 0
 
     var body: some View {
-        let flat: [(pos: GridPos, entry: GridEntry)] = model.pages.enumerated().flatMap { page, entries in
-            // Pages run together here, so empty cells (free placement) are left out.
-            entries.enumerated().filter { !$0.element.isGap }.map { (GridPos(page: page, slot: $0.offset), $0.element) }
-        }
+        // Pages run together here without their empty cells, packed again around widgets.
+        let flat = model.scrollCells
         let phantom = model.phantomScrollSlot
         let rowCount = max(1, (flat.count + (phantom ? 1 : 0) + metrics.columns - 1) / metrics.columns)
         let height = metrics.scrollViewport
@@ -1301,7 +1350,8 @@ struct ScrollGrid: View {
         let cellH = metrics.cellSize.height
         let shownRows = Int((height / cellH).rounded(.up))
         let end = min(flat.count, (firstRow + shownRows + 2) * metrics.columns)
-        let built = min(end, max(0, (firstRow - 2) * metrics.columns))..<end
+        // A few rows more above, for the lower part of a tall widget that starts out of view.
+        let built = min(end, max(0, (firstRow - 4) * metrics.columns))..<end
             ScrollView(.vertical, showsIndicators: metrics.windowed) {
                 ZStack(alignment: .topLeading) {
                     if showsRow {
@@ -1311,9 +1361,17 @@ struct ScrollGrid: View {
                             .allowsHitTesting(!model.isEditing)
                             .zIndex(1)
                     }
-                    ForEach(Array(flat.enumerated())[built], id: \.element.entry.id) { index, item in
+                    ForEach(Array(flat.enumerated())[built].filter { !$0.element.entry.isGap }, id: \.element.entry.id) { index, item in
                         let x = metrics.gridOriginX + (CGFloat(index % metrics.columns) + 0.5) * metrics.cellSize.width
                         let y = lead + (CGFloat(index / metrics.columns) + 0.5) * metrics.cellSize.height
+                        if let widget = item.entry.widget {
+                            let rect = metrics.widgetRect(first: CGPoint(x: x, y: y), span: widget.size.span(columns: metrics.columns, rows: metrics.rows))
+                            WidgetCell(widget: widget, model: model, metrics: metrics,
+                                       rect: rect.offsetBy(dx: 0, dy: metrics.gridTop),
+                                       selected: model.openFolderID == nil && model.selection == item.pos)
+                                .fixedSize()
+                                .position(x: rect.midX, y: rect.minY + WidgetCell.height(rect, metrics) / 2)
+                        } else {
                         EntryView(
                             entry: item.entry, model: model, metrics: metrics,
                             center: CGPoint(x: x, y: y + metrics.gridTop), folderID: nil,
@@ -1322,6 +1380,7 @@ struct ScrollGrid: View {
                         .frame(maxWidth: metrics.cellSize.width - 8)
                         .fixedSize(horizontal: false, vertical: true)
                         .position(x: x, y: y + metrics.stackOffset)
+                        }
                     }
                     if phantom {
                         let x = metrics.gridOriginX + (CGFloat(flat.count % metrics.columns) + 0.5) * metrics.cellSize.width
@@ -1336,8 +1395,12 @@ struct ScrollGrid: View {
                 // so empty space closes the launcher on a click and shows the background's menu.
                 .nativeContextMenu(at: { point in
                     let index = flat.indices.first { index in
+                        guard !flat[index].entry.isGap else { return false }
                         let x = metrics.gridOriginX + (CGFloat(index % metrics.columns) + 0.5) * metrics.cellSize.width
                         let y = lead + (CGFloat(index / metrics.columns) + 0.5) * metrics.cellSize.height
+                        if let widget = flat[index].entry.widget {
+                            return metrics.widgetRect(first: CGPoint(x: x, y: y), span: widget.size.span(columns: metrics.columns, rows: metrics.rows)).contains(point)
+                        }
                         return metrics.cellContains(point, stack: CGPoint(x: x, y: y + metrics.stackOffset), title: flat[index].entry.title)
                     }
                     if let index { return EntryView.menu(flat[index].entry, folderID: nil, model: model) }

@@ -210,35 +210,73 @@ struct IconPicker: View {
     }
 }
 
-/// Name of a new layout profile.
+/// A new layout profile: its name, how it's shown and what pages it starts with. Also renames one.
 struct ProfileEditor: View {
     let model: LauncherModel
+    var renaming: String?
     @State private var name = ""
+    @State private var mode = Settings.shared.displayMode
+    @State private var copyPages = true
+    @State private var source = ""
     @FocusState private var focused: Bool
 
     private var trimmed: String { name.trimmingCharacters(in: .whitespaces) }
-    private var taken: Bool { model.profileNames.contains { LayoutProfiles.title($0).localizedCaseInsensitiveCompare(trimmed) == .orderedSame } }
+    private var taken: Bool {
+        trimmed != renaming && model.profileNames.contains { LayoutProfiles.title($0).localizedCaseInsensitiveCompare(trimmed) == .orderedSame }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            CardHeader(model: model, app: nil, title: String(localized: "新建布局"),
-                       subtitle: String(localized: "从当前布局复制一份，之后两套各自调整，互不影响"))
+            CardHeader(model: model, app: nil, title: renaming == nil ? String(localized: "新建布局方案") : String(localized: "重命名布局方案"),
+                       subtitle: renaming == nil ? String(localized: "每套方案有自己的显示方式、网格和页面，切换方案时一起切换") : nil)
             FieldRow(label: String(localized: "名称")) {
                 TextField(String(localized: "例如：工作"), text: $name)
                     .textFieldStyle(CardFieldStyle()).focused($focused).onSubmit(save)
                 Text(taken ? String(localized: "已经有同名的布局") : String(localized: "也可以用链接切换：launchus://profile?name=名称"))
                     .font(.system(size: 11)).foregroundStyle(taken ? .red : .secondary)
             }
-            CardButtons(confirmTitle: String(localized: "创建"), confirmDisabled: trimmed.isEmpty || taken,
+            if renaming == nil {
+                FieldRow(label: String(localized: "显示方式")) {
+                    HStack(spacing: 10) {
+                        ForEach(DisplayMode.allCases, id: \.self) { m in
+                            DisplayModeCard(mode: m, selected: mode == m, thumbHeight: 64, compact: true) { mode = m }
+                        }
+                    }
+                }
+                FieldRow(label: String(localized: "页面")) {
+                    Picker("", selection: $copyPages) {
+                        Text("复制当前方案的页面").tag(true)
+                        Text("按名称重新排列").tag(false)
+                    }
+                    .pickerStyle(.radioGroup).labelsHidden()
+                }
+                FieldRow(label: String(localized: "设置")) {
+                    HStack(spacing: 6) {
+                        Text("复制设置自").font(.system(size: 13))
+                        MenuPicker(selection: $source, options: model.profileNames) { model.profileLabel($0) }
+                    }
+                    Text("之后两套方案各改各的。").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+            }
+            CardButtons(confirmTitle: renaming == nil ? String(localized: "创建") : String(localized: "重命名"),
+                        confirmDisabled: trimmed.isEmpty || taken || trimmed == renaming,
                         cancel: { model.sheet = nil }, confirm: save)
         }
-        .onAppear { DispatchQueue.main.async { focused = true } }
+        .onAppear {
+            name = renaming ?? ""
+            source = model.currentProfile
+            DispatchQueue.main.async { focused = true }
+        }
     }
 
     private func save() {
         guard !trimmed.isEmpty, !taken else { return }
         model.sheet = nil
-        model.createProfile(trimmed)
+        if let renaming {
+            model.renameProfile(renaming, to: trimmed)
+        } else {
+            model.createProfile(trimmed, mode: mode, copyPages: copyPages, settingsFrom: source)
+        }
     }
 }
 

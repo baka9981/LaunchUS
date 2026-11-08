@@ -76,8 +76,10 @@ struct FolderShortcutCard: View {
                     .buttonStyle(.plain)
                     .help(String(localized: "清除"))
                 }
-                if AppHotKeys.failed.contains(id) {
-                    Text("已被占用，换一个").font(.system(size: 11)).foregroundStyle(.red)
+                if let problem = model.shortcutConflict(shortcut, owner: id) {
+                    Label(problem, systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11)).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Text("也可以在快捷指令里用「打开 App 组」，或链接 launchus://openall?name=\(folder?.name ?? "")")

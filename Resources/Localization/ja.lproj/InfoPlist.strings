@@ -1,1 +1,3 @@
 "NSAppleEventsUsageDescription" = "FinderでAppの「情報を見る」ウインドウを開くために使用します。";
+"NSCalendarsFullAccessUsageDescription" = "カレンダーウィジェットに今日の予定を表示します。";
+"NSRemindersFullAccessUsageDescription" = "カレンダーウィジェットに未完了のリマインダーを表示します。";

@@ -121,7 +121,8 @@ final class TrackpadPinch {
     private static let current = LockedCallbackTarget<TrackpadPinch>()
 
     private let fingerCounts: Set<Int>
-    private let changed: @MainActor @Sendable (Direction, Double) -> Void
+    /// Direction, progress and how many fingers are pinching.
+    private let changed: @MainActor @Sendable (Direction, Double, Int) -> Void
     private let ended: @MainActor @Sendable (Direction, Bool) -> Void
     private var devices: [UnsafeMutableRawPointer] = []
     private var stop: Stop?
@@ -153,10 +154,12 @@ final class TrackpadPinch {
         setting == fourOrFive ? [4, 5] : [min(5, max(3, setting))]
     }
 
-    init?(fingers: Int,
-          changed: @escaping @MainActor @Sendable (Direction, Double) -> Void,
+    /// - fingers: the finger counts to follow (see `fingerCounts(for:)`).
+    init?(fingers: Set<Int>,
+          changed: @escaping @MainActor @Sendable (Direction, Double, Int) -> Void,
           ended: @escaping @MainActor @Sendable (Direction, Bool) -> Void) {
-        fingerCounts = Self.fingerCounts(for: fingers)
+        guard !fingers.isEmpty else { return nil }
+        fingerCounts = fingers
         self.changed = changed
         self.ended = ended
         guard let handle = dlopen("/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport", RTLD_NOW),
@@ -236,7 +239,8 @@ final class TrackpadPinch {
         let progress = Self.progress(direction, ratio: ratio)
         if abs(progress - gesture.progress) > 0.01 || progress >= 1 {
             gesture.progress = progress
-            DispatchQueue.main.async { [changed] in changed(direction, progress) }
+            let count = gesture.start.count
+            DispatchQueue.main.async { [changed] in changed(direction, progress, count) }
         }
         if progress >= 1 {
             gesture.done = true
@@ -291,6 +295,41 @@ enum SystemHotCorners {
 
     static func openSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+/// The system's own thumb-and-three-finger gestures in System Settings › Trackpad › More
+/// Gestures: pinching opens Apps and spreading shows the desktop. They answer to 4 and 5
+/// fingers, so a LaunchUS pinch with as many fingers runs them too.
+enum SystemPinch {
+    /// Warnings for a pinch-finger setting, empty when nothing else answers.
+    static func conflicts(fingers: Int,
+                          dock: UserDefaults? = UserDefaults(suiteName: "com.apple.dock"),
+                          trackpads: [UserDefaults?] = [UserDefaults(suiteName: "com.apple.AppleMultitouchTrackpad"),
+                                                        UserDefaults(suiteName: "com.apple.driver.AppleBluetoothMultitouch.trackpad")])
+        -> [String] {
+        let counts = TrackpadPinch.fingerCounts(for: fingers)
+        // 2 means the system reads the gesture; missing means the default, which is on.
+        func recognized(_ key: String) -> Bool {
+            trackpads.contains { ($0?.object(forKey: key) as? Int ?? 2) == 2 }
+        }
+        guard counts.contains(4) && recognized("TrackpadFourFingerPinchGesture")
+            || counts.contains(5) && recognized("TrackpadFiveFingerPinchGesture") else { return [] }
+        func on(_ key: String) -> Bool { dock?.object(forKey: key) as? Bool ?? true }
+        var result: [String] = []
+        if on("showLaunchpadGestureEnabled") {
+            result.append(String(localized: "捏合时系统的「App」手势也会打开，两者会同时出现。"))
+        }
+        if on("showDesktopGestureEnabled") {
+            result.append(String(localized: "张开时系统的「显示桌面」手势也会触发。"))
+        }
+        return result
+    }
+
+    static func openSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Trackpad-Settings.extension") {
             NSWorkspace.shared.open(url)
         }
     }

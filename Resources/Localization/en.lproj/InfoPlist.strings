@@ -1,1 +1,3 @@
 "NSAppleEventsUsageDescription" = "Used to open an app’s Get Info window in Finder.";
+"NSCalendarsFullAccessUsageDescription" = "Shows today’s events in the Calendar widget.";
+"NSRemindersFullAccessUsageDescription" = "Shows open reminders in the Calendar widget.";

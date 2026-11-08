@@ -27,10 +27,10 @@ enum WhatsNew {
                     detail: String(localized: "在搜索栏输入 128*3，按 ↩ 复制结果")),
             Feature(symbol: "command", title: String(localized: "⌘1–9 打开常用 App"),
                     detail: String(localized: "最近一行的前 9 个，右键可以固定"),
-                    action: { $0.finishWhatsNew(); $0.openSettings(.appearance) }),
+                    action: { $0.finishWhatsNew(); $0.openSettings(.display) }),
             Feature(symbol: "arrow.up.left.and.arrow.down.right", title: String(localized: "图标大小"),
-                    detail: String(localized: "设置 › 外观 › 网格"),
-                    action: { $0.finishWhatsNew(); $0.openSettings(.appearance) }),
+                    detail: String(localized: "设置 › 显示方式"),
+                    action: { $0.finishWhatsNew(); $0.openSettings(.display) }),
             Feature(symbol: "drop", title: String(localized: "液态玻璃文件夹"),
                     detail: String(localized: "文件夹透出后面的内容"),
                     action: { $0.finishWhatsNew(); $0.openSettings(.appearance) }),
@@ -128,7 +128,9 @@ extension LauncherModel {
 
     /// Shows a tip unless it was shown before or something else has the user's attention.
     func offerTip(_ tip: Tip) {
-        guard !tip.wasShown, self.tip == nil, isPresented, !showGuide, !showWhatsNew else { return }
+        // A tip still on screen gives way: the new one is about what was just done (hiding an
+        // app right after the first right-click would otherwise never get its tip).
+        guard !tip.wasShown, self.tip != tip, isPresented, !showGuide, !showWhatsNew else { return }
         tip.markShown()
         withAnimation(.easeOut(duration: 0.2)) { self.tip = tip }
         DispatchQueue.main.asyncAfter(deadline: .now() + (tip == .hiddenDot ? 12 : 8)) { [weak self] in
@@ -152,7 +154,7 @@ struct WhatsNewView: View {
                 .foregroundStyle(Color.accentColor)
                 .padding(.bottom, 10)
             Text(String(localized: "LaunchUS 新功能")).font(.system(size: 22, weight: .semibold))
-            Text(String(localized: "点一项直接去试试。以后可以在设置 › 高级 › 帮助里再看使用引导。"))
+            Text(String(localized: "点一项直接去试试。以后可以在设置 › 通用 › 帮助里再看使用引导。"))
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .padding(.top, 4)

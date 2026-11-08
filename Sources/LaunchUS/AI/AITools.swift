@@ -1,7 +1,7 @@
 import Foundation
 
 /// How far the chat may act on LaunchUS.
-enum AIToolAccess: String, CaseIterable {
+enum AIToolAccess: String, CaseIterable, Codable {
     case off, readOnly, confirm
 
     var title: String {

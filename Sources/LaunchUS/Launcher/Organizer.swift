@@ -1,11 +1,12 @@
 import SwiftUI
 
 enum AppRelauncher {
-    /// Starts a fresh copy once this one has quit.
-    @MainActor static func relaunch() {
+    /// Starts a fresh copy once this one has quit, handing it `url` (a `launchus://` link) if given.
+    @MainActor static func relaunch(opening url: URL? = nil) {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
-        task.arguments = ["-c", "sleep 0.6; /usr/bin/open \"$0\"", Bundle.main.bundlePath]
+        task.arguments = ["-c", "sleep 0.6; if [ -n \"$1\" ]; then /usr/bin/open -a \"$0\" \"$1\"; else /usr/bin/open \"$0\"; fi",
+                          Bundle.main.bundlePath, url?.absoluteString ?? ""]
         try? task.run()
         NSApp.terminate(nil)
     }
@@ -60,6 +61,16 @@ struct SheetCard: View {
                 .environment(\.windowedStyle, true)
                 .contentShape(Rectangle())
                 .onTapGesture {}
+        } else if case .widgetGallery = sheet {
+            WidgetGallery(model: model)
+                .frame(width: fit(920, 640).width, height: fit(920, 640).height)
+                .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .shadow(color: .black.opacity(0.3), radius: 30, y: 12)
+                .environment(\.windowedStyle, true)
+                .contentShape(Rectangle())
+                .onTapGesture {}
         } else if case .confirmTrash(let id) = sheet {
             if let app = model.app(id) {
                 // A wider card for the file list.
@@ -77,12 +88,31 @@ struct SheetCard: View {
     }
 
     /// Same look as the settings window: the system window colour, light or dark with the Mac.
+    /// Taller than the launcher (a small window), it scrolls.
     private var card: some View {
+        ViewThatFits(in: .vertical) {
+            cardContent
+            ScrollView { cardContent }.scrollIndicators(.never)
+        }
+        .frame(width: 420)
+        .frame(maxHeight: room.height)
+        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .shadow(color: .black.opacity(0.3), radius: 30, y: 12)
+        // Chips and other launcher controls take their on-window colours.
+        .environment(\.windowedStyle, true)
+        // Clicks inside the card must not reach the dimmed background.
+        .contentShape(Rectangle())
+        .onTapGesture {}
+    }
+
+    private var cardContent: some View {
         Group {
             switch sheet {
             case .editApp(let id):
                 if let app = model.app(id) { AppEditor(model: model, app: app) }
-            case .confirmTrash, .manager, .editSmartFolder:
+            case .confirmTrash, .manager, .editSmartFolder, .widgetGallery:
                 EmptyView()
             case .appInfo(let id):
                 if let app = model.app(id) { AppInfoCard(model: model, app: app) }
@@ -94,6 +124,8 @@ struct SheetCard: View {
                 if let app = model.app(id) { IconPicker(model: model, app: app) }
             case .newProfile:
                 ProfileEditor(model: model)
+            case .renameProfile(let name):
+                ProfileEditor(model: model, renaming: name)
             case .folderShortcut(let id):
                 FolderShortcutCard(model: model, folderID: id)
             case .message(let title, let text, let revealPath):
@@ -102,14 +134,6 @@ struct SheetCard: View {
         }
         .padding(24)
         .frame(width: 420)
-        .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-        .shadow(color: .black.opacity(0.3), radius: 30, y: 12)
-        // Chips and other launcher controls take their on-window colours.
-        .environment(\.windowedStyle, true)
-        // Clicks inside the card must not reach the dimmed background.
-        .contentShape(Rectangle())
-        .onTapGesture {}
     }
 }
 
@@ -277,9 +301,9 @@ struct AppEditor: View {
                     }
                 }
                 FormDivider()
-                FormLine(label: String(localized: "快捷键"), hint: AppHotKeys.failed.contains(app.id)
-                         ? String(localized: "已被占用，换一个") : String(localized: "在任何地方按下就打开它，再按一次隐藏"),
-                         hintIsError: AppHotKeys.failed.contains(app.id)) {
+                let shortcutProblem = model.shortcutConflict(model.meta(for: app.id).shortcut, owner: app.id)
+                FormLine(label: String(localized: "快捷键"), hint: shortcutProblem ?? String(localized: "在任何地方按下就打开它，再按一次隐藏"),
+                         hintIsError: shortcutProblem != nil) {
                     HStack(spacing: 6) {
                         let shortcut = model.meta(for: app.id).shortcut
                         ShortcutRecorder(display: shortcut?.display, placeholder: String(localized: "点按后按下快捷键"), width: 170,

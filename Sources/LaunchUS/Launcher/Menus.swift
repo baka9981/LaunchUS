@@ -80,6 +80,11 @@ enum LauncherMenus {
     static func main(_ model: LauncherModel, includeSearchItems: Bool = false) -> NSMenu {
         let menu = NSMenu.launcher()
         let settings = Settings.shared
+        // First and on its own: always there, so a second layout is easy to start.
+        menu.addSubmenu(String(localized: "布局方案"), symbol: "rectangle.stack") { sub in
+            addProfiles(to: sub, model: model)
+        }
+        menu.addSeparator()
         if includeSearchItems, !model.menuItems.isEmpty {
             for item in model.menuItems { menu.add(item.title, item.action) }
             menu.addSeparator()
@@ -89,10 +94,13 @@ enum LauncherMenus {
             menu.addSeparator()
         }
         menu.addSubmenu(String(localized: "新建"), symbol: "plus") { sub in
-            sub.add(String(localized: "启动项…"), symbol: "plus.app") { model.sheet = .editCustom(nil) }
             sub.add(String(localized: "智能文件夹…"), symbol: "folder.badge.gearshape") {
                 let tags = model.completeQueryTags
                 model.sheet = .editSmartFolder(nil, query: tags.isEmpty ? "" : model.query.trimmingCharacters(in: .whitespaces))
+            }
+            sub.add(String(localized: "启动项…"), symbol: "plus.app") { model.sheet = .editCustom(nil) }
+            sub.add(String(localized: "小组件…"), symbol: "square.grid.2x2", enabled: model.canAddWidget) {
+                model.openWidgetGallery()
             }
         }
         menu.addSubmenu(String(localized: "整理"), symbol: "square.grid.3x3.topleft.filled") { sub in
@@ -122,11 +130,6 @@ enum LauncherMenus {
             if settings.browseStyle == .scroll {
                 sub.addItem(.separator())
                 sub.add(String(localized: "最近一行"), checked: settings.showFrequent) { settings.showFrequent.toggle() }
-            }
-        }
-        if model.profileNames.count > 1 {
-            menu.addSubmenu(String(localized: "布局方案"), symbol: "rectangle.stack") { sub in
-                addProfiles(to: sub, model: model)
             }
         }
         if model.hiddenUnlocked {
@@ -216,6 +219,51 @@ enum LauncherMenus {
             } else {
                 menu.add(String(localized: "解散文件夹"), symbol: "folder.badge.minus") { model.dissolveFolder(folder.id) }
             }
+        case .widget(let widget):
+            let provider = WidgetRegistry.shared.provider(widget.kind)
+            if let provider, provider.sizes.count > 1 {
+                menu.addSubmenu(String(localized: "大小"), symbol: "arrow.up.left.and.arrow.down.right") { sub in
+                    for size in provider.sizes {
+                        sub.add(size.title, checked: widget.size == size) { model.resizeWidget(widget.id, to: size) }
+                    }
+                }
+            }
+            if let target = provider?.openTarget {
+                menu.add(target.title, symbol: "arrow.up.forward.app") { model.openWidgetApp(widget) }
+            }
+            switch BuiltInWidget(rawValue: widget.kind) {
+            case .note?:
+                let note = WidgetStore.shared.note(widget.id)
+                menu.add(String(localized: "编辑便签"), symbol: "square.and.pencil") {
+                    model.activateWidget(widget, at: nil, card: .zero)
+                }
+                menu.addSubmenu(String(localized: "颜色"), symbol: "paintpalette") { sub in
+                    for color in NoteColor.allCases {
+                        sub.add(color.title, checked: note.color == color) { WidgetStore.shared.setNoteColor(color, widget.id) }
+                    }
+                }
+                menu.add(String(localized: "清空便签"), symbol: "eraser", enabled: !note.text.isEmpty) {
+                    WidgetStore.shared.setNoteText("", widget.id)
+                }
+            case .timer?:
+                let timer = WidgetStore.shared.timer(widget.id)
+                menu.addSubmenu(String(localized: "时长"), symbol: "timer") { sub in
+                    for minutes in [1, 5, 10, 15, 25, 30, 45, 60, 90] {
+                        sub.add(String(localized: "\(minutes) 分钟"), checked: timer.minutes == minutes) {
+                            WidgetStore.shared.startTimer(widget.id, minutes: minutes)
+                        }
+                    }
+                }
+                menu.add(String(localized: "重置"), symbol: "arrow.counterclockwise", enabled: timer.isRunning || timer.left != nil) {
+                    WidgetStore.shared.resetTimer(widget.id)
+                }
+            default: break
+            }
+            menu.add(String(localized: "添加小组件…"), symbol: "square.grid.2x2", enabled: model.canAddWidget) {
+                model.openWidgetGallery()
+            }
+            menu.addSeparator()
+            menu.add(String(localized: "移除小组件"), symbol: "minus.circle") { model.removeWidget(widget.id) }
         case .gap: break
         }
         return menu
@@ -308,11 +356,14 @@ enum LauncherMenus {
     /// Saved layouts, with the current one checked.
     static func addProfiles(to sub: NSMenu, model: LauncherModel) {
         let current = model.currentProfile
+        // Each profile is shown its own way, so switching is also how full screen and window swap.
         for name in model.profileNames {
-            sub.add(LayoutProfiles.title(name), checked: name == current) { model.switchProfile(name) }
+            sub.add("\(LayoutProfiles.title(name)) · \(model.profileMode(name).title)", checked: name == current) { model.switchProfile(name) }
         }
         sub.addSeparator()
         sub.add(String(localized: "新建布局方案…"), symbol: "plus") { model.sheet = .newProfile }
+        // Straight to its settings, without going through the list of profiles.
+        sub.add(String(localized: "编辑当前方案…"), symbol: "slider.horizontal.3") { model.openSettings(.display) }
         sub.add(String(localized: "删除当前方案"), symbol: "trash", enabled: !current.isEmpty) { model.deleteProfile(current) }
     }
 

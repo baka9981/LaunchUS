@@ -3,12 +3,12 @@ import AppKit
 import Carbon.HIToolbox
 import Observation
 
-enum DisplayMode: String, CaseIterable { case fullScreen, window }
-enum SortOrder: String, CaseIterable { case custom, name, recentlyAdded, recentlyUsed, mostUsed }
-enum BrowseStyle: String, CaseIterable { case paged, scroll }
+enum DisplayMode: String, CaseIterable, Codable { case fullScreen, window }
+enum SortOrder: String, CaseIterable, Codable { case custom, name, recentlyAdded, recentlyUsed, mostUsed }
+enum BrowseStyle: String, CaseIterable, Codable { case paged, scroll }
 /// How fast the launcher's animations run.
 /// Where "search the web" goes when search finds nothing.
-enum SearchEngine: String, CaseIterable {
+enum SearchEngine: String, CaseIterable, Codable {
     case google, bing, baidu, duckDuckGo
 
     var title: String {
@@ -116,9 +116,9 @@ struct MotionCurve: Codable, Equatable, Hashable {
     }
 }
 
-enum BackgroundKind: String, CaseIterable { case wallpaper, glass, image }
+enum BackgroundKind: String, CaseIterable, Codable { case wallpaper, glass, image }
 /// Light or dark look for LaunchUS's cards, menus and window, apart from the Mac's own.
-enum AppearanceMode: String, CaseIterable {
+enum AppearanceMode: String, CaseIterable, Codable {
     case system, light, dark
 
     var title: String {
@@ -138,7 +138,7 @@ enum AppearanceMode: String, CaseIterable {
     }
 }
 /// When apps show the dark version of their icon, for those that have one.
-enum DarkIconMode: String, CaseIterable {
+enum DarkIconMode: String, CaseIterable, Codable {
     case auto, always, never
 
     var title: String {
@@ -157,19 +157,19 @@ enum DarkIconMode: String, CaseIterable {
         }
     }
 }
-enum HotCorner: String, CaseIterable { case off, topLeft, topRight, bottomLeft, bottomRight }
-enum TargetScreen: String, CaseIterable { case dock, mouse, active, main }
-enum ReturnHome: Int, CaseIterable {
+enum HotCorner: String, CaseIterable, Codable { case off, topLeft, topRight, bottomLeft, bottomRight }
+enum TargetScreen: String, CaseIterable, Codable { case dock, mouse, active, main }
+enum ReturnHome: Int, CaseIterable, Codable {
     case immediately = 0, thirtySeconds = 30, oneMinute = 60, fiveMinutes = 300, fifteenMinutes = 900, oneHour = 3600, never = -1
 }
 /// What the Dock icon's menu lists.
-enum DockMenuContent: String, CaseIterable { case pages, alphabetical, recent }
-enum MultiSelectKey: String, CaseIterable { case off, command, shift }
+enum DockMenuContent: String, CaseIterable, Codable { case pages, alphabetical, recent }
+enum MultiSelectKey: String, CaseIterable, Codable { case off, command, shift }
 /// Raw values are what's saved; the order here is the picker's.
-enum AppIconStyle: Int, CaseIterable { case mono = 0, blue = 1, grid = 2, dots = 4, rocket = 3 }
+enum AppIconStyle: Int, CaseIterable, Codable { case mono = 0, blue = 1, grid = 2, dots = 4, rocket = 3 }
 
 /// The menu bar icon: an SF Symbol, drawn as a template so it follows the menu bar's colour.
-enum MenuBarIconStyle: String, CaseIterable {
+enum MenuBarIconStyle: String, CaseIterable, Codable {
     case grid = "square.grid.3x3.fill"
     case gridOutline = "square.grid.3x3"
     case grid2 = "square.grid.2x2.fill"
@@ -198,6 +198,7 @@ extension SortOrder {
 
 extension DisplayMode {
     var title: String { self == .fullScreen ? String(localized: "全屏") : String(localized: "窗口") }
+    var symbol: String { self == .fullScreen ? "rectangle.inset.filled" : "macwindow" }
 }
 
 extension BrowseStyle {
@@ -287,12 +288,22 @@ final class Settings {
     @ObservationIgnored private let defaults: UserDefaults
 
     // 通用
-    var hotKey: HotKeySpec { didSet { saveCodable(hotKey, "hotKey") } }
+    /// nil: this profile has no shortcut of its own.
+    var hotKey: HotKeySpec? { didSet { saveCodable(hotKey, "hotKey") } }
     var f4Key: Bool { didSet { save(f4Key, "f4Key") } }
     var trackpadPinch: Bool { didSet { save(trackpadPinch, "trackpadPinch") } }
     /// Fingers in the pinch, thumb included: 3, 4 or 5.
     var pinchFingers: Int { didSet { save(pinchFingers, "pinchFingers") } }
     var hotCorner: HotCorner { didSet { save(hotCorner.rawValue, "hotCorner") } }
+    /// Whether this profile starts with the Mac; LaunchUS is a login item while any profile does.
+    var startAtLogin: Bool { didSet { save(startAtLogin, "startAtLogin") } }
+    /// This profile's language, put into `AppleLanguages` (read at launch, so a change needs a relaunch).
+    var language: AppLanguage {
+        didSet {
+            if defaults === UserDefaults.standard { language.apply() }
+            save(language.rawValue, "language")
+        }
+    }
     var showMenuBarIcon: Bool { didSet { save(showMenuBarIcon, "showMenuBarIcon") } }
     var menuBarIcon: MenuBarIconStyle { didSet { save(menuBarIcon.rawValue, "menuBarIcon") } }
     var showDockIcon: Bool { didSet { save(showDockIcon, "showDockIcon") } }
@@ -311,8 +322,15 @@ final class Settings {
     var folderBrowseStyle: BrowseStyle { didSet { save(folderBrowseStyle.rawValue, "folderBrowseStyle") } }
     /// Window mode's row of category tabs under the search field.
     var showCategoryBar: Bool { didSet { save(showCategoryBar, "showCategoryBar") } }
-    /// The daily anonymous ping (Heartbeat): on unless the user turns it off.
+    /// The daily anonymous ping (Heartbeat): on unless the user turns it off. Without it no ping
+    /// goes out, so the two below only add to it.
     var shareUsage: Bool { didSet { save(shareUsage, "shareUsage") } }
+    /// The ping also says which features are on (full screen, smart bar, iCloud, AI).
+    var shareFeatures: Bool { didSet { save(shareFeatures, "shareFeatures") } }
+    /// The ping also says how often the launcher opened, and by what.
+    var shareOpens: Bool { didSet { save(shareOpens, "shareOpens") } }
+    /// Crash reports, sent on their own (see `CrashReports`).
+    var shareCrashes: Bool { didSet { save(shareCrashes, "shareCrashes") } }
     /// Tab keys in the order the user put them; tabs not in it keep their default place after these.
     var categoryTabOrder: [String] { didSet { save(categoryTabOrder, "categoryTabOrder") } }
     var hiddenCategoryTabs: [String] { didSet { save(hiddenCategoryTabs, "hiddenCategoryTabs") } }
@@ -326,7 +344,24 @@ final class Settings {
     /// Calendar's icon shows today's date.
     var dynamicCalendar: Bool { didSet { save(dynamicCalendar, "dynamicCalendar") } }
     /// Icon size relative to the default, 0.6…1.3.
-    var iconScale: Double { didSet { save(iconScale, "iconScale") } }
+    /// Icon size in full screen (saved under the key it had before window mode got its own).
+    var fullIconScale: Double { didSet { save(fullIconScale, "iconScale") } }
+    var windowIconScale: Double { didSet { save(windowIconScale, "windowIconScale") } }
+    /// The window's size against the standard one, in window mode.
+    var windowSize: Double { didSet { save(windowSize, "windowSize") } }
+    static let windowSizeRange: ClosedRange<Double> = 0.8...1.3
+
+    /// Each display mode keeps its own icon size; this is the one in use.
+    var iconScale: Double {
+        get { iconScale(for: displayMode) }
+        set { setIconScale(newValue, for: displayMode) }
+    }
+
+    func iconScale(for mode: DisplayMode) -> Double { mode == .window ? windowIconScale : fullIconScale }
+
+    func setIconScale(_ value: Double, for mode: DisplayMode) {
+        if mode == .window { windowIconScale = value } else { fullIconScale = value }
+    }
     /// Fades apps not opened for three months.
     var fadeStale: Bool { didSet { save(fadeStale, "fadeStale") } }
     /// Folder tiles and the open folder use liquid glass instead of the smoked glass look.
@@ -353,6 +388,8 @@ final class Settings {
     var showBadges: Bool { didSet { save(showBadges, "showBadges") } }
     /// A row of recently opened apps under the search field.
     var showFrequent: Bool { didSet { save(showFrequent, "showFrequent") } }
+    /// Icons lift a little under the pointer, like they do while their right-click menu is open.
+    var hoverLift: Bool { didSet { save(hoverLift, "hoverLift") } }
     /// File name in `BackgroundImage.directory`, used when `background` is `.image`.
     var backgroundImage: String { didSet { save(backgroundImage, "backgroundImage") } }
     var background: BackgroundKind { didSet { save(background.rawValue, "background") } }
@@ -430,12 +467,18 @@ final class Settings {
         let d = defaults
         func value<T>(_ key: String, _ fallback: T) -> T { d.object(forKey: key) as? T ?? fallback }
         freePlacement = value("freePlacement", false)
-        hotKey = (d.data(forKey: "hotKey")).flatMap { try? JSONDecoder().decode(HotKeySpec.self, from: $0) } ?? .default
+        // Saved as JSON; "null" means the shortcut was cleared.
+        hotKey = .default
+        if let data = d.data(forKey: "hotKey") {
+            do { hotKey = try JSONDecoder().decode(Optional<HotKeySpec>.self, from: data) } catch {}
+        }
         f4Key = value("f4Key", false)
         trackpadPinch = value("trackpadPinch", false)
         let fingers = value("pinchFingers", 4)
         pinchFingers = fingers == TrackpadPinch.fourOrFive ? fingers : min(5, max(3, fingers))
         hotCorner = HotCorner(rawValue: value("hotCorner", "")) ?? .off
+        startAtLogin = value("startAtLogin", false)
+        language = AppLanguage(rawValue: value("language", d === UserDefaults.standard ? AppLanguage.current.rawValue : "")) ?? .system
         showMenuBarIcon = value("showMenuBarIcon", true)
         menuBarIcon = MenuBarIconStyle(rawValue: value("menuBarIcon", "")) ?? .grid
         showDockIcon = value("showDockIcon", false)
@@ -451,6 +494,9 @@ final class Settings {
         folderBrowseStyle = BrowseStyle(rawValue: value("folderBrowseStyle", "")) ?? .paged
         showCategoryBar = value("showCategoryBar", true)
         shareUsage = value("shareUsage", true)
+        shareFeatures = value("shareFeatures", true)
+        shareOpens = value("shareOpens", true)
+        shareCrashes = value("shareCrashes", true)
         categoryTabOrder = value("categoryTabOrder", [String]())
         hiddenCategoryTabs = value("hiddenCategoryTabs", [String]())
         columns = min(10, max(4, value("columns", 7)))
@@ -458,7 +504,11 @@ final class Settings {
         hideNames = value("hideNames", false)
         hideFolderNames = value("hideFolderNames", value("hideNames", false))
         dynamicCalendar = value("dynamicCalendar", true)
-        iconScale = min(1.3, max(0.6, value("iconScale", 1.0)))
+        let fullScale = min(1.3, max(0.6, value("iconScale", 1.0)))
+        fullIconScale = fullScale
+        // Window mode starts from the size people already chose.
+        windowIconScale = min(1.3, max(0.6, value("windowIconScale", fullScale)))
+        windowSize = min(Self.windowSizeRange.upperBound, max(Self.windowSizeRange.lowerBound, value("windowSize", 1.0)))
         fadeStale = value("fadeStale", false)
         liquidGlass = value("liquidGlass", true)
         // Earlier versions had three fixed choices: standard, fast (1.8× the old standard,
@@ -475,6 +525,7 @@ final class Settings {
         showRunningDot = value("showRunningDot", true)
         showBadges = value("showBadges", true)
         showFrequent = value("showFrequent", false)
+        hoverLift = value("hoverLift", false)
         backgroundImage = value("backgroundImage", "")
         background = BackgroundKind(rawValue: value("background", "")) ?? .wallpaper
         blur = value("blur", 38.0)
@@ -557,7 +608,7 @@ final class Settings {
 
 /// The app's own language, set by overriding `AppleLanguages` for LaunchUS only.
 /// Takes effect after a relaunch.
-enum AppLanguage: String, CaseIterable, Identifiable {
+enum AppLanguage: String, CaseIterable, Identifiable, Codable {
     case system = "", zhHans = "zh-Hans", zhHant = "zh-Hant", english = "en", japanese = "ja"
     var id: String { rawValue }
 

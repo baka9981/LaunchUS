@@ -58,12 +58,19 @@ enum LayoutItem: Codable, Hashable, Identifiable {
     case folder(Folder)
     /// An empty cell, kept when icons can be placed anywhere.
     case gap
+    /// A widget; it sits in its top-left cell and covers the rest of its block.
+    case widget(WidgetItem)
+    /// A cell under a widget (its ID), or one left empty because the next widget didn't fit
+    /// there (an empty ID). Made by `LayoutOps.pack` and never placed by itself.
+    case cover(String)
 
     var id: String {
         switch self {
         case .app(let id): "app:" + id
         case .folder(let folder): "folder:" + folder.id
         case .gap: "gap"
+        case .widget(let widget): "widget:" + widget.id
+        case .cover(let owner): "cover:" + owner
         }
     }
 
@@ -71,23 +78,40 @@ enum LayoutItem: Codable, Hashable, Identifiable {
         switch self {
         case .app(let id): [id]
         case .folder(let folder): folder.apps
-        case .gap: []
+        case .gap, .widget, .cover: []
         }
     }
 
+    /// Nothing is drawn there and it takes no clicks: an empty cell or one under a widget.
     var isGap: Bool {
-        if case .gap = self { return true }
+        switch self {
+        case .gap, .cover: true
+        default: false
+        }
+    }
+
+    var isWidget: Bool {
+        if case .widget = self { return true }
+        return false
+    }
+
+    var isCover: Bool {
+        if case .cover = self { return true }
         return false
     }
 
     // Stored in the same shape the compiler used to synthesise, `{"app":{"_0":…}}`. An empty
     // cell is written as an app with no ID, which older versions simply drop as uninstalled.
-    private enum CodingKeys: String, CodingKey { case app, folder }
+    // A widget is written as an empty cell with the widget beside it, so older versions keep
+    // reading the layout; a covered cell is written as an empty one (`pack` takes it back).
+    private enum CodingKeys: String, CodingKey { case app, folder, widget }
     private enum ValueKeys: String, CodingKey { case _0 }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        if c.contains(.app) {
+        if let widget = try? c.decode(WidgetItem.self, forKey: .widget) {
+            self = .widget(widget)
+        } else if c.contains(.app) {
             let id = try c.nestedContainer(keyedBy: ValueKeys.self, forKey: .app).decode(String.self, forKey: ._0)
             self = id.isEmpty ? .gap : .app(id)
         } else {
@@ -101,13 +125,23 @@ enum LayoutItem: Codable, Hashable, Identifiable {
         case .app(let id):
             var v = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .app)
             try v.encode(id, forKey: ._0)
-        case .gap:
+        case .gap, .cover:
             var v = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .app)
             try v.encode("", forKey: ._0)
+        case .widget(let widget):
+            var v = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .app)
+            try v.encode("", forKey: ._0)
+            try c.encode(widget, forKey: .widget)
         case .folder(let folder):
             var v = c.nestedContainer(keyedBy: ValueKeys.self, forKey: .folder)
             try v.encode(folder, forKey: ._0)
         }
+    }
+
+    /// Columns and rows it takes on a grid of that shape.
+    func span(columns: Int, rows: Int) -> (width: Int, height: Int) {
+        if case .widget(let widget) = self { return widget.size.span(columns: columns, rows: rows) }
+        return (1, 1)
     }
 }
 
@@ -122,7 +156,7 @@ struct AppMeta: Codable, Hashable {
     var hidden = false
     /// Icon picked by the user: an SF Symbol ("symbol:…") or an image file in `CustomIcons`.
     var icon: String?
-    /// Global shortcut that opens the app from anywhere (`AppHotKeys`).
+    /// Global shortcut that opens the app from anywhere (`HotKeyGroup.apps`).
     var shortcut: HotKeySpec?
     /// Category tab the user moved the app to (an `AppCategoryName.Group`), instead of the one its developer declares.
     var group: String?
@@ -211,7 +245,7 @@ enum LayoutOps {
     /// so none exceeds `perPage`. Empty pages are removed. With `free` placement a removed
     /// app leaves an empty cell behind, so the icons after it stay where they were put.
     static func reconcile(_ pages: [[LayoutItem]], installed: [AppItem], hidden: Set<String>, perPage: Int,
-                          free: Bool = false) -> [[LayoutItem]] {
+                          columns: Int? = nil, free: Bool = false) -> [[LayoutItem]] {
         let valid = Set(installed.map(\.id)).subtracting(hidden)
         var placed = Set<String>()
 
@@ -227,6 +261,10 @@ enum LayoutOps {
                     return folder.apps.isEmpty ? (free ? .gap : nil) : .folder(folder)
                 case .gap:
                     return free ? item : nil
+                case .widget:
+                    return placed.insert(item.id).inserted ? item : nil
+                case .cover:
+                    return free ? item : nil
                 }
             }
         }
@@ -237,39 +275,139 @@ enum LayoutOps {
             trimTrailingGaps(&result[result.count - 1])
             result[result.count - 1].append(contentsOf: newApps.map { .app($0.id) })
         }
-        return repack(result, perPage: perPage, free: free)
+        return repack(result, perPage: perPage, columns: columns, free: free)
     }
 
     /// Pushes overflow forward page by page and removes empty pages. Lined-up placement also
     /// closes every empty cell; free placement keeps them, giving up the last ones on a page
-    /// before pushing an icon to the next page.
-    static func repack(_ pages: [[LayoutItem]], perPage: Int, free: Bool = false) -> [[LayoutItem]] {
+    /// before pushing an icon to the next page. Every page comes out packed (`pack`), so an
+    /// item's index is its cell even with widgets on the page.
+    /// `columns` defaults to the whole page in one row.
+    static func repack(_ pages: [[LayoutItem]], perPage: Int, columns: Int? = nil, free: Bool = false,
+                       keepEmptyPages: Bool = false) -> [[LayoutItem]] {
+        let columns = max(1, min(columns ?? perPage, perPage))
+        let rows = max(1, perPage / columns)
         var result = free ? pages : pages.map { $0.filter { !$0.isGap } }
         var i = 0
         while i < result.count {
-            if free {
-                trimTrailingGaps(&result[i])
-                while result[i].count > perPage, let gap = result[i].lastIndex(where: \.isGap) {
-                    result[i].remove(at: gap)
-                }
+            if free { trimTrailingGaps(&result[i]) }
+            var packed = pack(result[i], columns: columns, rows: rows, free: free)
+            // Free placement gives up empty cells (from the end) before pushing icons on.
+            // A widget already counts empty cells as room, so only icons are worth it.
+            while free, packed.overflow.contains(where: { !$0.isWidget }), let gap = result[i].lastIndex(where: { if case .gap = $0 { true } else { false } }) {
+                result[i].remove(at: gap)
+                packed = pack(result[i], columns: columns, rows: rows, free: free)
             }
-            if result[i].count > perPage {
-                let overflow = Array(result[i][perPage...])
-                result[i].removeLast(result[i].count - perPage)
+            result[i] = packed.page
+            if !packed.overflow.isEmpty {
                 if i + 1 < result.count {
-                    result[i + 1].insert(contentsOf: overflow, at: 0)
+                    result[i + 1].insert(contentsOf: packed.overflow, at: 0)
                 } else {
-                    result.append(overflow)
+                    result.append(packed.overflow)
                 }
             }
             i += 1
         }
-        result.removeAll { $0.allSatisfy(\.isGap) }
+        if !keepEmptyPages { result.removeAll { $0.allSatisfy(\.isGap) } }
         return result
     }
 
+    /// Lays a page's items into its cells in order, like a phone's home screen: each takes the
+    /// first free cell (a widget the first block it fits in). The result has one item per
+    /// cell, with `.cover` under widgets and in cells nothing could use, so an item's index is
+    /// its cell. What doesn't fit within `rows`, and everything after it, is the overflow.
+    /// Free placement keeps empty cells where they are; an empty cell a widget or a pushed icon
+    /// now sits on is given up, so the icons after it stay put.
+    static func pack(_ items: [LayoutItem], columns: Int, rows: Int?, free: Bool) -> (page: [LayoutItem], overflow: [LayoutItem]) {
+        let widgets = Set(items.compactMap { item -> String? in
+            if case .widget(let w) = item { return w.id }
+            return nil
+        })
+        var cells: [LayoutItem?] = []
+        var overflow: [LayoutItem] = []
+        func isFree(_ k: Int) -> Bool { k >= cells.count || cells[k] == nil }
+        func put(_ item: LayoutItem, at k: Int) {
+            while cells.count <= k { cells.append(nil) }
+            cells[k] = item
+        }
+        var firstFree = 0
+        for (index, original) in items.enumerated() {
+            var item = original
+            if case .cover(let owner) = item {
+                // A widget that's gone leaves empty cells behind in free placement.
+                guard free, !owner.isEmpty, !widgets.contains(owner) else { continue }
+                item = .gap
+            }
+            if !free, case .gap = item { continue }
+            // Lined-up: what comes after an item that didn't fit follows it to the next page.
+            if !overflow.isEmpty, !free {
+                if case .gap = item { continue }
+                overflow.append(item)
+                continue
+            }
+            while !isFree(firstFree) { firstFree += 1 }
+            let (w, h) = item.span(columns: columns, rows: rows ?? Int.max)
+            var start = firstFree
+            if w > 1 || h > 1 {
+                while true {
+                    let c = start % columns
+                    if c + w <= columns,
+                       (0..<h).allSatisfy({ dy in (0..<w).allSatisfy { dx in isFree(start + dy * columns + dx) } }) { break }
+                    start += 1
+                }
+            }
+            if case .gap = item, start > index { continue }
+            if let rows, start / columns + h > rows {
+                if case .gap = item { continue }
+                // Free placement: a widget past the bottom takes the nearest block that fits
+                // (empty cells included), or goes on alone; nothing else moves with it.
+                if free, w > 1 || h > 1 {
+                    if let near = nearestBlock(to: start, w: w, h: h, columns: columns, rows: rows, cells: cells) {
+                        start = near
+                    } else {
+                        overflow.append(item)
+                        continue
+                    }
+                } else {
+                    overflow.append(item)
+                    continue
+                }
+            }
+            put(item, at: start)
+            if case .widget(let widget) = item {
+                for dy in 0..<h {
+                    for dx in 0..<w where dx > 0 || dy > 0 { put(.cover(widget.id), at: start + dy * columns + dx) }
+                }
+            }
+        }
+        var page = cells.map { $0 ?? .cover("") }
+        // Nothing to keep after the last item (a widget's own cells stay).
+        while let last = page.last, last == .cover("") || last == .gap { page.removeLast() }
+        return (page, overflow)
+    }
+
+    /// The free w × h block within `rows` closest to `start` (rows first, then columns).
+    /// Empty cells count as free.
+    static func nearestBlock(to start: Int, w: Int, h: Int, columns: Int, rows: Int, cells: [LayoutItem?]) -> Int? {
+        func open(_ k: Int) -> Bool {
+            guard k < cells.count, let item = cells[k] else { return true }
+            return item == .gap
+        }
+        let row = start / columns, col = start % columns
+        var best: (score: Int, start: Int)?
+        for r in 0...max(0, rows - h) {
+            for c in 0...max(0, columns - w) {
+                let s = r * columns + c
+                guard (0..<h).allSatisfy({ dy in (0..<w).allSatisfy { dx in open(s + dy * columns + dx) } }) else { continue }
+                let score = abs(r - row) * columns * 2 + abs(c - col)
+                if best == nil || score < best!.score { best = (score, s) }
+            }
+        }
+        return best?.start
+    }
+
     static func trimTrailingGaps(_ page: inout [LayoutItem]) {
-        while page.last?.isGap == true { page.removeLast() }
+        while let last = page.last, last == .gap || last == .cover("") { page.removeLast() }
     }
 
     /// Free placement after the grid changed shape: every icon keeps its row and column. Ones
@@ -415,6 +553,8 @@ struct LayoutBackup: Codable {
     var profiles: [String: [[LayoutItem]]]?
     /// Smart folders shown only in the smart bar; missing in older backups.
     var barFolders: [Folder]?
+    /// Each profile's own settings and hidden apps (`ProfileSettings`); missing in older backups.
+    var settings: [String: [String: String]]?
 
     init(pages: [[LayoutItem]], meta: [String: AppMeta], custom: [CustomItem]? = nil, barFolders: [Folder]? = nil) {
         self.pages = pages
@@ -428,6 +568,31 @@ struct LayoutBackup: Codable {
         self.init(pages: pages, meta: meta, custom: custom, barFolders: barFolders)
         profile = file.current
         profiles = file.saved.filter { $0.key != file.current }
+    }
+
+    /// One layout profile in a backup file.
+    struct Profile: Identifiable {
+        var name: String
+        var pages: [[LayoutItem]]
+        /// Its settings and hidden apps; nil in older backups.
+        var settings: [String: String]?
+        var id: String { name }
+    }
+
+    /// The profiles in the file: the one `pages` belongs to first, then the others by name.
+    @MainActor var allProfiles: [Profile] {
+        let first = profile ?? ""
+        var firstSettings = settings?[first]
+        if firstSettings == nil || ProfileSettings.hiddenApps(in: firstSettings) == nil {
+            // Older backups keep its hidden apps in the apps' extras.
+            var values = firstSettings ?? [:]
+            ProfileSettings.setHiddenApps(Set(meta.filter { $0.value.hidden }.map(\.key)), in: &values)
+            firstSettings = values
+        }
+        let others = (profiles ?? [:]).filter { $0.key != first }
+            .sorted { $0.key.localizedStandardCompare($1.key) == .orderedAscending }
+            .map { Profile(name: $0.key, pages: $0.value, settings: settings?[$0.key]) }
+        return [Profile(name: first, pages: pages, settings: firstSettings)] + others
     }
 }
 
@@ -560,7 +725,9 @@ extension LayoutOps {
         case .last: appItems.map(\.0) + folderItems.map(\.0)
         case .mixed: (folderItems + appItems).sorted { before($0.1, $1.1) }.map(\.0)
         }
-        return repack([items], perPage: perPage)
+        // Widgets stay at the top of the first page.
+        let widgets = current.joined().filter { if case .widget = $0 { true } else { false } }
+        return repack([widgets + items], perPage: perPage)
     }
 }
 
@@ -579,6 +746,7 @@ extension LayoutOps {
         let items = Array(pages.joined())
         let folders = items.filter { if case .folder = $0 { true } else { false } }
         let apps = items.filter { if case .app = $0 { true } else { false } }
-        return repack([toStart ? folders + apps : apps + folders], perPage: perPage)
+        let widgets = items.filter { if case .widget = $0 { true } else { false } }
+        return repack([widgets + (toStart ? folders + apps : apps + folders)], perPage: perPage)
     }
 }

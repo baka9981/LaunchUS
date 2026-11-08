@@ -1,1 +1,3 @@
 "NSAppleEventsUsageDescription" = "用于在访达中打开 App 的「显示简介」窗口。";
+"NSCalendarsFullAccessUsageDescription" = "用于在日历小组件中显示今天的日程。";
+"NSRemindersFullAccessUsageDescription" = "用于在日历小组件中显示未完成的提醒事项。";

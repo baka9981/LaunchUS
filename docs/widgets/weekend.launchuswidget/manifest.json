@@ -1,0 +1,17 @@
+{
+  "spec": 1,
+  "id": "com.launchus.example.weekend",
+  "name": { "en": "Weekend", "zh-Hans": "周末倒计时", "zh-Hant": "週末倒數", "ja": "週末まで" },
+  "description": {
+    "en": "Days until the weekend, and how much of the year has gone.",
+    "zh-Hans": "离周末还有几天，今年已经过了多少。",
+    "zh-Hant": "離週末還有幾天，今年已經過了多少。",
+    "ja": "週末まであと何日、今年はどれだけ過ぎたか。"
+  },
+  "version": "1.0.0",
+  "author": "LaunchUS",
+  "symbol": "calendar.badge.clock",
+  "sizes": ["small", "medium"],
+  "refresh": 60,
+  "permissions": []
+}

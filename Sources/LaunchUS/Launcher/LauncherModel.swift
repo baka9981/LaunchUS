@@ -3,18 +3,31 @@ import SwiftUI
 import Observation
 
 /// One cell as shown on screen: an app, or a folder with its resolved apps.
+/// One cell of the scrolling grid.
+struct ScrollCell: Equatable {
+    var pos: GridPos?
+    var entry: GridEntry
+}
+
 enum GridEntry: Identifiable, Equatable {
     case app(AppItem)
     case folder(Folder, [AppItem])
     /// An empty cell left by free placement; the string tells cells apart.
     case gap(String)
+    case widget(WidgetItem)
 
     var id: String {
         switch self {
         case .app(let app): "app:" + app.id
         case .folder(let folder, _): "folder:" + folder.id
         case .gap(let key): "gap:" + key
+        case .widget(let widget): "widget:" + widget.id
         }
+    }
+
+    var widget: WidgetItem? {
+        if case .widget(let w) = self { return w }
+        return nil
     }
 
     var isGap: Bool {
@@ -27,6 +40,7 @@ enum GridEntry: Identifiable, Equatable {
         case (.app(let x), .app(let y)): x.id == y.id && x.name == y.name
         case (.folder(let x, let xa), .folder(let y, let ya)): x == y && xa == ya
         case (.gap(let x), .gap(let y)): x == y
+        case (.widget(let x), .widget(let y)): x == y
         default: false
         }
     }
@@ -45,16 +59,19 @@ enum LauncherSheet: Hashable {
     case confirmDeleteCustom(String)
     case chooseIcon(String)
     case newProfile
+    case renameProfile(String)
     /// The global shortcut that opens every app in a folder.
     case folderShortcut(String)
     /// The App manager: sizes, chips, updates and usage statistics.
     case manager
     case message(title: String, text: String, revealPath: String?)
+    /// Choosing a widget to add: the built-in ones and installed plugins.
+    case widgetGallery
 
     /// The manager and the smart bar editor: big cards that take most of the launcher.
     var isLarge: Bool {
         switch self {
-        case .manager, .editSmartFolder: true
+        case .manager, .editSmartFolder, .widgetGallery: true
         default: false
         }
     }
@@ -107,13 +124,13 @@ final class LauncherModel {
     var meta: [String: AppMeta] = [:] {
         didSet {
             catalog.iconOverrides = Self.iconOverrides(meta)
-            AppHotKeys.update(meta.compactMapValues(\.shortcut))
+            HotKeyGroup.apps.update(meta.compactMapValues(\.shortcut))
         }
     }
     @ObservationIgnored private var layoutLoaded = false
     /// The grid the layout was last arranged for, to tell when it changed shape.
-    @ObservationIgnored private var laidOutColumns = 0
-    @ObservationIgnored private var laidOutRows = 0
+    @ObservationIgnored var laidOutColumns = 0
+    @ObservationIgnored var laidOutRows = 0
     private var laidOutPerPage: Int { laidOutColumns * laidOutRows }
 
     /// Installed apps minus hidden ones, with display names applied. Rebuilt by `refresh()`.
@@ -164,6 +181,9 @@ final class LauncherModel {
     @ObservationIgnored var isAuthenticating = false
     /// What the grid shows: the layout, or search results while searching.
     private(set) var pages: [[GridEntry]] = [[]]
+    /// The scrolling grid: every page's items run together and packed again as one long page,
+    /// with the page and cell each came from (nil for empty cells).
+    private(set) var scrollCells: [ScrollCell] = []
     var currentPage = 0
     var selection: GridPos?
     /// Live horizontal offset while a swipe or mouse drag is in progress.
@@ -341,6 +361,10 @@ final class LauncherModel {
     var folderScrollOffset: CGFloat = 0
     var isRenaming = false
     var renameEndRequest = 0
+    /// The note widget being typed on.
+    var editingNoteID: String?
+    /// Bumped on each launch, so the frequent apps widget redraws.
+    var widgetLaunches = 0
 
     // MARK: Dragging
     var drag: DragSession?
@@ -380,7 +404,7 @@ final class LauncherModel {
     var showSettings = false
     /// A tuning panel shown in the settings card's place, so its changes can be watched on the launcher itself.
     var tuner: Tuner?
-    var settingsTab: SettingsTab = .general
+    var settingsTab: SettingsTab = .profiles
     @ObservationIgnored var settingsActions = SettingsActions(rescan: { _ in })
     /// A short message shown above the page dots, e.g. after a rescan.
     var notice: String?
@@ -400,10 +424,19 @@ final class LauncherModel {
         self.catalog = catalog
         self.settings = settings ?? .shared
         meta = LayoutStore.loadMeta()
+        WidgetHost.model = self
         barFolders = LayoutStore.loadBarFolders()
         customItems = CustomItemStore.load()
         catalog.customApps = customItems.map(\.appItem)
         catalog.iconOverrides = Self.iconOverrides(meta)
+        followProfile()
+        if ProfileSettings.addPresenceKeys(&profiles, names: LayoutProfiles.names(profiles)) { LayoutProfiles.save(profiles) }
+    }
+
+    /// Points the profile's own files and AI key at the active profile.
+    func followProfile() {
+        ProfileFolders.current = profiles.current
+        AIKey.profile = profiles.current
     }
 
     private static func iconOverrides(_ meta: [String: AppMeta]) -> [String: String] {
@@ -428,9 +461,15 @@ final class LauncherModel {
     var frequentPinned: Set<String> = []
     @ObservationIgnored var lastDragEnd = Date.distantPast
     @ObservationIgnored var landingToken = 0
-    @ObservationIgnored var profiles = LayoutProfiles.load()
+    @ObservationIgnored var profiles = LayoutProfiles.load() {
+        didSet { if profiles.current != oldValue.current { followProfile() } }
+    }
     /// Bumped when profiles change, so menus and settings re-read them.
     var profilesVersion = 0
+    /// Set while a profile's settings are applied, so they don't reflow the pages being left.
+    @ObservationIgnored var switchingProfile = false
+    /// Set when a switch to a profile in another language is about to relaunch LaunchUS.
+    @ObservationIgnored var relaunchingForLanguage = false
     var customItems: [CustomItem] = [] {
         didSet { catalog.customApps = customItems.map(\.appItem) }
     }
@@ -459,7 +498,7 @@ final class LauncherModel {
 
     /// Grid size, sorting or sources changed.
     func settingsChanged() {
-        guard layoutLoaded, drag == nil else { return }
+        guard layoutLoaded, drag == nil, !switchingProfile else { return }
         folderDragOffset = 0
         if freePlacement {
             // Free placement: every icon keeps its row and column in the new grid.
@@ -477,7 +516,7 @@ final class LauncherModel {
     }
 
     func reconcile(forceSave: Bool = false) {
-        let reconciled = LayoutOps.reconcile(layout, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage,
+        let reconciled = LayoutOps.reconcile(layout, installed: catalog.apps, hidden: hiddenIDs, perPage: perPage, columns: columns,
                                               free: freePlacement)
         if reconciled != layout || forceSave {
             layout = reconciled
@@ -502,13 +541,25 @@ final class LauncherModel {
 
     var hiddenIDs: Set<String> { Set(meta.filter { $0.value.hidden }.map(\.key)) }
 
+    /// Packs every page for the grid's shape, so an item's index is its cell even with
+    /// widgets around. Pages left empty mid-drag stay until the drop.
+    func normalizeLayout() {
+        guard layoutLoaded else { return }
+        let packed = LayoutOps.repack(layout, perPage: perPage, columns: columns, free: freePlacement,
+                                      keepEmptyPages: drag != nil)
+        guard packed != layout else { return }
+        layout = packed
+        if drag == nil { LayoutStore.save(layout: layout) }
+    }
+
     func commitLayout() {
-        layout = LayoutOps.repack(layout, perPage: perPage, free: freePlacement)
+        layout = LayoutOps.repack(layout, perPage: perPage, columns: columns, free: freePlacement)
         LayoutStore.save(layout: layout)
         refresh()
     }
 
     func refresh() {
+        normalizeLayout()
         visibleApps = catalog.apps.compactMap { app in
             guard let m = meta[app.id] else { return app }
             if m.hidden { return nil }
@@ -558,24 +609,40 @@ final class LauncherModel {
                 case .app(let id): byID[id].map(GridEntry.app)
                 case .folder(let folder):
                     .folder(folder, folder.query.map(search) ?? folder.apps.compactMap { byID[$0] })
-                case .gap: nil
+                case .widget(let widget): .widget(widget)
+                case .gap, .cover: nil
                 }
             }
             if settings.sortOrder == .custom {
-                // Empty cells keep their place, and so the icons after them.
+                // Every cell keeps its place (empty ones and those under widgets draw nothing),
+                // and so the icons after them.
                 pages = layout.enumerated().map { p, page in
-                    page.enumerated().compactMap { s, item in
-                        item.isGap ? (freePlacement ? .gap("\(p)-\(s)") : nil) : entry(item)
-                    }
+                    page.enumerated().map { s, item in entry(item) ?? .gap("\(p)-\(s)") }
                 }
             } else {
-                let sorted = Self.sorted(layout.joined().compactMap(entry), by: settings.sortOrder)
-                pages = stride(from: 0, to: sorted.count, by: perPage).map {
-                    Array(sorted[$0..<min($0 + perPage, sorted.count)])
+                // Widgets stay at the top of the first page, the rest sorted after them.
+                let widgets = layout.joined().filter { if case .widget = $0 { true } else { false } }
+                let sorted = Self.sorted(layout.joined().compactMap { $0.isWidget ? nil : entry($0) }, by: settings.sortOrder)
+                let byEntry = Dictionary(sorted.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+                let items = widgets + sorted.map { e -> LayoutItem in
+                    switch e {
+                    case .app(let app): .app(app.id)
+                    case .folder(let folder, _): .folder(folder)
+                    case .widget(let w): .widget(w)
+                    case .gap: .gap
+                    }
+                }
+                let packed = LayoutOps.repack([items], perPage: perPage, columns: columns)
+                pages = packed.enumerated().map { p, page in
+                    page.enumerated().map { s, item in
+                        if case .widget(let w) = item { return .widget(w) }
+                        return byEntry[item.id] ?? .gap("\(p)-\(s)")
+                    }
                 }
             }
             if pages.isEmpty { pages = [[]] }
         }
+        updateScrollCells()
         currentPage = min(currentPage, pageCount - 1)
         if let s = selection, !isValid(s) { selection = nil }
         if openFolderID != nil, openFolder == nil { dropFolder() }
@@ -589,7 +656,7 @@ final class LauncherModel {
             let apps: [AppItem] = switch e {
             case .app(let a): [a]
             case .folder(_, let apps): apps
-            case .gap: []
+            case .gap, .widget: []
             }
             let dates = apps.compactMap { order == .recentlyUsed ? $0.lastUsedDate : $0.addedDate }
             return dates.max() ?? .distantPast
@@ -602,7 +669,7 @@ final class LauncherModel {
                 switch e {
                 case .app(let a): a.useCount
                 case .folder(_, let apps): apps.map(\.useCount).reduce(0, +)
-                case .gap: 0
+                case .gap, .widget: 0
                 }
             }
             let keyed = entries.map { ($0, uses($0)) }
@@ -717,6 +784,7 @@ final class LauncherModel {
         dragOffset = 0
         isEditing = false
         multiSelection = []
+        editingNoteID = nil
         dropFolder()
         isPresented = false
         showHiddenApps = false
@@ -734,6 +802,7 @@ final class LauncherModel {
     }
 
     func didHide() {
+        NotificationCenter.default.post(name: Self.didHideLauncher, object: nil)
         lastHidden = Date()
         categoryFilter = nil
         showHiddenApps = false
@@ -899,12 +968,37 @@ final class LauncherModel {
         folderExpanded = false
     }
 
+    private func updateScrollCells() {
+        guard settings.browseStyle == .scroll else {
+            if !scrollCells.isEmpty { scrollCells = [] }
+            return
+        }
+        var items: [LayoutItem] = []
+        var found: [String: ScrollCell] = [:]
+        for (p, page) in pages.enumerated() {
+            for (s, entry) in page.enumerated() where !entry.isGap {
+                found[entry.id] = ScrollCell(pos: GridPos(page: p, slot: s), entry: entry)
+                // Only the shape matters to packing; the entry is found again by its ID.
+                items.append(entry.widget.map(LayoutItem.widget) ?? .app(entry.id))
+            }
+        }
+        let packed = LayoutOps.pack(items, columns: columns, rows: nil, free: false).page
+        let cells = packed.enumerated().map { i, item -> ScrollCell in
+            let key: String? = switch item {
+            case .widget(let w): "widget:" + w.id
+            case .app(let id): id
+            default: nil
+            }
+            return key.flatMap { found[$0] } ?? ScrollCell(pos: nil, entry: .gap("scroll-\(i)"))
+        }
+        if cells != scrollCells { scrollCells = cells }
+    }
+
     /// Icon centre of an entry in the scrolling grid, in launcher coordinates, if it's in view.
     /// Pages run together there without their empty cells, under the recent row.
     func scrollIconCenter(of entryID: String) -> CGPoint? {
         let m = metrics
-        let flat = pages.flatMap { $0.filter { !$0.isGap } }
-        guard let index = flat.firstIndex(where: { $0.id == entryID }) else { return nil }
+        guard let index = scrollCells.firstIndex(where: { $0.entry.id == entryID }) else { return nil }
         let c = CGPoint(x: m.gridOriginX + (CGFloat(index % m.columns) + 0.5) * m.cellSize.width,
                         y: m.gridTop + scrollLead + (CGFloat(index / m.columns) + 0.5) * m.cellSize.height
                             - gridScrollOffset)
@@ -965,6 +1059,26 @@ final class LauncherModel {
     func app(_ id: String) -> AppItem? { visibleApps.first { $0.id == id } ?? catalog.apps.first { $0.id == id } }
     func meta(for id: String) -> AppMeta { meta[id] ?? AppMeta() }
 
+    /// Why a shortcut won't work well, or nil. `owner`: nil for the launcher's own shortcut.
+    func shortcutConflict(_ spec: HotKeySpec?, owner: String?) -> String? {
+        guard let spec else { return nil }
+        let prefix = Self.folderShortcutPrefix
+        var others = meta.compactMapValues(\.shortcut)
+        // The current profile's is the launcher's own shortcut; the others' open their profile.
+        for name in profileNames where name != currentProfile {
+            if let key = opening(for: name).hotKey { others[Self.profileShortcutPrefix + name] = key }
+        }
+        return ShortcutConflicts.message(spec, owner: owner, others: others) { id in
+            if id.hasPrefix(Self.profileShortcutPrefix) {
+                return LayoutProfiles.title(String(id.dropFirst(Self.profileShortcutPrefix.count)))
+            }
+            return id.hasPrefix(prefix) ? folder(String(id.dropFirst(prefix.count)))?.name : app(id)?.name
+        }
+    }
+
+    /// Profile shortcuts among the others in conflict checks: "profile:" + the profile's name.
+    static let profileShortcutPrefix = "profile:"
+
     func setShortcut(_ spec: HotKeySpec?, for id: String) {
         setMeta(id) { $0.shortcut = spec }
     }
@@ -994,6 +1108,13 @@ final class LauncherModel {
             removeApp(id, fromFolder: folderID)
         }
         reconcile(forceSave: true)
+        if hidden { offerHiddenDotTip() }
+    }
+
+    /// The first time something is hidden: point at the dot that brings it back (it's
+    /// invisible until hovered).
+    func offerHiddenDotTip() {
+        if settings.hiddenDotEntrance, settings.browseStyle != .scroll, !isSearching { offerTip(.hiddenDot) }
     }
 
     // MARK: - Hidden apps

@@ -60,7 +60,11 @@ enum HotKeyCenter {
     /// False when the shortcut is taken by another app.
     private(set) static var isRegistered = false
 
-    static func register(_ spec: HotKeySpec, action: @escaping () -> Void) {
+    /// The shortcut LaunchUS holds right now, if any.
+    static var heldSpec: HotKeySpec? { hotKey != nil ? spec : nil }
+
+    /// nil: no shortcut.
+    static func register(_ spec: HotKeySpec?, action: @escaping () -> Void) {
         self.spec = spec
         self.action = action
         apply()
@@ -72,42 +76,73 @@ enum HotKeyCenter {
 
     private static func apply() {
         hotKey = nil
+        isRegistered = false
         guard !paused, let spec, let action else { return }
         hotKey = HotKey(keyCode: spec.keyCode, modifiers: spec.modifiers, action: action)
         isRegistered = hotKey != nil
     }
 }
 
-/// Shortcuts that open one app each, set in the app's editor.
+/// A set of shortcuts that each do something with an ID: open an app (set in the app's editor)
+/// or open a layout profile (each profile's own, in its 通用 › 打开 LaunchUS).
 @MainActor
-enum AppHotKeys {
-    /// Called with the app ID when its shortcut is pressed.
-    static var action: ((String) -> Void)?
-    /// Apps whose shortcut is taken (by another app, LaunchUS's own, or another app here).
-    private(set) static var failed: Set<String> = []
-    private static var keys: [String: HotKey] = [:]
-    private static var specs: [String: HotKeySpec] = [:]
+final class HotKeyGroup {
+    static let apps = HotKeyGroup()
+    static let profiles = HotKeyGroup()
+    static var all: [HotKeyGroup] { [apps, profiles] }
 
-    static func update(_ new: [String: HotKeySpec]) {
+    /// Called with the ID when its shortcut is pressed.
+    var action: ((String) -> Void)?
+    /// IDs whose shortcut is taken (by another app, LaunchUS's own, or another one here).
+    private(set) var failed: Set<String> = []
+    private var keys: [String: HotKey] = [:]
+    private var specs: [String: HotKeySpec] = [:]
+
+    /// LaunchUS holds one of them that matches.
+    func holds(where match: (HotKeySpec) -> Bool) -> Bool {
+        keys.keys.contains { id in specs[id].map(match) ?? false }
+    }
+
+    func update(_ new: [String: HotKeySpec]) {
         guard new != specs else { return }
         specs = new
         apply()
     }
 
     /// While a shortcut is being recorded, so pressing an existing one records it instead.
-    static var paused = false {
+    var paused = false {
         didSet { if paused != oldValue { apply() } }
     }
 
-    private static func apply() {
+    private func apply() {
         keys = [:]
         failed = []
         guard !paused else { return }
         for (id, spec) in specs.sorted(by: { $0.key < $1.key }) {
-            if let key = HotKey(keyCode: spec.keyCode, modifiers: spec.modifiers, action: { action?(id) }) {
+            if let key = HotKey(keyCode: spec.keyCode, modifiers: spec.modifiers, action: { [weak self] in self?.action?(id) }) {
                 keys[id] = key
             } else {
                 failed.insert(id)
+            }
+        }
+    }
+}
+
+/// The system's own shortcuts (Spotlight, input sources, screenshots…), switched off while a
+/// shortcut is being recorded so they reach the recorder. Needs Accessibility; without it the
+/// system keeps them and the conflict warning explains instead.
+@MainActor
+enum SystemHotKeys {
+    private static var token: UnsafeMutableRawPointer?
+
+    static var paused = false {
+        didSet {
+            guard paused != oldValue else { return }
+            if paused {
+                token = PushSymbolicHotKeyMode(OptionBits(kHIHotKeyModeAllDisabled))
+            } else if let token {
+                PopSymbolicHotKeyMode(token)
+                self.token = nil
             }
         }
     }

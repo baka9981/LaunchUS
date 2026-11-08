@@ -4,7 +4,10 @@ import AppKit
 /// AI: the chat gateway, and the MCP server that lets AI tools drive LaunchUS.
 struct AITab: View {
     @Bindable var settings: Settings
-    @State private var key = AIKey.value
+    /// Only what's typed here. A saved key is never read just to show the tab: reading the secret
+    /// asks for keychain access whenever the app's signature changed. It's read when it's used.
+    @State private var key = ""
+    @State private var keySaved = AIKey.isSet
     @State private var testing = false
     @State private var testResult: Result<String, Error>?
     /// Kept from the last 获取, so the menu is there next time.
@@ -16,12 +19,11 @@ struct AITab: View {
 
     private var configured: Bool {
         !settings.aiModel.trimmingCharacters(in: .whitespaces).isEmpty
-            && (!key.isEmpty || !settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty)
+            && (keySaved || !settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            hero
             SettingsSection(title: String(localized: "网关")) {
                 Card {
                     Row(title: String(localized: "接口格式"), info: String(localized: "大多数网关和本地模型（如 Ollama、LM Studio、OpenRouter）用 OpenAI 兼容格式")) {
@@ -33,10 +35,25 @@ struct AITab: View {
                             .frame(width: 260)
                     }
                     Row(title: String(localized: "API 密钥"), subtitle: String(localized: "保存在钥匙串中")) {
-                        SecureField(String(localized: "未设置"), text: $key)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 260)
-                            .onChange(of: key) { _, value in AIKey.value = value; testResult = nil }
+                        HStack(spacing: 6) {
+                            SecureField(keySaved ? "••••••••••••" : String(localized: "未设置"), text: $key)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(width: keySaved ? 200 : 260)
+                                .onChange(of: key) { _, value in
+                                    // Typing replaces the saved key; emptying the field removes it.
+                                    AIKey.value = value
+                                    keySaved = !value.isEmpty
+                                    testResult = nil
+                                }
+                            if keySaved && key.isEmpty {
+                                Button(String(localized: "清除")) {
+                                    AIKey.value = ""
+                                    keySaved = false
+                                    testResult = nil
+                                }
+                                .frame(width: 54)
+                            }
+                        }
                     }
                     Row(title: String(localized: "模型"), subtitle: fetchError ?? (models.isEmpty ? String(localized: "点「获取」列出网关提供的模型") : String(localized: "共 \(models.count) 个模型"))) {
                         HStack(spacing: 6) {
@@ -59,12 +76,12 @@ struct AITab: View {
                             Button(fetching ? String(localized: "获取中…") : String(localized: "获取")) { fetchModels() }
                                 .fixedSize()
                                 .layoutPriority(1)
-                                .disabled(fetching || (key.isEmpty && settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty))
+                                .disabled(fetching || (!keySaved && settings.aiBaseURL.trimmingCharacters(in: .whitespaces).isEmpty))
                         }
                     }
                 }
                 Card {
-                    Row(title: String(localized: "让 AI 操作 LaunchUS"),
+                    Row(title: String(localized: "让 AI 操作这个方案"),
                         subtitle: settings.aiToolAccess.detail) {
                         MenuPicker(selection: $settings.aiToolAccess, options: AIToolAccess.allCases, title: \.title)
                     }
@@ -115,23 +132,6 @@ struct AITab: View {
                 .onChange(of: settings.aiBaseURL) { _, _ in clearModels() }
             }
             MCPSection()
-        }
-    }
-
-    private var hero: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
-                .background(LinearGradient(colors: [.purple, .blue, .cyan], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            VStack(alignment: .leading, spacing: 4) {
-                Text("在搜索框里和 AI 聊天").font(.system(size: 14, weight: .semibold))
-                Text("配置好网关后，搜索没有结果时按 ↩ 或点「问 AI」，就在启动台里直接对话；按 ⇥ 搜索网页。")
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 

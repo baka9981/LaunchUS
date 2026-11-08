@@ -42,6 +42,12 @@ import Testing
         #expect(state.new.isEmpty)
         #expect(state.known == ["A"])
     }
+
+    @Test func appsOnAnotherProfilesPagesStayKnown() {
+        let state = NewApps.update(NewApps.State(known: ["A", "B", "C"], new: [:]), apps: [app("A")], elsewhere: ["B"])
+        #expect(state.known == ["A", "B"])
+        #expect(NewApps.update(state, apps: [app("A"), app("B")]).new.isEmpty)
+    }
 }
 
 @Suite struct LaunchpadImportTests {

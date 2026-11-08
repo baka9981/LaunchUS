@@ -11,6 +11,15 @@ swift test --parallel       # 单元测试
 ./scripts/l10n-missing.sh   # 检查 en / ja / zh-Hant 是否缺翻译，应为 0
 ```
 
+Apple 芯片和 Intel 是两个独立的 App，不做通用二进制，各自只有一半大小。`ARCH=x86_64 ./scripts/build.sh` 构建 Intel 版到 `build/x86_64/LaunchUS.app`，在 Apple 芯片的 Mac 上可以通过 Rosetta 直接运行。Intel 版读自己的更新源 `appcast-intel.xml`。release 构建会去掉符号表，符号另存为旁边的 `.dSYM`，用来看崩溃日志，不随 App 发布。
+
+在 Rosetta 下跑测试（`swift test` 的测试助手只有 arm64）：
+
+```bash
+swift build --build-tests --arch x86_64
+arch -x86_64 "$(xcrun -f xctest)" .build/out/Products/Debug/LaunchUSTests.xctest
+```
+
 界面文字以简体中文为键，新增文字要同时写进 `Resources/Localization/{en,ja,zh-Hant}.lproj/Localizable.strings`。
 
 ## 代码结构
@@ -22,6 +31,7 @@ swift test --parallel       # 单元测试
 | `App/` | 启动入口和全局部件：`AppDelegate`、`launchus://` 链接、快捷指令、全局快捷键和触发方式、权限、Sparkle 更新、安装位置、诊断、卡顿记录 |
 | `Launcher/` | 启动台本身：窗口（`LauncherController`）、界面（`LauncherView`、`Controls`、`Menus`）、状态（`LauncherModel` 和它按主题拆开的扩展）、文件夹分组、隐藏 App、整理模式、壁纸、Dock 角标 |
 | `Layout/` | 布局数据：`layout.json`、布局方案、自动备份、iCloud 同步、导入系统启动台、自定义项目 |
+| `Widgets/` | 网格里的小组件：系统小组件（时钟、系统状态、日历）、插件注册与载入、小组件库界面。插件规范见 [WIDGETS.md](WIDGETS.md) |
 | `Apps/` | 已安装的 App：扫描和图标、新装标记、信息卡、App 管理、重复清理、卸载、App 更新检查 |
 | `Search/` | 搜索框：匹配、文件搜索、计算器、系统设置面板、空格列表 |
 | `AI/` | AI 聊天（网关、界面、出错说明、工具、历史）和 MCP 服务器 |
@@ -39,7 +49,7 @@ open launchus://open
 
 卡顿：`LAUNCHUS_HITCHES=/tmp/hitch.log` 让启动台每次掉帧（一帧超过刷新间隔的 1.8 倍）都记一行：时间、耗时、掉了几帧、当时的页码 / 文件夹 / 搜索状态（`HitchLog.swift`）。配合 `sample <pid> 2` 看主线程在忙什么。
 
-AI 聊天：`LAUNCHUS_CHAT=1` 载入示例对话（`=empty` 打开空对话，显示建议和最近的对话记录；`=error` 显示一条出错的回答；记录存在 Application Support/LaunchUS/Chats，截图运行不写入），`LAUNCHUS_ASK=<问题>` 真的发一条（用设置里的网关；`LAUNCHUS_AI_KEY` 可临时换密钥），`LAUNCHUS_DELAY=<秒>` 推迟截图等回答流完，`LAUNCHUS_SETTINGS=ai` 打开对应的设置页（`LAUNCHUS_TUNER=background|motion` 打开外观的调节面板，`background:<n>` 同时套用第 n 个方案）。debug 构建直接运行时加载不了 Sparkle，截图和 MCP 测试请用 `scripts/build.sh release` 的产物。
+AI 聊天：`LAUNCHUS_CHAT=1` 载入示例对话（`=empty` 打开空对话，显示建议和最近的对话记录；`=error` 显示一条出错的回答；记录存在 Application Support/LaunchUS/Chats（其他方案的在 `Profiles/<方案名>/Chats`），截图运行不写入），`LAUNCHUS_ASK=<问题>` 真的发一条（用设置里的网关；`LAUNCHUS_AI_KEY` 可临时换密钥），`LAUNCHUS_DELAY=<秒>` 推迟截图等回答流完，`LAUNCHUS_SETTINGS=ai` 打开对应的设置页（`LAUNCHUS_TUNER=background|motion` 打开外观的调节面板，`background:<n>` 同时套用第 n 个方案）。debug 构建直接运行时加载不了 Sparkle，截图和 MCP 测试请用 `scripts/build.sh release` 的产物。
 
 ## AI 与 MCP
 
@@ -64,4 +74,4 @@ App 用 [Sparkle](https://sparkle-project.org) 检查更新，更新源是 `upda
 
 ## 数据
 
-都在 `~/Library/Application Support/LaunchUS`：`layout.json`（布局）、`meta.json`（别名 / 隐藏 / 自选图标）、`custom.json`（启动项）、`profiles.json`（其他布局方案）、`Icons/`、`Background/`、`Backups/`。删除 `layout.json` 即回到首次运行状态。
+都在 `~/Library/Application Support/LaunchUS`：`layout.json`（布局）、`meta.json`（别名 / 当前方案的隐藏 / 自选图标）、`custom.json`（启动项）、`profiles.json`（其他布局方案的页面、设置和隐藏名单）、`Icons/`、`Background/`、`Backups/`、`Profiles/<方案名>/`（其他方案自己的 `Backups/` 和 `Chats/`）。AI 密钥在钥匙串里，默认方案的账户名是 `apiKey`，其他方案是 `apiKey.<方案名>`。删除 `layout.json` 即回到首次运行状态。

@@ -17,13 +17,20 @@ extension LauncherModel {
         switch entry {
         case .app(let app): item = .app(app.id)
         case .folder(let folder, _): item = .folder(folder)
+        case .widget(let widget): item = .widget(widget)
         case .gap: return
         }
         selection = nil
         dragLocation = pointer
         // The scrolling grid's cells don't know how far it is scrolled; find the icon on screen.
-        let iconCenter = folderID == nil && settings.browseStyle == .scroll
+        var iconCenter = folderID == nil && settings.browseStyle == .scroll
             ? scrollIconCenter(of: entry.id) ?? iconCenter : iconCenter
+        if case .widget(let widget) = entry, folderID == nil, settings.browseStyle == .scroll,
+           let first = scrollIconCenter(of: entry.id) {
+            // That's its first cell; a widget is held by its card.
+            let rect = metrics.widgetRect(first: first, span: widget.size.span(columns: columns, rows: rows))
+            iconCenter = CGPoint(x: rect.midX, y: rect.midY)
+        }
         var session = DragSession(
             item: item,
             folderID: folderID,
@@ -58,13 +65,19 @@ extension LauncherModel {
             return
         }
 
+        // A widget goes by its top-left cell, under wherever its card is held.
+        var probe = point
+        if case .widget(let widget) = session.item {
+            let center = CGPoint(x: point.x - session.grabOffset.width, y: point.y - session.grabOffset.height)
+            probe = metrics.widgetFirstCell(center: center, span: widget.size.span(columns: columns, rows: rows))
+        }
         if settings.browseStyle == .scroll {
             handleEdgeScrolling(at: point)
-            hoverInScrollGrid(at: point)
+            hoverInScrollGrid(at: probe)
             return
         }
         handleEdgePaging(at: point)
-        hoverInGrid(at: point)
+        hoverInGrid(at: probe)
     }
 
     /// The scrolling grid: pages run together without their empty cells, so a cell there is
@@ -76,6 +89,7 @@ extension LauncherModel {
         let col = Int(floor((point.x - m.gridOriginX) / m.cellSize.width))
         let row = Int(floor((point.y - top) / m.cellSize.height))
         let flat = layout.flatMap { $0.filter { !$0.isGap } }
+        let cells = scrollCells
         guard (0..<columns).contains(col), row >= 0, point.y > m.gridTop, !flat.isEmpty else {
             pendingMove?.work.cancel()
             pendingMove = nil
@@ -86,17 +100,24 @@ extension LauncherModel {
         let center = CGPoint(x: m.gridOriginX + (CGFloat(col) + 0.5) * m.cellSize.width,
                              y: top + (CGFloat(row) + 0.5) * m.cellSize.height)
         let nearCenter = hypot(point.x - center.x, point.y - center.y) < m.iconSize * 0.32
-        if index < flat.count, flat[index].id != session.item.id, nearCenter, case .app = session.item,
-           !Self.isSmartFolder(flat[index]) {
+        // Cells are packed around widgets, so an item is found by its ID, not by counting.
+        let here = index < cells.count && !cells[index].entry.isGap
+            ? flat.firstIndex { $0.id == cells[index].entry.id } : nil
+        if let here, flat[here].id != session.item.id, nearCenter, case .app = session.item,
+           !flat[here].isWidget, !Self.isSmartFolder(flat[here]) {
             pendingMove?.work.cancel()
             pendingMove = nil
-            if mergeTargetID != flat[index].id {
-                withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = flat[index].id }
+            if mergeTargetID != flat[here].id {
+                withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = flat[here].id }
             }
             return
         }
         if mergeTargetID != nil { withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = nil } }
-        let target = min(index, flat.count - 1)
+        // An empty cell goes by the next item after it, or the end.
+        let next = here ?? cells.indices.dropFirst(min(index, cells.count)).lazy
+            .filter { !cells[$0].entry.isGap }
+            .compactMap { i in flat.firstIndex { $0.id == cells[i].entry.id } }.first
+        let target = min(next ?? flat.count - 1, flat.count - 1)
         schedule("scroll:\(target)") { [weak self] in self?.moveDraggedInOrder(to: target) }
     }
 
@@ -134,7 +155,7 @@ extension LauncherModel {
         edgeScroll = Timer.scheduledTimer(withTimeInterval: 1 / 60, repeats: true) { [weak self] timer in
             MainActor.assumeIsolated {
                 guard let self, self.drag != nil else { timer.invalidate(); return }
-                let rows = (self.pages.flatMap { $0.filter { !$0.isGap } }.count + self.columns - 1) / self.columns
+                let rows = (self.scrollCells.count + self.columns - 1) / self.columns
                 let content = self.scrollLead + CGFloat(rows) * m.cellSize.height + m.scrollTail
                 let viewport = m.scrollViewport
                 let y = min(max(0, self.gridScrollOffset + direction * 9), max(0, content - viewport))
@@ -170,7 +191,7 @@ extension LauncherModel {
                 folder.apps.append(draggedApp)
                 folder.apps.append(contentsOf: companions)
                 layout[target.page][target.slot] = .folder(folder)
-            case .gap:
+            case .gap, .widget, .cover:
                 break
             }
             vacate(page: source.page, slot: source.slot)
@@ -240,6 +261,19 @@ extension LauncherModel {
         }
         guard openFolderID == nil, !isSearching else { return nil }
         let id = mergedInto ?? item.id
+        if case .widget(let widget) = item {
+            let span = widget.size.span(columns: columns, rows: rows)
+            let first: CGPoint
+            if settings.browseStyle == .scroll {
+                guard let c = scrollIconCenter(of: id) else { return nil }
+                first = c
+            } else {
+                guard let pos = location(of: id), pos.page == currentPage else { return nil }
+                first = m.iconCenter(slot: pos.slot)
+            }
+            let rect = m.widgetRect(first: first, span: span)
+            return CGPoint(x: rect.midX, y: rect.midY)
+        }
         if settings.browseStyle == .scroll { return scrollIconCenter(of: id) }
         guard let pos = location(of: id), pos.page == currentPage else { return nil }
         return m.iconCenter(slot: pos.slot)

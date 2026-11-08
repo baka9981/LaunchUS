@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --u: var(--launchus-unit, 80px); }
+  html, body { margin: 0; height: 100%; }
+  body {
+    box-sizing: border-box;
+    padding: calc(var(--u) * 0.18);
+    font-family: -apple-system, sans-serif;
+    color: white;
+    display: flex; gap: calc(var(--u) * 0.3);
+  }
+  html[data-theme="light"] body { color: #1d1d1f; }
+  .main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+  .label { font-size: calc(var(--u) * 0.15); font-weight: 600; color: #ff9f0a; }
+  .days { font-size: calc(var(--u) * 0.72); font-weight: 600; line-height: 1; margin-top: auto; font-variant-numeric: tabular-nums; }
+  .unit { font-size: calc(var(--u) * 0.14); opacity: .7; margin-top: calc(var(--u) * 0.04); }
+  .year { display: none; flex: 1; flex-direction: column; justify-content: center; gap: calc(var(--u) * 0.08); }
+  html[data-size="medium"] .year { display: flex; }
+  .bar { height: calc(var(--u) * 0.08); border-radius: 99px; background: rgba(127,127,127,.3); overflow: hidden; }
+  .fill { height: 100%; background: #30d158; border-radius: 99px; }
+  .small { font-size: calc(var(--u) * 0.12); opacity: .7; }
+  .big { font-size: calc(var(--u) * 0.32); font-weight: 600; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+  <div class="main">
+    <div class="label" id="label"></div>
+    <div class="days" id="days"></div>
+    <div class="unit" id="unit"></div>
+  </div>
+  <div class="year">
+    <div class="small" id="yearLabel"></div>
+    <div class="big" id="yearPercent"></div>
+    <div class="bar"><div class="fill" id="yearFill"></div></div>
+  </div>
+<script>
+  const zh = launchus.locale.startsWith('zh'), ja = launchus.locale.startsWith('ja');
+  const t = {
+    weekend: zh ? '离周末' : ja ? '週末まで' : 'Until the weekend',
+    now: zh ? '周末快乐' : ja ? '週末です' : "It's the weekend",
+    days: zh ? '天' : ja ? '日' : 'days',
+    year: zh ? '今年已过' : ja ? '今年の経過' : 'Of the year',
+  };
+  function draw() {
+    const now = new Date();
+    const day = now.getDay();                  // 0 = Sunday
+    const left = day === 0 || day === 6 ? 0 : 6 - day;
+    document.getElementById('label').textContent = left ? t.weekend : t.now;
+    document.getElementById('days').textContent = left || '🎉';
+    document.getElementById('unit').textContent = left ? t.days : '';
+    const start = new Date(now.getFullYear(), 0, 1), end = new Date(now.getFullYear() + 1, 0, 1);
+    const part = (now - start) / (end - start);
+    document.getElementById('yearLabel').textContent = t.year;
+    document.getElementById('yearPercent').textContent = (part * 100).toFixed(1) + '%';
+    document.getElementById('yearFill').style.width = (part * 100) + '%';
+  }
+  draw();
+  launchus.on('refresh', draw);
+  launchus.on('show', draw);
+</script>
+</body>
+</html>

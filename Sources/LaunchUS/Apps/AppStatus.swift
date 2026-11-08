@@ -21,7 +21,7 @@ enum NewApps {
     }
 
     /// The first time, everything already installed counts as known.
-    static func update(_ state: State?, apps: [AppItem], now: Date = Date()) -> State {
+    static func update(_ state: State?, apps: [AppItem], elsewhere: Set<String> = [], now: Date = Date()) -> State {
         let ids = Set(apps.map(\.id))
         guard let state else { return State(known: ids, new: [:]) }
         var new = state.new.filter { ids.contains($0.key) }
@@ -31,7 +31,9 @@ enum NewApps {
         for app in apps {
             if let found = new[app.id], let used = app.lastUsedDate, used > found { new[app.id] = nil }
         }
-        return State(known: ids, new: new)
+        // Apps on another profile's pages stay known: a profile with fewer app folders
+        // doesn't make them new again when switching back.
+        return State(known: ids.union(state.known.intersection(elsewhere)), new: new)
     }
 }
 

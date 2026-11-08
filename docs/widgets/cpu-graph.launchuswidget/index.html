@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root { --u: var(--launchus-unit, 80px); }
+  html, body { margin: 0; height: 100%; }
+  body {
+    box-sizing: border-box;
+    padding: calc(var(--u) * 0.18);
+    font-family: -apple-system, sans-serif;
+    color: white;
+    display: flex; flex-direction: column; gap: calc(var(--u) * 0.08);
+  }
+  html[data-theme="light"] body { color: #1d1d1f; }
+  .row { display: flex; align-items: baseline; gap: calc(var(--u) * 0.12); }
+  .title { font-size: calc(var(--u) * 0.14); font-weight: 600; opacity: .8; }
+  .value { font-size: calc(var(--u) * 0.36); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cpu { color: #0a84ff; } .mem { color: #30d158; }
+  .mem-value { display: none; }
+  html:not([data-size="small"]) .mem-value { display: inline; }
+  canvas { flex: 1; width: 100%; min-height: 0; }
+</style>
+</head>
+<body>
+  <div class="row">
+    <span class="title">CPU</span>
+    <span class="value cpu" id="cpu">–</span>
+    <span class="title mem-value" id="memTitle"></span>
+    <span class="value mem mem-value" id="mem">–</span>
+  </div>
+  <canvas id="graph"></canvas>
+<script>
+  const history = [];          // [{cpu, mem}], newest last
+  const keep = 30;             // 30 × 2 s = one minute
+  const canvas = document.getElementById('graph');
+  document.getElementById('memTitle').textContent = launchus.locale.startsWith('zh') ? '内存' : launchus.locale.startsWith('ja') ? 'メモリ' : 'Memory';
+
+  async function sample() {
+    try {
+      const s = await launchus.system();
+      history.push({ cpu: s.cpu, mem: s.memory.used / s.memory.total });
+      if (history.length > keep) history.shift();
+      document.getElementById('cpu').textContent = Math.round(s.cpu * 100) + '%';
+      document.getElementById('mem').textContent = Math.round(s.memory.used / s.memory.total * 100) + '%';
+      draw();
+    } catch (e) {
+      document.getElementById('cpu').textContent = '?';
+    }
+  }
+
+  function line(ctx, values, color, w, h) {
+    if (values.length < 2) return;
+    ctx.beginPath();
+    values.forEach((v, i) => {
+      const x = w - (values.length - 1 - i) * (w / (keep - 1));
+      const y = h - v * h;
+      i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+    });
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1.5, launchus.unit * 0.03) * devicePixelRatio;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+
+  function draw() {
+    const w = canvas.clientWidth * devicePixelRatio, h = canvas.clientHeight * devicePixelRatio;
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = launchus.theme === 'dark' ? 'rgba(255,255,255,.12)' : 'rgba(0,0,0,.1)';
+    ctx.lineWidth = devicePixelRatio;
+    for (const f of [0.25, 0.5, 0.75]) { ctx.beginPath(); ctx.moveTo(0, h * f); ctx.lineTo(w, h * f); ctx.stroke(); }
+    if (launchus.size !== 'small') line(ctx, history.map(p => p.mem), '#30d158', w, h);
+    line(ctx, history.map(p => p.cpu), '#0a84ff', w, h);
+  }
+
+  // LaunchUS sends refresh every 2 s while the launcher is open, and nothing while it's closed.
+  launchus.on('refresh', sample);
+  launchus.on('change', draw);
+  sample();
+</script>
+</body>
+</html>

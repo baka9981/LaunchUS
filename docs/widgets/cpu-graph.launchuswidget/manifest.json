@@ -1,0 +1,18 @@
+{
+  "spec": 1,
+  "id": "com.launchus.example.cpu-graph",
+  "name": { "en": "CPU Graph", "zh-Hans": "CPU 走势", "zh-Hant": "CPU 走勢", "ja": "CPU グラフ" },
+  "description": {
+    "en": "CPU and memory use over the last minute.",
+    "zh-Hans": "最近一分钟的 CPU 和内存占用曲线。",
+    "zh-Hant": "最近一分鐘的 CPU 和記憶體佔用曲線。",
+    "ja": "直近1分間の CPU とメモリの使用率。"
+  },
+  "version": "1.0.0",
+  "author": "LaunchUS",
+  "symbol": "waveform.path.ecg",
+  "sizes": ["small", "medium", "large"],
+  "refresh": 2,
+  "permissions": ["system"],
+  "openApp": "com.apple.ActivityMonitor"
+}

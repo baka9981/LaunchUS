@@ -4,7 +4,7 @@ import Observation
 import Security
 
 /// The API a gateway speaks.
-enum AIFormat: String, CaseIterable {
+enum AIFormat: String, CaseIterable, Codable {
     case openAI, anthropic
 
     var title: String {
@@ -29,12 +29,94 @@ enum AIFormat: String, CaseIterable {
     }
 }
 
-/// The gateway's key lives in the keychain, not in preferences.
+/// The gateway's key lives in the keychain, not in preferences. Each layout profile has its own:
+/// the default one's is "apiKey", another's "apiKey.<name>".
 enum AIKey {
     private static let service = "local.launchus.LaunchUS.ai"
-    private static let account = "apiKey"
+    private static var account: String { account(for: profile) }
     private static var cached: String?
     private static var cachedIsSet: Bool?
+
+    /// The active profile; `LauncherModel` keeps it in step.
+    static var profile = "" {
+        didSet {
+            guard profile != oldValue else { return }
+            cached = nil
+            cachedIsSet = nil
+        }
+    }
+
+    private static func account(for profile: String) -> String { profile.isEmpty ? "apiKey" : "apiKey." + profile }
+
+    /// Tests keep keys here, by account, instead of in the keychain.
+    static var memory: [String: String]? {
+        didSet {
+            cached = nil
+            cachedIsSet = nil
+        }
+    }
+
+    private static func query(_ profile: String) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
+         kSecAttrAccount as String: account(for: profile)]
+    }
+
+    /// Reads another profile's key, for copying it.
+    private static func value(of profile: String) -> String {
+        if profile == self.profile { return value }
+        if let memory { return memory[account(for: profile)] ?? "" }
+        guard !offKeychain else { return "" }
+        var item = query(profile)
+        item[kSecReturnData as String] = true
+        var result: AnyObject?
+        guard SecItemCopyMatching(item as CFDictionary, &result) == errSecSuccess else { return "" }
+        return (result as? Data).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+
+    private static func store(_ text: String, for profile: String) {
+        if profile == self.profile {
+            cached = text
+            cachedIsSet = !text.isEmpty
+        }
+        if memory != nil {
+            memory?[account(for: profile)] = text.isEmpty ? nil : text
+            return
+        }
+        guard !offKeychain else { return }
+        SecItemDelete(query(profile) as CFDictionary)
+        guard !text.isEmpty else { return }
+        var item = query(profile)
+        item[kSecValueData as String] = Data(text.utf8)
+        SecItemAdd(item as CFDictionary, nil)
+    }
+
+    /// Gives `target` the same key as `source`, or none when `source` has none.
+    static func copy(from source: String, to target: String) {
+        guard source != target else { return }
+        store(value(of: source), for: target)
+    }
+
+    /// Moves a renamed profile's key without reading it.
+    static func rename(_ old: String, to new: String) {
+        guard old != new else { return }
+        if profile == old || profile == new {
+            cached = nil
+            cachedIsSet = nil
+        }
+        if var keys = memory {
+            keys[account(for: new)] = keys.removeValue(forKey: account(for: old))
+            memory = keys
+            return
+        }
+        guard !offKeychain else { return }
+        SecItemDelete(query(new) as CFDictionary)
+        SecItemUpdate(query(old) as CFDictionary, [kSecAttrAccount as String: account(for: new)] as CFDictionary)
+    }
+
+    static func remove(_ profile: String) {
+        guard !profile.isEmpty else { return }
+        store("", for: profile)
+    }
 
     /// Debug snapshot and demo runs are signed differently and would ask for keychain access.
     private static var offKeychain: Bool {
@@ -48,6 +130,7 @@ enum AIKey {
     static var isSet: Bool {
         if let cached { return !cached.isEmpty }
         if let cachedIsSet { return cachedIsSet }
+        if let memory { return memory[account] != nil }
         if offKeychain { return !(ProcessInfo.processInfo.environment["LAUNCHUS_AI_KEY"] ?? "").isEmpty }
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
                                     kSecAttrAccount as String: account, kSecReturnAttributes as String: true]
@@ -60,6 +143,7 @@ enum AIKey {
     static var value: String {
         get {
             if let cached { return cached }
+            if let memory { return memory[account] ?? "" }
             if offKeychain { return ProcessInfo.processInfo.environment["LAUNCHUS_AI_KEY"] ?? "" }
             var result: AnyObject?
             let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
@@ -69,19 +153,7 @@ enum AIKey {
             cached = text
             return text
         }
-        set {
-            let text = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            cached = text
-            cachedIsSet = !text.isEmpty
-            guard !offKeychain else { return }
-            let base: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
-                                       kSecAttrAccount as String: account]
-            SecItemDelete(base as CFDictionary)
-            guard !text.isEmpty else { return }
-            var item = base
-            item[kSecValueData as String] = Data(text.utf8)
-            SecItemAdd(item as CFDictionary, nil)
-        }
+        set { store(newValue.trimmingCharacters(in: .whitespacesAndNewlines), for: profile) }
     }
 }
 
