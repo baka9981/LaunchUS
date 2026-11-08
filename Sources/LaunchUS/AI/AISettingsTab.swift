@@ -1,7 +1,8 @@
 import SwiftUI
 import AppKit
 
-/// AI: the chat gateway, and the MCP server that lets AI tools drive LaunchUS.
+/// AI 网关: the profile's chat gateway and what the chat may do. The MCP server is LaunchUS's
+/// own, on a settings page of its own (`MCPSection`).
 struct AITab: View {
     @Bindable var settings: Settings
     /// Only what's typed here. A saved key is never read just to show the tab: reading the secret
@@ -183,7 +184,7 @@ struct AITab: View {
     }
 }
 
-/// How to add LaunchUS to Claude Code, Codex, Claude Desktop, Cursor and other MCP clients.
+/// The MCP page: how to add LaunchUS to Claude Code, Codex, Claude Desktop, Cursor and other MCP clients.
 struct MCPSection: View {
     private enum Client: CaseIterable {
         case claude, codex, other
@@ -227,7 +228,7 @@ struct MCPSection: View {
 
     var body: some View {
         SettingsSection(title: "MCP") {
-            Text("让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。")
+            Text("让 Claude、Codex、Cursor 等 AI 工具搜索、打开和退出 App，打开文件夹或分组，新建、切换和修改布局方案及其设置，添加和移除小组件。所有布局方案共用。")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 4)
@@ -246,7 +247,7 @@ struct MCPSection: View {
                     snippet(title: String(localized: "写进客户端的 MCP 配置（Claude Desktop、Cursor 等）"), text: json)
                 }
             }
-            Text("可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout")
+            Text("可用工具：\(MCPServer.tools.map(\.name).joined(separator: "、"))")
                 .font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 4)

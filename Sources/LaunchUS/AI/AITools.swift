@@ -24,10 +24,13 @@ enum AIToolAccess: String, CaseIterable, Codable {
 /// The MCP tools the built-in chat may use, and how each is shown and guarded.
 enum AITools {
     /// Run without asking.
-    static let readOnly: Set<String> = ["search_apps", "list_apps", "running_apps", "list_folders", "list_layouts", "get_layout"]
+    static let readOnly: Set<String> = ["search_apps", "list_apps", "running_apps", "list_folders", "list_layouts", "get_layout",
+                                        "get_layout_settings", "list_widget_kinds", "list_widgets"]
     /// Asked first, unless allowed for the whole chat.
     static let actions: Set<String> = ["open_app", "open_group", "switch_layout", "quit_app",
-                                       "move_app", "create_folder", "rename_folder", "dissolve_folder", "hide_app"]
+                                       "move_app", "create_folder", "rename_folder", "dissolve_folder", "hide_app",
+                                       "create_layout", "duplicate_layout", "rename_layout", "delete_layout",
+                                       "set_layout_settings", "copy_layout_settings", "add_widget", "remove_widget"]
 
     private static func string(_ description: String) -> [String: Any] { ["type": "string", "description": description] }
 
@@ -53,12 +56,13 @@ enum AITools {
               required: ["app"]),
     ]
     /// Asked every time.
-    static let risky: Set<String> = ["quit_app"]
+    static let risky: Set<String> = ["quit_app", "delete_layout", "remove_widget"]
 
     static let context = """
         You are the assistant inside LaunchUS, the user's Mac app launcher. Use the tools to look up \
         and act on the user's apps, folders and layouts when that helps, including arranging the home \
-        screen (call get_layout first to see where things are); actions are shown to the user, \
+        screen (call get_layout first to see where things are), adding widgets and changing a layout's \
+        settings (read them with get_layout_settings first); actions are shown to the user, \
         who may approve or decline them. If an action is declined, accept it. Keep answers short and \
         answer in the user's language.
         """
@@ -100,6 +104,19 @@ enum AITools {
         case "rename_folder": return String(localized: "把文件夹「\(name)」改名为「\(input["new_name"] as? String ?? "")」")
         case "dissolve_folder": return String(localized: "解散文件夹「\(name)」")
         case "hide_app": return input["hidden"] as? Bool == false ? String(localized: "取消隐藏「\(app)」") : String(localized: "隐藏「\(app)」")
+        case "create_layout": return String(localized: "新建布局「\(name)」")
+        case "duplicate_layout": return String(localized: "把布局「\(name)」复制为「\(input["new_name"] as? String ?? "")」")
+        case "rename_layout": return String(localized: "把布局「\(name)」改名为「\(input["new_name"] as? String ?? "")」")
+        case "delete_layout": return String(localized: "删除布局「\(name)」")
+        case "get_layout_settings": return String(localized: "查看布局设置")
+        case "set_layout_settings":
+            let keys = ((input["values"] as? [String: Any])?.keys.sorted() ?? []).joined(separator: "、")
+            return String(localized: "修改布局设置：\(keys)")
+        case "copy_layout_settings": return String(localized: "从布局「\(input["from"] as? String ?? "")」复制设置")
+        case "list_widget_kinds": return String(localized: "查看可添加的小组件")
+        case "list_widgets": return String(localized: "查看主屏幕上的小组件")
+        case "add_widget": return String(localized: "添加小组件「\(input["kind"] as? String ?? "")」")
+        case "remove_widget": return String(localized: "移除小组件「\(input["widget"] as? String ?? "")」")
         default: return call.name
         }
     }
@@ -127,7 +144,9 @@ enum AITools {
         case "search_apps": "magnifyingglass"
         case "list_apps", "list_folders": "square.grid.2x2"
         case "running_apps": "app.badge"
-        case "list_layouts", "switch_layout": "rectangle.3.group"
+        case "list_layouts", "switch_layout", "create_layout", "duplicate_layout", "rename_layout", "delete_layout": "rectangle.3.group"
+        case "get_layout_settings", "set_layout_settings", "copy_layout_settings": "slider.horizontal.3"
+        case "list_widget_kinds", "list_widgets", "add_widget", "remove_widget": "widget.small"
         case "open_app", "open_group": "arrow.up.forward.app"
         case "quit_app": "xmark.app"
         default: "wrench.and.screwdriver"

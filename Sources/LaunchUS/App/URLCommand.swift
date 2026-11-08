@@ -8,7 +8,16 @@ import Foundation
 ///     launchus://openall?name=写代码      (every app in that folder)
 ///     launchus://toggle?profile=工作   (opens or closes that profile, as its Dock icon does)
 ///     launchus://widgets              (the widget gallery)
+///     launchus://tool?name=…&args=…&reply=…&token=…   (`LaunchUS --mcp` running a tool, `MCPBridge`)
 enum URLCommand: Equatable {
+    /// A tool the MCP server runs in the app; `arguments` is JSON text.
+    struct ToolRequest: Equatable {
+        var name: String
+        var arguments: String
+        var reply: String
+        var token: String
+    }
+
     case open, toggle, close
     /// Opens a profile, or closes it when it's the one on screen.
     case toggleProfile(String)
@@ -22,6 +31,7 @@ enum URLCommand: Equatable {
     /// Opens every app in a named folder.
     case openAll(String)
     case widgets
+    case tool(ToolRequest)
 
     static let scheme = "launchus"
 
@@ -53,6 +63,9 @@ enum URLCommand: Equatable {
             self = .openAll(folder)
         case "widgets", "widget":
             self = .widgets
+        case "tool":
+            guard let tool = query["name"], !tool.isEmpty, let reply = query["reply"], !reply.isEmpty else { return nil }
+            self = .tool(ToolRequest(name: tool, arguments: query["args"] ?? "{}", reply: reply, token: query["token"] ?? ""))
         case "settings":
             self = .settings(query["tab"].flatMap { SettingsTab.named($0) })
         default:

@@ -11,14 +11,25 @@ enum MCPServer {
         let description: String
         let properties: [String: [String: Any]]
         let required: [String]
+        /// MCP tool hints: readOnlyHint, destructiveHint, idempotentHint.
+        var annotations: [String: Bool] = [:]
 
         var json: [String: Any] {
-            ["name": name, "description": description,
-             "inputSchema": ["type": "object", "properties": properties, "required": required] as [String: Any]]
+            var json: [String: Any] = ["name": name, "description": description,
+                                       "inputSchema": ["type": "object", "properties": properties, "required": required] as [String: Any]]
+            if !annotations.isEmpty { json["annotations"] = annotations }
+            return json
         }
     }
 
     private static func string(_ description: String) -> [String: Any] { ["type": "string", "description": description] }
+    private static func integer(_ description: String) -> [String: Any] { ["type": "integer", "description": description] }
+    private static let readOnly = ["readOnlyHint": true]
+    private static let destructive = ["readOnlyHint": false, "destructiveHint": true]
+    private static let additive = ["readOnlyHint": false, "destructiveHint": false]
+
+    /// The groups `get_layout_settings` and the other settings tools take.
+    static let settingsGroups = "display, appearance, organize, general (how it opens, login, menu bar and Dock), behavior, apps or ai"
 
     static let tools: [Tool] = [
         Tool(name: "search_apps", description: "Search the installed apps the way LaunchUS does (names, pinyin, initials, aliases). Returns name, bundle ID and path.",
@@ -45,7 +56,59 @@ enum MCPServer {
         Tool(name: "list_layouts", description: "List the saved layouts and which one is in use.", properties: [:], required: []),
         Tool(name: "switch_layout", description: "Switch the launcher to another saved layout.",
              properties: ["name": string("Layout name; \"default\" is the default layout")], required: ["name"]),
+    ] + appTools
+
+    /// Tools the running app runs (`MCPBridge`): they change its live layouts, settings and widgets.
+    /// The built-in chat runs them directly (`LauncherModel.runLocalTool`).
+    static let appTools: [Tool] = [
+        // Layouts (profiles): each has its own pages, settings and way to open.
+        Tool(name: "create_layout", description: "Create a new layout (a profile with its own pages and settings) and switch to it. It starts without a shortcut, F4, pinch or hot corner of its own.",
+             properties: ["name": string("Name for the new layout"),
+                          "mode": string("How it's shown: \"fullScreen\" or \"window\" (default: like the layout in use)"),
+                          "pages": string("\"copy\" copies the pages of the layout in use (the default); \"by_name\" puts every app in name order"),
+                          "settings_from": string("The layout whose settings it starts with (default: the one in use)")],
+             required: ["name"], annotations: additive),
+        Tool(name: "duplicate_layout", description: "Copy a layout, with its pages and settings, under a new name and switch to the copy. The copy has no shortcut, F4, pinch or hot corner of its own.",
+             properties: ["name": string("The layout to copy; \"default\" is the default layout"),
+                          "new_name": string("Name for the copy")],
+             required: ["name", "new_name"], annotations: additive),
+        Tool(name: "rename_layout", description: "Rename a layout. The default layout can't be renamed.",
+             properties: ["name": string("The layout's name now"), "new_name": string("The new name")],
+             required: ["name", "new_name"], annotations: ["readOnlyHint": false, "destructiveHint": false, "idempotentHint": true]),
+        Tool(name: "delete_layout", description: "Delete a layout for good: its pages, settings, hidden-app list, automatic backups and AI chats are removed and can't be brought back. The default layout can't be deleted. Deleting the layout in use switches to the default one.",
+             properties: ["name": string("The layout to delete")], required: ["name"], annotations: destructive),
+        // Settings
+        Tool(name: "get_layout_settings", description: "Read a layout's settings by group (\(settingsGroups)), as JSON: group, then setting, then value. Values are in the form set_layout_settings takes.",
+             properties: ["layout": string("Layout name (default: the one in use)"),
+                          "group": string("One group; leave out for all of them")],
+             required: [], annotations: readOnly),
+        Tool(name: "set_layout_settings", description: "Change settings in one group of a layout. Call get_layout_settings first for the setting names and the form of their values; values out of range are brought into range.",
+             properties: ["layout": string("Layout name (default: the one in use)"),
+                          "group": string("The group the settings are in: \(settingsGroups)"),
+                          "values": ["type": "object", "description": "Setting name to new value, e.g. {\"columns\": 8, \"hideNames\": true}"]],
+             required: ["group", "values"], annotations: ["readOnlyHint": false, "destructiveHint": false, "idempotentHint": true]),
+        Tool(name: "copy_layout_settings", description: "Copy one group of settings from another layout into the layout in use, replacing its settings in that group. Afterwards each layout changes on its own.",
+             properties: ["from": string("The layout to copy from"),
+                          "group": string("The group to copy: \(settingsGroups)")],
+             required: ["from", "group"], annotations: ["readOnlyHint": false, "destructiveHint": true, "idempotentHint": true]),
+        // Widgets
+        Tool(name: "list_widget_kinds", description: "List the widgets that can be added (built in and plugins), with their kind IDs and sizes: small (2×2 cells), medium (4×2) and large (4×4).",
+             properties: [:], required: [], annotations: readOnly),
+        Tool(name: "list_widgets", description: "List the widgets on the home screen of the layout in use, with their IDs, sizes and where they are.",
+             properties: [:], required: [], annotations: readOnly),
+        Tool(name: "add_widget", description: "Add a widget to the home screen of the layout in use. The apps there move along to make room.",
+             properties: ["kind": string("The widget's kind ID from list_widget_kinds, e.g. \"launchus.clock\", or its name"),
+                          "size": string("small (2×2), medium (4×2) or large (4×4); default small. A widget that doesn't come in that size gets the nearest one"),
+                          "page": integer("Page number, 1-based (default 1); one past the last page adds a page"),
+                          "row": integer("Row of its top-left cell, 1-based (default 1)"),
+                          "column": integer("Column of its top-left cell, 1-based (default 1)")],
+             required: ["kind"], annotations: additive),
+        Tool(name: "remove_widget", description: "Remove a widget from the home screen. What it holds (a note's text, a timer) is deleted and can't be brought back.",
+             properties: ["widget": string("The widget's ID from list_widgets, or its kind or name when there's only one of it")],
+             required: ["widget"], annotations: destructive),
     ]
+
+    static let appToolNames = Set(appTools.map(\.name))
 
     // MARK: Loop
 
@@ -85,7 +148,7 @@ enum MCPServer {
             result = ["protocolVersion": params["protocolVersion"] as? String ?? protocolVersion,
                       "capabilities": ["tools": [String: Any]()],
                       "serverInfo": ["name": "launchus", "title": "LaunchUS", "version": version],
-                      "instructions": "LaunchUS is the user's Mac app launcher. Use search_apps to find an app before opening or quitting it."]
+                      "instructions": "LaunchUS is the user's Mac app launcher. Use search_apps to find an app before opening or quitting it. Layouts are profiles with their own pages, settings and widgets; read before changing (list_layouts, get_layout_settings, list_widgets)."]
         case "ping":
             result = [:]
         case "tools/list":
@@ -177,6 +240,8 @@ enum MCPServer {
                 .joined(separator: "\n")
         case "switch_layout":
             return try openLink("layout", ["name": try text("name")], done: "Asked LaunchUS to switch layouts.")
+        case _ where appToolNames.contains(name):
+            return try MCPBridge.send(name, arguments)
         default:
             throw Failure("Unknown tool: \(name)")
         }

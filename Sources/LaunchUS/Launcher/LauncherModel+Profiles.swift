@@ -124,12 +124,13 @@ extension LauncherModel {
     }
 
     /// A new profile is shown the chosen way, with the settings of `settingsFrom` (the current
-    /// profile by default). It starts with a copy of the current pages, or with every app in
-    /// name order.
-    func createProfile(_ rawName: String, mode: DisplayMode, copyPages: Bool = true, settingsFrom source: String? = nil) {
+    /// profile by default). It starts with a copy of the current pages (or of `pages`, to copy
+    /// another profile), or with every app in name order.
+    func createProfile(_ rawName: String, mode: DisplayMode, copyPages: Bool = true, pages: [[LayoutItem]]? = nil,
+                       settingsFrom source: String? = nil) {
         let name = rawName.trimmingCharacters(in: .whitespaces)
         guard !name.isEmpty, LayoutProfiles.resolve(name, in: profiles) == nil else { return }
-        profiles.saved[name] = copyPages ? layout : LayoutOps.alphabetical(catalog.apps, perPage: perPage)
+        profiles.saved[name] = pages ?? (copyPages ? layout : LayoutOps.alphabetical(catalog.apps, perPage: perPage))
         let live = captureCurrentSettings()
         let from = source.flatMap { $0 == profiles.current || profiles.settings[$0] != nil ? $0 : nil } ?? profiles.current
         var values = from == profiles.current ? live : profiles.settings[from] ?? live
@@ -161,7 +162,7 @@ extension LauncherModel {
         saveProfiles()
     }
 
-    private func saveProfiles() {
+    func saveProfiles() {
         LayoutProfiles.save(profiles)
         profilesVersion += 1
         NotificationCenter.default.post(name: Self.triggersChanged, object: nil)

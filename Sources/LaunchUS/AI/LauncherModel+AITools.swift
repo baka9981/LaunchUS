@@ -38,7 +38,7 @@ extension LauncherModel {
             setHidden(hidden, for: app.id)
             return (hidden ? "Hid \(app.name)." : "\(app.name) shows in the launcher again.", true)
         default:
-            return nil
+            return runProfileTool(call)
         }
     }
 

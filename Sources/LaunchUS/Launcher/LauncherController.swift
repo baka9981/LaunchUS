@@ -27,6 +27,8 @@ final class LauncherController {
     let model: LauncherModel
     private let wallpaper = WallpaperProvider()
     private let panel = LauncherPanel()
+    /// The settings window and the editor cards, windows of their own above the launcher.
+    private var cards: CardWindows!
     private let settings = Settings.shared
     private var monitors: [Any] = []
     /// Clicks in other apps while the launcher is up (works even if activation didn't stick).
@@ -57,10 +59,10 @@ final class LauncherController {
         model.onOpenGroup = { [weak self] apps in self?.openGroup(apps) }
         model.onClose = { [weak self] in self?.hide(restoreFocus: true) }
         PermissionHelper.shared.hideLauncher = { [weak self] in
-            if self?.isVisible == true { self?.hide(restoreFocus: true) }
+            if self?.isVisible == true { self?.hide(restoreFocus: true, force: true) }
         }
         Updater.shared.hideLauncher = { [weak self] in
-            if self?.isVisible == true { self?.hide(restoreFocus: false) }
+            if self?.isVisible == true { self?.hide(restoreFocus: false, force: true) }
         }
         catalog.onChange = { [weak self] in
             self?.model.catalogChanged()
@@ -87,6 +89,9 @@ final class LauncherController {
             self.remapBadges()
         }
 
+        cards = CardWindows(model: model, launcher: panel) { [weak self] in self?.isVisible == true }
+        cards.showLauncher = { [weak self] in self?.show() }
+
         configurePanel(for: targetScreen())
         panel.contentView = LauncherHostingView(rootView: LauncherView(model: model, wallpaper: wallpaper))
         hitchLog = HitchLog(view: panel.contentView!) { [weak self] in
@@ -107,17 +112,20 @@ final class LauncherController {
             MainActor.assumeIsolated {
                 guard let self, self.isVisible,
                       !NSScreen.screens.contains(where: { self.frame(on: $0) == self.panel.frame }) else { return }
-                self.hide(restoreFocus: false)
+                // With the settings open the launcher stays; it's fitted to the new screen instead.
+                if self.model.showSettings { self.displaySettingsChanged() } else { self.hide(restoreFocus: false) }
             }
         }
         installEventMonitors()
         wallpaper.prepare(for: targetScreen(), blur: settings.blur)
     }
 
-    /// Shows the launcher with the settings card on top (menu bar, Dock menu, ⌘,).
+    /// Opens the settings window (menu bar, Dock menu, ⌘,) over the launcher, which shows what
+    /// the settings change and stays open as long as they do.
     func openSettings(tab: SettingsTab? = nil) {
         if !isVisible { show() }
         model.openSettings(tab)
+        cards.focusSettings()
     }
 
     func openGuide() {
@@ -131,6 +139,8 @@ final class LauncherController {
         let screen = panel.screen ?? targetScreen()
         configurePanel(for: screen)
         wallpaper.prepare(for: screen, blur: settings.blur)
+        // Full screen and window sit at different levels; the settings stay above either.
+        cards.restack()
     }
 
     private func frame(on screen: NSScreen) -> NSRect {
@@ -197,12 +207,16 @@ final class LauncherController {
         configurePanel(for: screen)
         wallpaper.prepare(for: screen, blur: settings.blur)
         catalog.reload()
+        // The settings window stays open across the launcher coming and going.
+        let openSettings = (model.showSettings, model.tuner)
         model.prepareForShow()
+        (model.showSettings, model.tuner) = openSettings
 
         // A non-activating panel takes the keyboard even when the app can't become active
         // (hotkey, F4, hot corner); activation is still requested for menus and alerts.
         NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
+        cards.launcherShown()
         if outsideClickMonitor == nil {
             outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -258,7 +272,7 @@ final class LauncherController {
             guard pinchOpening else { return }
             model.gestureProgress = progress
         } else {
-            guard isVisible, !pinchOpening, model.drag == nil else { return }
+            guard isVisible, !pinchOpening, model.drag == nil, !model.showSettings else { return }
             model.gestureProgress = 1 - progress
         }
     }
@@ -359,7 +373,9 @@ final class LauncherController {
                 self.model.openFolder(folder.id)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + (env["LAUNCHUS_DELAY"].flatMap(Double.init) ?? 1.0)) {
-                if self.model.showSettings || env["LAUNCHUS_EDIT"] != nil || env["LAUNCHUS_SHEET"] != nil || env["LAUNCHUS_REAL"] != nil, let view = self.panel.contentView,
+                let front = self.model.tuner == nil ? self.cards.snapshotView : nil
+                if front != nil || env["LAUNCHUS_EDIT"] != nil || env["LAUNCHUS_SHEET"] != nil || env["LAUNCHUS_REAL"] != nil,
+                   let view = front ?? self.panel.contentView,
                    let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
                     // AppKit controls only draw through the real view hierarchy.
                     view.cacheDisplay(in: view.bounds, to: rep)
@@ -381,9 +397,17 @@ final class LauncherController {
         }
     }
 
-    /// - Parameter restoreFocus: hand focus back to the previous app (Esc / click outside).
-    func hide(restoreFocus: Bool) {
+    /// - Parameters:
+    ///   - restoreFocus: hand focus back to the previous app (Esc / click outside).
+    ///   - force: close even with the settings open (they close too). Otherwise the launcher
+    ///     stays while the settings are open, since they show their changes on it.
+    func hide(restoreFocus: Bool, force: Bool = false) {
         guard panel.isVisible, !isHiding else { return }
+        if model.showSettings {
+            guard force else { return }
+            model.tuner = nil
+            model.showSettings = false
+        }
         isHiding = true
         hideToken += 1
         let token = hideToken
@@ -401,6 +425,7 @@ final class LauncherController {
         DispatchQueue.main.asyncAfter(deadline: .now() + settings.animationSpeed.duration(settings.motionCurve == nil ? 0.17 : 0.19) / openCloseRate) {
             guard self.hideToken == token else { return }
             self.panel.orderOut(nil)
+            self.cards.launcherHidden()
             self.model.didHide()
             // Don't hide the settings window along with the launcher.
             let otherWindows = NSApp.windows.contains { $0 !== self.panel && $0.isVisible && $0.canBecomeMain }

@@ -14,14 +14,24 @@ extension LauncherModel {
         sheet = .widgetGallery
     }
 
-    /// Puts a new widget at the top of the page in view; the icons there move along.
-    func addWidget(_ kind: String, size: WidgetItem.Size) {
-        guard canAddWidget, let provider = WidgetRegistry.shared.provider(kind) else { return }
+    /// Puts a new widget at the top of the page in view (or at a cell of a page, 0-based, from
+    /// the AI tools; one past the last page starts a new page); the icons there move along.
+    /// Sorted or scrolling, it always goes on the first page.
+    @discardableResult
+    func addWidget(_ kind: String, size: WidgetItem.Size, page: Int? = nil, cell: Int = 0) -> WidgetItem? {
+        guard canAddWidget, let provider = WidgetRegistry.shared.provider(kind) else { return nil }
         if layout.isEmpty { layout = [[]] }
-        let page = settings.sortOrder == .custom && settings.browseStyle == .paged ? min(currentPage, layout.count - 1) : 0
-        layout[page].insert(.widget(WidgetItem(kind: kind, size: provider.fit(size))), at: 0)
+        let ordered = settings.sortOrder == .custom && settings.browseStyle == .paged
+        var index = ordered ? min(currentPage, layout.count - 1) : 0
+        if ordered, let page {
+            index = min(max(0, page), layout.count)
+            if index == layout.count { layout.append([]) }
+        }
+        let widget = WidgetItem(kind: kind, size: provider.fit(size))
+        layout[index].insert(.widget(widget), at: min(max(0, cell), layout[index].count))
         if kind == BuiltInWidget.calendar.rawValue { WidgetEvents.shared.requestAccess() }
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
+        return widget
     }
 
     func resizeWidget(_ id: String, to size: WidgetItem.Size) {

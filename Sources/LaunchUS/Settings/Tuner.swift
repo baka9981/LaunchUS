@@ -1,18 +1,31 @@
 import SwiftUI
 
-/// Which tuning panel is open in place of the settings card.
+/// Which tuning panel is open in place of the settings window.
 enum Tuner: Hashable {
     case background, motion
 }
 
-/// A narrow panel at the screen's edge for fine-tuning one part of the look while watching it on
-/// the launcher itself, so the detailed sliders don't crowd the settings card.
+/// A narrow panel, in a window of its own beside the launcher (`CardWindows`), for fine-tuning
+/// one part of the look while watching it on the launcher itself.
 struct TunerPanel: View {
     let model: LauncherModel
     @Bindable var settings: Settings
     let tuner: Tuner
 
+    /// Taller than this, the controls scroll.
+    var maxHeight: CGFloat = .infinity
+
     static let width: CGFloat = 340
+
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            switch tuner {
+            case .background: BackgroundTuner(settings: settings)
+            case .motion: MotionTuner(model: model, settings: settings)
+            }
+        }
+        .padding(18)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -28,19 +41,14 @@ struct TunerPanel: View {
             .padding(.top, 16)
             .padding(.bottom, 12)
             Divider()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    switch tuner {
-                    case .background: BackgroundTuner(settings: settings)
-                    case .motion: MotionTuner(model: model, settings: settings)
-                    }
-                }
-                .padding(18)
+            // Its own height when there's room, else as tall as allowed and scrolling.
+            ViewThatFits(in: .vertical) {
+                controls
+                ScrollView { controls }.scrollIndicators(.never)
             }
-            .scrollIndicators(.never)
-            .fixedSize(horizontal: false, vertical: true)
         }
         .frame(width: Self.width)
+        .frame(maxHeight: maxHeight)
         .background(Color(nsColor: .windowBackgroundColor))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Color.primary.opacity(0.08)))

@@ -397,7 +397,9 @@ extension LauncherModel {
         } else if showWhatsNew {
             finishWhatsNew()
         } else if showSettings {
-            closeSettings()
+            // Settings is a window of its own and keeps the launcher open; only a tuning panel
+            // is ended from here (back to settings).
+            if tuner != nil { closeSettings() }
         } else if sheet != nil {
             dismissSheet()
         } else if showHiddenApps {
@@ -422,7 +424,9 @@ extension LauncherModel {
         } else if showWhatsNew {
             finishWhatsNew()
         } else if showSettings {
-            closeSettings()
+            // Settings is a window of its own and keeps the launcher open; only a tuning panel
+            // is ended from here (back to settings).
+            if tuner != nil { closeSettings() }
         } else if sheet != nil {
             dismissSheet()
         } else if showHiddenApps {

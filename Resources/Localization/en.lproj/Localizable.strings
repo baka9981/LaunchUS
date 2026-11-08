@@ -672,7 +672,6 @@
 "↩ 发送 · ⌘N 新对话 · Esc 退出" = "↩ Send · ⌘N New Chat · Esc Leave";
 "保存在钥匙串中" = "Stored in the keychain";
 "停止" = "Stop";
-"可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout" = "Tools: search_apps, list_apps, open_app, quit_app, running_apps, list_folders, open_folder, open_group, show_launcher, search, list_layouts, switch_layout";
 "在搜索栏输入 128*3，按 ↩ 复制结果" = "Type 128*3 in the search field and press ↩ to copy the result";
 "地址" = "Address";
 "填好模型和密钥后可测试" = "Fill in a model and key to test";
@@ -694,7 +693,6 @@
 "网关" = "Gateway";
 "网关地址无效" = "The gateway address isn't valid";
 "计算" = "Calculator";
-"让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。" = "Let AI tools like Claude, Codex and Cursor find, open and quit apps, open folders or groups, and switch layouts.";
 "连接成功" = "Connected";
 "连接成功：%@" = "Connected: %@";
 "重试" = "Retry";
@@ -1354,3 +1352,17 @@
 "或者写进 ~/.codex/config.toml" = "Or add to ~/.codex/config.toml";
 "写进客户端的 MCP 配置（Claude Desktop、Cursor 等）" = "Add to the client's MCP config (Claude Desktop, Cursor and others)";
 "其他客户端" = "Other Clients";
+"新建布局「%@」" = "Create the layout “%@”";
+"把布局「%@」复制为「%@」" = "Copy the layout “%@” as “%@”";
+"把布局「%@」改名为「%@」" = "Rename the layout “%@” to “%@”";
+"删除布局「%@」" = "Delete the layout “%@”";
+"查看布局设置" = "Look at the layout’s settings";
+"修改布局设置：%@" = "Change layout settings: %@";
+"从布局「%@」复制设置" = "Copy settings from the layout “%@”";
+"查看可添加的小组件" = "Look at the widgets that can be added";
+"查看主屏幕上的小组件" = "Look at the widgets on the home screen";
+"添加小组件「%@」" = "Add the widget “%@”";
+"移除小组件「%@」" = "Remove the widget “%@”";
+"AI 网关" = "AI Gateway";
+"让 Claude、Codex、Cursor 等 AI 工具搜索、打开和退出 App，打开文件夹或分组，新建、切换和修改布局方案及其设置，添加和移除小组件。所有布局方案共用。" = "Let AI tools like Claude, Codex and Cursor find, open and quit apps, open folders or groups, create, switch and change layouts and their settings, and add or remove widgets. Shared by all layouts.";
+"可用工具：%@" = "Tools: %@";

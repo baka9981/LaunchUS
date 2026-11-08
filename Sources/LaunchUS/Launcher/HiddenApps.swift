@@ -9,8 +9,9 @@ enum OwnerAuth {
         let context = LAContext()
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return false }
-        // The prompt is a normal-level window; the launcher sits far above it.
-        let panels = NSApp.windows.filter { $0 is LauncherPanel && $0.isVisible }
+        // The prompt is a normal-level window; the launcher (and the settings over it) sit far above it.
+        let panels = CardWindows.floating()
+        let key = NSApp.keyWindow
         let levels = panels.map(\.level)
         panels.forEach { $0.level = .normal }
         let ok = await withCheckedContinuation { (done: CheckedContinuation<Bool, Never>) in
@@ -20,7 +21,7 @@ enum OwnerAuth {
         }
         zip(panels, levels).forEach { $0.level = $1 }
         NSApp.activate()
-        panels.first?.makeKeyAndOrderFront(nil)
+        (key ?? panels.first)?.makeKeyAndOrderFront(nil)
         return ok
     }
 }

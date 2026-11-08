@@ -458,7 +458,9 @@ final class Settings {
     var aiHistoryCount: Int {
         didSet {
             save(aiHistoryCount, "aiHistoryCount")
-            if aiHistoryCount < oldValue { ChatHistory.prune(keeping: aiHistoryCount) }
+            // Only the app's own settings: a scratch copy (tests, checking a waiting profile's
+            // value) mustn't delete chats.
+            if aiHistoryCount < oldValue, defaults === UserDefaults.app { ChatHistory.prune(keeping: aiHistoryCount) }
         }
     }
 

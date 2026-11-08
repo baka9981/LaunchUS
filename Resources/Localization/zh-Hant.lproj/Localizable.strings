@@ -672,7 +672,6 @@
 "↩ 发送 · ⌘N 新对话 · Esc 退出" = "↩ 傳送 · ⌘N 新對話 · Esc 離開";
 "保存在钥匙串中" = "儲存在鑰匙圈中";
 "停止" = "停止";
-"可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout" = "可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout";
 "在搜索栏输入 128*3，按 ↩ 复制结果" = "在搜尋欄輸入 128*3，按 ↩ 拷貝結果";
 "地址" = "位址";
 "填好模型和密钥后可测试" = "填好模型和金鑰後可測試";
@@ -694,7 +693,6 @@
 "网关" = "閘道";
 "网关地址无效" = "閘道位址無效";
 "计算" = "計算";
-"让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。" = "讓 Claude、Codex、Cursor 等 AI 工具搜尋和打開 App、結束 App、打開檔案夾或群組、切換佈局。";
 "连接成功" = "連線成功";
 "连接成功：%@" = "連線成功：%@";
 "重试" = "重試";
@@ -1354,3 +1352,17 @@
 "或者写进 ~/.codex/config.toml" = "或者寫進 ~/.codex/config.toml";
 "写进客户端的 MCP 配置（Claude Desktop、Cursor 等）" = "寫進用戶端的 MCP 設定（Claude Desktop、Cursor 等）";
 "其他客户端" = "其他用戶端";
+"新建布局「%@」" = "新增佈局「%@」";
+"把布局「%@」复制为「%@」" = "把佈局「%@」複製為「%@」";
+"把布局「%@」改名为「%@」" = "把佈局「%@」重新命名為「%@」";
+"删除布局「%@」" = "刪除佈局「%@」";
+"查看布局设置" = "查看佈局設定";
+"修改布局设置：%@" = "修改佈局設定：%@";
+"从布局「%@」复制设置" = "從佈局「%@」拷貝設定";
+"查看可添加的小组件" = "查看可加入的小工具";
+"查看主屏幕上的小组件" = "查看主畫面上的小工具";
+"添加小组件「%@」" = "加入小工具「%@」";
+"移除小组件「%@」" = "移除小工具「%@」";
+"AI 网关" = "AI 閘道";
+"让 Claude、Codex、Cursor 等 AI 工具搜索、打开和退出 App，打开文件夹或分组，新建、切换和修改布局方案及其设置，添加和移除小组件。所有布局方案共用。" = "讓 Claude、Codex、Cursor 等 AI 工具搜尋、打開和結束 App，打開檔案夾或群組，新增、切換和修改佈局方案及其設定，加入和移除小工具。所有佈局方案共用。";
+"可用工具：%@" = "可用工具：%@";

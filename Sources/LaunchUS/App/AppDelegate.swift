@@ -250,7 +250,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             launcher.toggleProfile(name, via: .appIcon)
         case .close:
-            if launcher.isVisible { launcher.hide(restoreFocus: true) }
+            if launcher.isVisible { launcher.hide(restoreFocus: true, force: true) }
         case .search(let text):
             if !launcher.isVisible { launcher.show(via: .link) }
             DispatchQueue.main.async { model.query = text }
@@ -270,6 +270,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .widgets:
             if !launcher.isVisible { launcher.show(via: .link) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { model.openWidgetGallery() }
+        case .tool(let request):
+            MCPBridge.answer(request, model: model)
         }
     }
 
