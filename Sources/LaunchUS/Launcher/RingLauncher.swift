@@ -50,6 +50,13 @@ struct RingLauncher: View {
                     .opacity(shown)
                     .scaleEffect(0.8 + 0.2 * shown)
 
+                if let tip = model.tip, model.isPresented, !model.showSettings {
+                    TipToast(model: model, tip: tip, windowed: true)
+                        .position(x: layout.center.x,
+                                  y: min(geo.size.height - 40, layout.center.y + layout.outerRadius + 36))
+                        .transition(.opacity.combined(with: .offset(y: 8)))
+                }
+
                 overlays(geo.size)
             }
             .frame(width: geo.size.width, height: geo.size.height)

@@ -7,6 +7,7 @@ struct LicenseTab: View {
     @State private var code = ""
     @State private var message: String?
     @State private var justActivated = false
+    @AppStorage(Settings.feedbackReminderKey, store: .app) private var feedbackReminder = true
 
     var body: some View {
         let license = License.shared
@@ -66,6 +67,17 @@ struct LicenseTab: View {
                     .font(.system(size: 12)).foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 4)
+            }
+        }
+        // Only an activated Mac has these; before that they're not mentioned at all.
+        if license.isActivated {
+            SettingsSection(title: String(localized: "激活后可用")) {
+                Card {
+                    Row(title: String(localized: "每日反馈提醒"),
+                        info: String(localized: "每天第一次打开时，在底部请你提些建议和反馈")) {
+                        Toggle("", isOn: $feedbackReminder).toggleStyle(.switch).labelsHidden()
+                    }
+                }
             }
         }
     }

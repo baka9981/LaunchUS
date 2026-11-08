@@ -194,6 +194,11 @@ enum ReturnHome: Int, CaseIterable, Codable {
     case immediately = 0, thirtySeconds = 30, oneMinute = 60, fiveMinutes = 300, fifteenMinutes = 900, oneHour = 3600, never = -1
 }
 /// How readily the mouse wheel turns pages: 0 slowest, 0.5 one page a spin, 1 fastest.
+extension Settings {
+    /// LaunchUS's own, not a profile's: 每日反馈提醒 on the 激活 page.
+    static let feedbackReminderKey = "dailyFeedbackReminder"
+}
+
 enum WheelSpeed {
     /// Wheel notches per page: 6 at the slow end, 1 at the fast end, evenly in between as felt
     /// (each step of the slider multiplies by the same amount).

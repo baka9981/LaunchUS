@@ -1495,3 +1495,8 @@
 "滚约 %lld 格翻一页" = "About %lld notches a page";
 "点一下右边，再按一下要用的鼠标键；之后快速连按它几下就打开或关闭。中键或侧键最合适，左右键本身的点击也会照常生效。" = "Click the box, then press the mouse button to use. After that, click it quickly a few times to open or close. The middle or a side button works best; left and right clicks still do what they normally do.";
 "请按一下要用的鼠标键…" = "Press the mouse button to use…";
+"写反馈" = "Write feedback";
+"每天第一次打开时，在底部请你提些建议和反馈" = "The first time it opens each day, a note at the bottom asks for your suggestions and feedback";
+"每日反馈提醒" = "Daily feedback reminder";
+"激活后可用" = "With activation";
+"用得怎么样？欢迎给我们一些建议和反馈" = "How’s it going? We’d love your suggestions and feedback";

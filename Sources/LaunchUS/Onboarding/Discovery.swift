@@ -59,15 +59,35 @@ enum WhatsNew {
 /// A hint shown once, at the moment it's useful.
 enum Tip: String {
     case dragOut, frequentRow, launchItem, rightClick, hiddenDot
+    /// Asks for suggestions the first time the launcher opens each day; activated Macs can turn
+    /// it off on the 激活 page.
+    case feedback
 
     private static let key = "shownTips"
+    private static let feedbackDayKey = "feedbackTipDay"
     nonisolated(unsafe) private static var shown = Set(UserDefaults.app.stringArray(forKey: key) ?? [])
 
-    var wasShown: Bool { Self.shown.contains(rawValue) }
+    var wasShown: Bool {
+        if self == .feedback { return UserDefaults.app.string(forKey: Self.feedbackDayKey) == Self.today }
+        return Self.shown.contains(rawValue)
+    }
 
     func markShown() {
+        if self == .feedback { UserDefaults.app.set(Self.today, forKey: Self.feedbackDayKey); return }
         Self.shown.insert(rawValue)
         UserDefaults.app.set(Array(Self.shown).sorted(), forKey: Self.key)
+    }
+
+    private static var today: String {
+        let c = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        return "\(c.year ?? 0)-\(c.month ?? 0)-\(c.day ?? 0)"
+    }
+
+    /// Whether today's reminder is due: always before activating, else unless turned off.
+    @MainActor static var feedbackDue: Bool {
+        // Not in demo runs (website pictures); LAUNCHUS_SHEET=tip:feedback shows it there.
+        if ProcessInfo.processInfo.environment["LAUNCHUS_DEMO"] != nil { return false }
+        return !Tip.feedback.wasShown && (!License.shared.isActivated || UserDefaults.app.object(forKey: Settings.feedbackReminderKey) as? Bool ?? true)
     }
 
     /// Launches through LaunchUS before the frequent row is suggested.
@@ -83,6 +103,7 @@ enum Tip: String {
         case .launchItem: String(localized: "没找到？网址、文件和脚本也能做成启动项")
         case .rightClick: String(localized: "小技巧：在空白处点右键，可以打开设置和更多选项")
         case .hiddenDot: String(localized: "已隐藏。想找回来，点页面圆点右边的虚线小圆点")
+        case .feedback: String(localized: "用得怎么样？欢迎给我们一些建议和反馈")
         }
     }
 
@@ -93,6 +114,7 @@ enum Tip: String {
         case .launchItem: String(localized: "新建启动项…")
         case .rightClick: String(localized: "打开设置")
         case .hiddenDot: String(localized: "看看")
+        case .feedback: String(localized: "写反馈")
         }
     }
 
@@ -105,6 +127,7 @@ enum Tip: String {
             model.sheet = .editCustom(nil)
         case .rightClick: model.openSettings()
         case .hiddenDot: model.revealHidden()
+        case .feedback: model.openSettings(.feedback)
         }
     }
 }
@@ -117,6 +140,8 @@ extension LauncherModel {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { showWhatsNew = true }
         } else if !showsFrequentRow, settings.pageStyle == .scroll, RecentLaunches.load().count >= Tip.frequentRowAfter {
             offerTip(.frequentRow)
+        } else if Tip.feedbackDue {
+            offerTip(.feedback)
         }
     }
 
@@ -133,7 +158,7 @@ extension LauncherModel {
         guard !tip.wasShown, self.tip != tip, isPresented, !showGuide, !showWhatsNew else { return }
         tip.markShown()
         withAnimation(.easeOut(duration: 0.2)) { self.tip = tip }
-        DispatchQueue.main.asyncAfter(deadline: .now() + (tip == .hiddenDot ? 12 : 8)) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + (tip == .hiddenDot || tip == .feedback ? 12 : 8)) { [weak self] in
             guard let self, self.tip == tip else { return }
             dismissTip()
         }
@@ -224,7 +249,8 @@ struct TipToast: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: "lightbulb.fill").foregroundStyle(.yellow)
+            Image(systemName: tip == .feedback ? "bubble.left.and.text.bubble.right.fill" : "lightbulb.fill")
+                .foregroundStyle(tip == .feedback ? Color.accentColor : .yellow)
             Text(tip.text(model.settings)).font(.system(size: 13, weight: .medium))
             if let title = tip.actionTitle {
                 Button(title) {
