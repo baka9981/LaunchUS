@@ -23,6 +23,15 @@ struct AdvancedTab: View {
                         Button(String(localized: "检查更新…")) { Updater.shared.checkForUpdates() }
                     }
                 }
+                Row(title: String(localized: "激活状态"),
+                    subtitle: License.shared.maskedCode) {
+                    HStack(spacing: 10) {
+                        LicenseBadge()
+                        Button(License.shared.isActivated ? String(localized: "查看…") : String(localized: "激活…")) {
+                            model.settingsTab = .license
+                        }
+                    }
+                }
                 if Updater.shared.isConfigured {
                     Row(title: String(localized: "自动检查更新")) {
                         HStack(spacing: 10) {

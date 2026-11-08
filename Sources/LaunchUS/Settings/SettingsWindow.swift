@@ -10,12 +10,14 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case display, appearance, organize, general, behavior, hidden, apps, ai, manage
     /// LaunchUS's own MCP server: one for all profiles, so it's a page of its own.
     case mcp
+    /// 激活码 and the conversation with the developer, LaunchUS's own like MCP.
+    case license, feedback
     case advanced
     var id: String { rawValue }
 
     static let profileTabs: [SettingsTab] = [.display, .appearance, .organize, .general, .behavior, .apps, .hidden, .ai, .manage]
     /// The pages along the top; a profile's tabs are under 布局方案.
-    static let topTabs: [SettingsTab] = [.profiles, .mcp, .advanced]
+    static let topTabs: [SettingsTab] = [.profiles, .mcp, .license, .feedback, .advanced]
 
     var isProfileTab: Bool { Self.profileTabs.contains(self) }
 
@@ -60,6 +62,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .ai: String(localized: "AI 网关")
         case .manage: String(localized: "方案（设置页）", defaultValue: "方案")
         case .mcp: "MCP"
+        case .license: String(localized: "激活")
+        case .feedback: String(localized: "反馈")
         case .advanced: String(localized: "通用")
         }
     }
@@ -77,6 +81,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .ai: "sparkles"
         case .manage: "rectangle.stack"
         case .mcp: "point.3.connected.trianglepath.dotted"
+        case .license: "key"
+        case .feedback: "bubble.left.and.text.bubble.right"
         case .advanced: "gearshape"
         }
     }
@@ -142,7 +148,7 @@ struct SettingsView: View {
                         TabButton(tab: item, selected: tab == item) { model.settingsTab = item }
                     }
                 }
-                .frame(width: 300)
+                .frame(width: 480)
                 .padding(.vertical, 10)
             }
             Divider()
@@ -160,6 +166,8 @@ struct SettingsView: View {
                     case .apps: AppsTab(model: model, settings: settings, actions: actions)
                     case .manage: ManageTab(model: model, settings: settings)
                     case .mcp: MCPSection()
+                    case .license: LicenseTab()
+                    case .feedback: FeedbackTab()
                     case .advanced: AdvancedTab(model: model, settings: settings)
                     }
                 }
@@ -322,6 +330,15 @@ private struct TabButton: View {
                 Image(systemName: tab.symbol).font(.system(size: 17))
                     .frame(height: 21)
                 Text(tab.title).font(.system(size: 12)).lineLimit(1).fixedSize()
+            }
+            .overlay(alignment: .topTrailing) {
+                if tab == .feedback, Feedback.shared.unread > 0 {
+                    Text(verbatim: "\(Feedback.shared.unread)")
+                        .font(.system(size: 10, weight: .bold)).foregroundStyle(.white)
+                        .padding(.horizontal, 5).frame(minWidth: 16, minHeight: 16)
+                        .background(Color.red, in: Capsule())
+                        .offset(x: 10, y: -4)
+                }
             }
             .foregroundStyle(selected ? Color.accentColor : .secondary)
             .frame(maxWidth: .infinity)

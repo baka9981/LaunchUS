@@ -44,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Updater.shared.start()
         Heartbeat.smartBarInUse = { [weak self] in !(self?.launcher.model.categoryTabs.isEmpty ?? true) }
         Heartbeat.start()
+        License.shared.checkIfDue()
+        Feedback.shared.start()
         ICloudSync.onRemoteChange = { [weak self] backup in self?.launcher.model.applySynced(backup) }
         // Before the first scan, so icons are drawn light or dark only once.
         apply("appearance")
