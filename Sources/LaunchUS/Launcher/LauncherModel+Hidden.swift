@@ -29,6 +29,7 @@ extension LauncherModel {
         isEditing = false
         sheet = nil
         showSettings = false
+        guideStep = 0
         withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { showGuide = true }
     }
 

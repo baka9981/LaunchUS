@@ -166,6 +166,11 @@ final class LauncherModel {
     @ObservationIgnored var phantomDisarm: DispatchWorkItem?
     /// The first-run walkthrough.
     var showGuide = false
+    /// The walkthrough's card. Kept here, not in the view: picking 圆环 there swaps the
+    /// launcher's whole view, and the walkthrough with it.
+    // Debug aid: LAUNCHUS_SHEET=guide:<step> opens the walkthrough at that step.
+    var guideStep = ProcessInfo.processInfo.environment["LAUNCHUS_SHEET"]
+        .flatMap { $0.hasPrefix("guide:") ? Int($0.dropFirst(6)) : nil } ?? 0
     /// The "新功能" card after an upgrade (see `WhatsNew`).
     var showWhatsNew = false
     /// A one-time hint over the page dots (see `Tip`).

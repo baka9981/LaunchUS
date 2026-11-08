@@ -4,9 +4,10 @@ import SwiftUI
 /// First-run walkthrough over the launcher: a few cards, each with a small looping animation.
 struct GuideView: View {
     let model: LauncherModel
-    // Debug aid: LAUNCHUS_SHEET=guide:<step> opens the walkthrough at that step.
-    @State private var step = ProcessInfo.processInfo.environment["LAUNCHUS_SHEET"]
-        .flatMap { $0.hasPrefix("guide:") ? Int($0.dropFirst(6)) : nil } ?? 0
+    private var step: Int {
+        get { model.guideStep }
+        nonmutating set { model.guideStep = newValue }
+    }
     @State private var forward = true
 
     private static let steps = 9
