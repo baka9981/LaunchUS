@@ -69,6 +69,8 @@ enum LauncherSheet: Hashable {
     case widgetGallery
     /// A photo widget's picture and its blur, colour and texture.
     case photoWidget(String)
+    /// The apps a frequent-apps or app group widget shows, picked by hand.
+    case widgetApps(String)
 
     /// The manager and the smart bar editor: big cards that take most of the launcher.
     var isLarge: Bool {

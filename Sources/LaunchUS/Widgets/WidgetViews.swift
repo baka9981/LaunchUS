@@ -191,13 +191,14 @@ struct WidgetCard: View {
         case .builtIn(.storage)?: StorageWidget(size: widget.size, unit: unit, live: live)
         case .builtIn(.note)?:
             if editing { NoteEditor(id: widget.id, unit: unit) } else { NoteWidget(id: widget.id, size: widget.size, unit: unit) }
-        case .builtIn(.apps)?: AppsWidget(size: widget.size, unit: unit, card: size)
+        case .builtIn(.apps)?: AppsWidget(id: widget.id, size: widget.size, unit: unit, card: size)
         case .builtIn(.timer)?: TimerWidget(id: widget.id, size: widget.size, unit: unit, card: size, live: live)
         case .builtIn(.actions)?: ActionsWidget(size: widget.size, unit: unit, card: size)
         case .builtIn(.todo)?: TodoWidget(id: widget.id, size: widget.size, unit: unit, card: size, editing: editing)
         case .builtIn(.clipboard)?: ClipboardWidget(id: widget.id, size: widget.size, unit: unit, card: size)
         case .builtIn(.group)?: GroupWidget(id: widget.id, size: widget.size, unit: unit, card: size)
         case .builtIn(.photo)?: PhotoWidget(id: widget.id, unit: unit, card: size)
+        case .builtIn(.currency)?: CurrencyWidget(id: widget.id, size: widget.size, unit: unit, live: live)
         case .plugin(let folder, let manifest)?:
             PluginWidgetView(folder: folder, manifest: manifest, size: widget.size, frame: size, unit: unit,
                              dark: !windowed || colorScheme == .dark, live: live,

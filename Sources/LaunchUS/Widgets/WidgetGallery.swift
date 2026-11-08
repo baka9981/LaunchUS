@@ -8,7 +8,8 @@ struct WidgetGallery: View {
     let model: LauncherModel
     private var registry: WidgetRegistry { WidgetRegistry.shared }
 
-    @State private var selection = BuiltInWidget.clock.rawValue
+    /// LAUNCHUS_GALLERY=<widget id> opens on that widget, for snapshots.
+    @State private var selection = ProcessInfo.processInfo.environment["LAUNCHUS_GALLERY"] ?? BuiltInWidget.clock.rawValue
     @State private var size = WidgetItem.Size.small
     @State private var search = ""
     @State private var message: String?

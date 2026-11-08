@@ -136,6 +136,8 @@ struct SheetCard: View {
                 FolderShortcutCard(model: model, folderID: id)
             case .photoWidget(let id):
                 PhotoWidgetCard(model: model, id: id)
+            case .widgetApps(let id):
+                WidgetAppsCard(model: model, id: id)
             case .message(let title, let text, let revealPath):
                 MessageCard(model: model, title: title, text: text, revealPath: revealPath)
             }

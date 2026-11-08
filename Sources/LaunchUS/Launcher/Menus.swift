@@ -249,16 +249,28 @@ enum LauncherMenus {
                 menu.add(String(localized: "清除已完成"), symbol: "checkmark.circle", enabled: list.contains(where: \.done)) {
                     WidgetStore.shared.clearDoneTodos(widget.id)
                 }
+            case .apps?:
+                let picked = WidgetStore.shared.appList(widget.id) != nil
+                menu.add(String(localized: "选择 App…"), symbol: "checklist") { model.sheet = .widgetApps(widget.id) }
+                menu.add(String(localized: "按使用频率"), symbol: "chart.bar", checked: !picked) {
+                    WidgetStore.shared.setAppList(nil, widget.id)
+                }
             case .group?:
-                let current = WidgetStore.shared.group(widget.id)
-                menu.add(String(localized: "全部打开"), symbol: "square.stack.3d.forward.dottedline", enabled: current != nil) {
+                let picked = WidgetStore.shared.appList(widget.id) != nil
+                let current = picked ? nil : WidgetStore.shared.group(widget.id)
+                menu.add(String(localized: "全部打开"), symbol: "square.stack.3d.forward.dottedline",
+                         enabled: !GroupWidget.apps(widget.id).isEmpty) {
                     model.openGroupWidget(widget)
                 }
+                menu.add(String(localized: "选择 App…"), symbol: "checklist", checked: picked) { model.sheet = .widgetApps(widget.id) }
                 menu.addSubmenu(String(localized: "选择文件夹"), symbol: "folder") { sub in
                     let folders = model.groupFolders
                     if folders.isEmpty { sub.add(String(localized: "还没有文件夹"), enabled: false) {} }
                     for folder in folders {
-                        sub.add(folder.name, checked: folder.id == current) { WidgetStore.shared.setGroup(folder.id, widget.id) }
+                        sub.add(folder.name, checked: folder.id == current) {
+                            WidgetStore.shared.setAppList(nil, widget.id)
+                            WidgetStore.shared.setGroup(folder.id, widget.id)
+                        }
                     }
                 }
             case .photo?:
@@ -267,6 +279,31 @@ enum LauncherMenus {
                 menu.add(String(localized: "调整…"), symbol: "slider.horizontal.3", enabled: photo.file != nil) {
                     model.sheet = .photoWidget(widget.id)
                 }
+            case .currency?:
+                let settings = WidgetStore.shared.currencies(widget.id)
+                let base = settings.resolvedBase
+                menu.addSubmenu(String(localized: "本币"), symbol: "banknote") { sub in
+                    for code in Currencies.common {
+                        sub.add("\(Currencies.flag(code)) \(code)  \(Currencies.name(code))", checked: code == base) {
+                            var next = WidgetStore.shared.currencies(widget.id)
+                            next.base = code
+                            WidgetStore.shared.setCurrencies(next, widget.id)
+                        }
+                    }
+                }
+                menu.addSubmenu(String(localized: "显示的货币"), symbol: "list.bullet") { sub in
+                    let shown = settings.resolvedShown
+                    for code in Currencies.common where code != base {
+                        sub.add("\(Currencies.flag(code)) \(code)  \(Currencies.name(code))", checked: shown.contains(code)) {
+                            var next = WidgetStore.shared.currencies(widget.id)
+                            var list = next.resolvedShown
+                            if let i = list.firstIndex(of: code) { list.remove(at: i) } else { list.append(code) }
+                            next.shown = list
+                            WidgetStore.shared.setCurrencies(next, widget.id)
+                        }
+                    }
+                }
+                menu.add(String(localized: "立即刷新"), symbol: "arrow.clockwise") { CurrencyRates.shared.refreshIfNeeded(force: true) }
             case .clipboard?:
                 menu.add(String(localized: "清空记录"), symbol: "trash", enabled: !ClipboardHistory.shared.items.isEmpty) {
                     ClipboardHistory.shared.clear()

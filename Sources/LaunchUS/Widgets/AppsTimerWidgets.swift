@@ -5,6 +5,7 @@ import UserNotifications
 // MARK: - Frequent apps
 
 struct AppsWidget: View {
+    let id: String
     let size: WidgetItem.Size
     let unit: CGFloat
     let card: CGSize
@@ -17,17 +18,18 @@ struct AppsWidget: View {
         }
     }
 
-    @MainActor static func apps(for size: WidgetItem.Size) -> [AppItem] {
+    @MainActor static func apps(_ id: String, size: WidgetItem.Size) -> [AppItem] {
         guard let model = WidgetHost.model else { return [] }
-        _ = model.widgetLaunches
         let (c, r) = shape(size)
+        if let picked = WidgetStore.shared.appList(id) { return Array(picked.compactMap(model.app).prefix(c * r)) }
+        _ = model.widgetLaunches
         return RecentLaunches.row(apps: model.visibleApps, recent: RecentLaunches.load(), pinned: RecentLaunches.pinned,
                                   removed: RecentLaunches.removed, limit: c * r, ownID: Bundle.main.bundleIdentifier)
     }
 
     /// The app under a click on the card.
-    @MainActor static func app(at point: CGPoint, size: WidgetItem.Size, card: CGSize) -> AppItem? {
-        let apps = apps(for: size)
+    @MainActor static func app(at point: CGPoint, id: String, size: WidgetItem.Size, card: CGSize) -> AppItem? {
+        let apps = apps(id, size: size)
         let (c, r) = shape(size)
         let local = ToolGrid.local(point, card: card)
         let cells = ToolGrid.cells(count: apps.count, columns: c, rows: r, in: ToolGrid.content(card).size)
@@ -35,7 +37,7 @@ struct AppsWidget: View {
     }
 
     var body: some View {
-        let apps = Self.apps(for: size)
+        let apps = Self.apps(id, size: size)
         let (c, r) = Self.shape(size)
         let area = ToolGrid.content(card).size
         let cells = ToolGrid.cells(count: apps.count, columns: c, rows: r, in: area)

@@ -355,7 +355,7 @@ final class LauncherController {
             }
             if let id = env["LAUNCHUS_UNINSTALL"] { self.model.sheet = .confirmTrash(id) }
             if let id = env["LAUNCHUS_EDIT"] { self.model.sheet = .editApp(id) }
-            // LAUNCHUS_SHEET=custom | custom:<id> | manager | widgets | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name> | photo:<id>
+            // LAUNCHUS_SHEET=custom | custom:<id> | manager | widgets | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name> | photo:<id> | apps:<widget id>
             if let sheet = env["LAUNCHUS_SHEET"] {
                 if sheet == "custom" { self.model.sheet = .editCustom(nil) }
                 else if sheet == "manager" { self.model.sheet = .manager }
@@ -368,6 +368,7 @@ final class LauncherController {
                 else if sheet.hasPrefix("icon:") { self.model.sheet = .chooseIcon(String(sheet.dropFirst(5))) }
                 else if sheet.hasPrefix("info:") { self.model.sheet = .appInfo(String(sheet.dropFirst(5))) }
                 else if sheet.hasPrefix("photo:") { self.model.sheet = .photoWidget(String(sheet.dropFirst(6))) }
+                else if sheet.hasPrefix("apps:") { self.model.sheet = .widgetApps(String(sheet.dropFirst(5))) }
                 else if sheet.hasPrefix("custom:") { self.model.sheet = .editCustom(sheet) }
             }
             if let tab = env["LAUNCHUS_SETTINGS"].flatMap(SettingsTab.named) { self.model.openSettings(tab) }

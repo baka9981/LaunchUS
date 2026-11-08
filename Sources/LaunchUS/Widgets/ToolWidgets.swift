@@ -53,14 +53,19 @@ final class WidgetStore {
         var todos: [String: [Todo]] = [:]
         var groups: [String: String] = [:]
         var photos: [String: Photo] = [:]
+        var appLists: [String: [String]] = [:]
+        var currencies: [String: Currencies] = [:]
 
         init(notes: [String: Note], timers: [String: TimerState], todos: [String: [Todo]],
-             groups: [String: String], photos: [String: Photo]) {
+             groups: [String: String], photos: [String: Photo], appLists: [String: [String]],
+             currencies: [String: Currencies]) {
             self.notes = notes
             self.timers = timers
             self.todos = todos
             self.groups = groups
             self.photos = photos
+            self.appLists = appLists
+            self.currencies = currencies
         }
 
         /// Older files have no to-dos yet.
@@ -71,6 +76,8 @@ final class WidgetStore {
             todos = try c.decodeIfPresent([String: [Todo]].self, forKey: .todos) ?? [:]
             groups = try c.decodeIfPresent([String: String].self, forKey: .groups) ?? [:]
             photos = try c.decodeIfPresent([String: Photo].self, forKey: .photos) ?? [:]
+            appLists = try c.decodeIfPresent([String: [String]].self, forKey: .appLists) ?? [:]
+            currencies = try c.decodeIfPresent([String: Currencies].self, forKey: .currencies) ?? [:]
         }
     }
 
@@ -80,6 +87,10 @@ final class WidgetStore {
     /// App group widgets: which folder each one opens.
     private(set) var groups: [String: String] = [:]
     private(set) var photos: [String: Photo] = [:]
+    /// Frequent-apps and app group widgets: the apps picked by hand, in order.
+    private(set) var appLists: [String: [String]] = [:]
+    /// Exchange-rate widgets: the home currency and the ones shown against it.
+    private(set) var currencies: [String: Currencies] = [:]
     @ObservationIgnored private var saveWork: DispatchWorkItem?
     @ObservationIgnored private var rings: [String: DispatchWorkItem] = [:]
     /// Tests keep their notes to themselves.
@@ -94,6 +105,8 @@ final class WidgetStore {
             todos = file.todos
             groups = file.groups
             photos = file.photos
+            appLists = file.appLists
+            currencies = file.currencies
         }
         for id in timers.keys { schedule(id) }
     }
@@ -235,6 +248,23 @@ final class WidgetStore {
         save()
     }
 
+    /// The apps picked for this widget, or nil when it fills itself.
+    func appList(_ id: String) -> [String]? { appLists[id] }
+
+    func setAppList(_ ids: [String]?, _ id: String) {
+        guard appLists[id] != ids else { return }
+        appLists[id] = ids
+        save()
+    }
+
+    func currencies(_ id: String) -> Currencies { currencies[id] ?? Currencies() }
+
+    func setCurrencies(_ value: Currencies, _ id: String) {
+        guard currencies[id] != value else { return }
+        currencies[id] = value
+        save()
+    }
+
     func photo(_ id: String) -> Photo { photos[id] ?? Photo() }
 
     func setPhoto(_ photo: Photo, _ id: String) {
@@ -246,11 +276,14 @@ final class WidgetStore {
 
     /// A removed widget takes its note, timer and picture with it.
     func forget(_ id: String) {
-        guard notes[id] != nil || timers[id] != nil || todos[id] != nil || groups[id] != nil || photos[id] != nil else { return }
+        guard notes[id] != nil || timers[id] != nil || todos[id] != nil || groups[id] != nil || photos[id] != nil
+                || appLists[id] != nil || currencies[id] != nil else { return }
         notes[id] = nil
         timers[id] = nil
         todos[id] = nil
         groups[id] = nil
+        appLists[id] = nil
+        currencies[id] = nil
         if let file = photos[id]?.file { WidgetPhotos.remove(file) }
         photos[id] = nil
         rings[id]?.cancel()
@@ -263,7 +296,8 @@ final class WidgetStore {
         saveWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
-            let file = File(notes: notes, timers: timers, todos: todos, groups: groups, photos: photos)
+            let file = File(notes: notes, timers: timers, todos: todos, groups: groups, photos: photos,
+                            appLists: appLists, currencies: currencies)
             guard let data = try? JSONEncoder().encode(file) else { return }
             try? FileManager.default.createDirectory(at: LayoutStore.directory, withIntermediateDirectories: true)
             try? data.write(to: Self.url, options: .atomic)

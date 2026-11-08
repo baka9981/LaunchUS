@@ -30,7 +30,12 @@ extension LauncherModel {
     /// Opens every app in the folder; the last one ends up in front.
     func openAll(_ folderID: String) {
         guard let folder = folder(folderID) else { return }
-        let apps = apps(in: folder).filter { !SettingsPanes.isPane($0.id) }
+        openTogether(apps(in: folder))
+    }
+
+    /// Opens a set of apps side by side, like a folder's 全部打开.
+    func openTogether(_ apps: [AppItem]) {
+        let apps = apps.filter { !SettingsPanes.isPane($0.id) }
         guard !apps.isEmpty else { return }
         for app in apps { RecentLaunches.record(app.id) }
         recentIDs = RecentLaunches.load()

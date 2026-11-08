@@ -94,8 +94,10 @@ extension LauncherModel {
             openGroupWidget(widget)
         case .photo?:
             openPhotoWidget(widget)
+        case .currency?:
+            CurrencyRates.shared.refreshIfNeeded(force: true)
         case .apps?:
-            if let point, let app = AppsWidget.app(at: point, size: widget.size, card: card) { launch(app) }
+            if let point, let app = AppsWidget.app(at: point, id: widget.id, size: widget.size, card: card) { launch(app) }
         case .actions?:
             guard let point, let action = ActionsWidget.action(at: point, size: widget.size, card: card) else { return }
             if action.closesLauncher { onClose?() }

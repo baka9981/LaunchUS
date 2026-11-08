@@ -20,6 +20,13 @@ struct GroupWidget: View {
         return id.hasPrefix("preview-") ? model.firstGroupCandidate : nil
     }
 
+    /// What the widget opens: the apps picked by hand, else its folder's.
+    @MainActor static func apps(_ id: String) -> [AppItem] {
+        guard let model = WidgetHost.model else { return [] }
+        if let picked = WidgetStore.shared.appList(id) { return picked.compactMap(model.app) }
+        return folder(id).map(model.apps(in:)) ?? []
+    }
+
     private var shape: (columns: Int, rows: Int) {
         switch size {
         case .small: (3, 2)
@@ -29,8 +36,9 @@ struct GroupWidget: View {
     }
 
     var body: some View {
-        let folder = Self.folder(id)
-        let apps = folder.flatMap { f in WidgetHost.model.map { $0.apps(in: f) } } ?? []
+        let picked = WidgetStore.shared.appList(id) != nil
+        let folder = picked ? nil : Self.folder(id)
+        let apps = Self.apps(id)
         VStack(alignment: .leading, spacing: unit * 0.08) {
             HStack(spacing: unit * 0.06) {
                 Image(systemName: "square.stack.3d.forward.dottedline").font(.system(size: unit * 0.13, weight: .semibold))
@@ -41,9 +49,9 @@ struct GroupWidget: View {
                     Text("\(apps.count)").font(.system(size: unit * 0.11, weight: .medium).monospacedDigit()).opacity(0.6)
                 }
             }
-            if folder == nil {
+            if apps.isEmpty {
                 Spacer(minLength: 0)
-                Text(String(localized: "右键选择一个文件夹，点一下就打开里面全部的 App"))
+                Text(String(localized: "右键选择一个文件夹或几个 App，点一下就全部打开"))
                     .font(.system(size: unit * 0.11, weight: .medium)).opacity(0.65)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -97,7 +105,9 @@ extension LauncherModel {
     }
 
     func openGroupWidget(_ widget: WidgetItem) {
-        if let folder = GroupWidget.folder(widget.id), WidgetStore.shared.group(widget.id) != nil {
+        if WidgetStore.shared.appList(widget.id) != nil {
+            openTogether(GroupWidget.apps(widget.id))
+        } else if let folder = GroupWidget.folder(widget.id), WidgetStore.shared.group(widget.id) != nil {
             openAll(folder.id)
         }
     }
