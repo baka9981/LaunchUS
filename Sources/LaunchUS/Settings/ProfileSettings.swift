@@ -113,9 +113,12 @@ enum ProfileSettings {
         Field(.general, "trackpadPinch", \.trackpadPinch),
         Field(.general, "pinchFingers", \.pinchFingers),
         Field(.general, "hotCorner", \.hotCorner),
+        Field(.general, "clickButton", \.clickButton),
+        Field(.general, "clickCount", \.clickCount),
         // 行为
         Field(.behavior, "returnHome", \.returnHome),
         Field(.behavior, "clickBackgroundToClose", \.clickBackgroundToClose),
+        Field(.behavior, "wheelSpeed", \.wheelSpeed),
         Field(.behavior, "multiSelectKey", \.multiSelectKey),
         Field(.behavior, "deleteBadges", \.deleteBadges),
         Field(.behavior, "searchEngine", \.searchEngine),
@@ -181,7 +184,7 @@ enum ProfileSettings {
 
     static let modeKey = "displayMode"
     /// Ways to open a profile; a new profile starts without them so it doesn't take another's.
-    static let openingKeys: Set<String> = ["hotKey", "f4Key", "trackpadPinch", "hotCorner"]
+    static let openingKeys: Set<String> = ["hotKey", "f4Key", "trackpadPinch", "hotCorner", "clickButton"]
     /// What a profile has its own of on the Mac (a login item, a menu bar icon): a new profile
     /// starts without them too, so it doesn't add a second one.
     static let presenceKeys: Set<String> = ["startAtLogin", "showMenuBarIcon"]
@@ -198,6 +201,7 @@ enum ProfileSettings {
         values["f4Key"] = "[false]"
         values["trackpadPinch"] = "[false]"
         values["hotCorner"] = #"["off"]"#
+        values["clickButton"] = #"["off"]"#
         values["startAtLogin"] = "[false]"
         values["showMenuBarIcon"] = "[false]"
     }

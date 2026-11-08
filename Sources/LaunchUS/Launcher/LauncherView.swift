@@ -23,7 +23,7 @@ struct LauncherView: View {
             let settings = model.settings
             let windowed = settings.displayMode == .window
             let metrics = GridMetrics(size: geo.size, columns: model.columns, rows: model.rows,
-                                      windowed: windowed, paged: settings.browseStyle == .paged,
+                                      windowed: windowed, paged: settings.pageStyle == .paged,
                                       frequentRow: model.showsFrequentRow, categoryBar: model.showsCategoryBar,
                                       folderItemCount: folder?.1.count ?? 0, folderHasQuery: folder?.0.query != nil, hideNames: settings.hideNames && settings.hideFolderNames,
                                       iconScale: settings.iconScale)
@@ -76,7 +76,7 @@ struct LauncherView: View {
 
                     if model.chat != nil {
                         // The conversation takes the grid's place.
-                    } else if settings.browseStyle == .scroll {
+                    } else if settings.pageStyle == .scroll {
                         ScrollGrid(model: model, metrics: metrics)
                             .offset(y: metrics.gridTop)
                             // Another category tab crossfades to a new grid instead of moving the icons.
@@ -279,7 +279,7 @@ struct LauncherView: View {
 
     /// Whether a drag on empty space should pick apps rather than turn pages.
     private var wantsMarquee: Bool {
-        guard model.settings.browseStyle == .paged, model.openFolderID == nil, !model.isSearching else { return false }
+        guard model.settings.pageStyle == .paged, model.openFolderID == nil, !model.isSearching else { return false }
         if model.isEditing { return true }
         guard let flag = model.settings.multiSelectKey.flag else { return false }
         return NSEvent.modifierFlags.contains(flag)
@@ -294,7 +294,7 @@ struct LauncherView: View {
                 // Decided when the drag starts, and kept until it ends.
                 if model.marquee != nil || (!dragIsPaging && wantsMarquee) {
                     model.marqueeChanged(from: value.startLocation, to: value.location)
-                } else if model.settings.browseStyle == .paged {
+                } else if model.settings.pageStyle == .paged {
                     dragIsPaging = true
                     model.dragChanged(value.translation.width)
                 }
@@ -302,7 +302,7 @@ struct LauncherView: View {
             .onEnded { value in
                 dragIsPaging = false
                 if model.marquee != nil { model.marqueeEnded(); return }
-                guard model.settings.browseStyle == .paged else { return }
+                guard model.settings.pageStyle == .paged else { return }
                 // A quick flick counts as a full swipe.
                 let projected = value.translation.width + (value.predictedEndTranslation.width - value.translation.width) * 0.5
                 model.dragEnded(projected, pageWidth: pageWidth)

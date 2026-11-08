@@ -43,6 +43,10 @@ final class LauncherController {
     // Trackpad swipe state
     private var rawDrag: CGFloat = 0
     private var lastWheelEvent = Date.distantPast
+    private var lastWheelFlip = Date.distantPast
+    /// Lines turned in the current spin, and whether it has flipped yet.
+    private var wheelTurned = 0.0
+    private var wheelFlipped = false
     private let running = RunningApps()
     private let dockBadges = DockBadges()
     private var lastDockBadges: [String: String] = [:]
@@ -322,6 +326,10 @@ final class LauncherController {
         guard let path = env["LAUNCHUS_SNAPSHOT"] else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
             if let query = env["LAUNCHUS_QUERY"] { self.model.query = query }
+            // LAUNCHUS_MODE=ring|window|fullScreen, for demo runs only (it is saved).
+            if env["LAUNCHUS_DEMO"] != nil, let mode = env["LAUNCHUS_MODE"].flatMap(DisplayMode.init) {
+                self.settings.displayMode = mode
+            }
             // LAUNCHUS_SPACES=n: as if space was pressed n times in the empty field.
             for _ in 0..<(env["LAUNCHUS_SPACES"].flatMap(Int.init) ?? 0) { self.model.pressSpace() }
             if let ask = env["LAUNCHUS_ASK"] {
@@ -348,7 +356,7 @@ final class LauncherController {
             }
             if let id = env["LAUNCHUS_UNINSTALL"] { self.model.sheet = .confirmTrash(id) }
             if let id = env["LAUNCHUS_EDIT"] { self.model.sheet = .editApp(id) }
-            // LAUNCHUS_SHEET=custom | custom:<id> | manager | widgets | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name>
+            // LAUNCHUS_SHEET=custom | custom:<id> | manager | widgets | stats | icon:<id> | info:<id> | profile | whatsnew | guide:<step> | tip:<name> | photo:<id>
             if let sheet = env["LAUNCHUS_SHEET"] {
                 if sheet == "custom" { self.model.sheet = .editCustom(nil) }
                 else if sheet == "manager" { self.model.sheet = .manager }
@@ -360,6 +368,7 @@ final class LauncherController {
                 else if sheet == "profile" { self.model.sheet = .newProfile }
                 else if sheet.hasPrefix("icon:") { self.model.sheet = .chooseIcon(String(sheet.dropFirst(5))) }
                 else if sheet.hasPrefix("info:") { self.model.sheet = .appInfo(String(sheet.dropFirst(5))) }
+                else if sheet.hasPrefix("photo:") { self.model.sheet = .photoWidget(String(sheet.dropFirst(6))) }
                 else if sheet.hasPrefix("custom:") { self.model.sheet = .editCustom(sheet) }
             }
             if let tab = env["LAUNCHUS_SETTINGS"].flatMap(SettingsTab.named) { self.model.openSettings(tab) }
@@ -787,7 +796,7 @@ final class LauncherController {
         let isTrackpad = event.hasPreciseScrollingDeltas && !(event.phase.isEmpty && event.momentumPhase.isEmpty)
         if model.drag != nil {
             // The scrolling grid scrolls under a held icon as usual.
-            if settings.browseStyle == .scroll, model.openFolderID == nil { return event }
+            if settings.pageStyle == .scroll, model.openFolderID == nil { return event }
             // The wheel turns pages while an icon is held.
             if !isTrackpad { wheelFlip(event) }
             return nil
@@ -810,7 +819,7 @@ final class LauncherController {
             return nil
         }
         // The scrolling browse style scrolls natively, unless a folder is open.
-        if settings.browseStyle == .scroll, model.openFolderID == nil { return event }
+        if settings.pageStyle == .scroll, model.openFolderID == nil { return event }
         if model.openFolderID != nil, model.folderScrolls {
             // Trackpads report points (momentum included); wheels report lines.
             let dy = event.scrollingDeltaY * (event.hasPreciseScrollingDeltas ? 1 : 36)
@@ -842,16 +851,34 @@ final class LauncherController {
         return nil
     }
 
-    /// Mouse wheel: one flick flips one page. A flick (or a smooth-scrolling mouse's glide)
-    /// sends a burst of events, so only the first event after a pause counts.
+    /// Mouse wheel: a spin sends a burst of events, each notch one (a smooth-scrolling mouse, many
+    /// small ones). Notches are counted, not lines: macOS speeds lines up on a quick spin, so one
+    /// notch can say five. Once 鼠标滚轮翻页's notches add up a page flips; then, up to a little
+    /// past the middle, the spin has to stop before the next flip, and on every setting flips keep
+    /// a slower or faster least gap.
     private func wheelFlip(_ event: NSEvent) {
         let delta = event.scrollingDeltaY != 0 ? event.scrollingDeltaY : event.scrollingDeltaX
         guard delta != 0 else { return }
+        let speed = settings.wheelSpeed
         let now = Date()
-        if now.timeIntervalSince(lastWheelEvent) > 0.3 {
-            flip(delta < 0 ? 1 : -1)
-        }
+        let newSpin = now.timeIntervalSince(lastWheelEvent) > WheelSpeed.pause(speed)
         lastWheelEvent = now
+        if newSpin || (wheelTurned != 0 && (wheelTurned < 0) != (delta < 0)) {
+            wheelTurned = 0
+            wheelFlipped = false
+        }
+        let notch = event.hasPreciseScrollingDeltas ? min(1, abs(delta) / 10) : 1
+        wheelTurned += delta < 0 ? -notch : notch
+        if ProcessInfo.processInfo.environment["LAUNCHUS_WHEEL_LOG"] != nil {
+            NSLog("wheel delta=\(delta) precise=\(event.hasPreciseScrollingDeltas) turned=\(wheelTurned) newSpin=\(newSpin)")
+        }
+        guard abs(wheelTurned) >= WheelSpeed.notches(speed) - 0.001,
+              now.timeIntervalSince(lastWheelFlip) >= WheelSpeed.interval(speed),
+              WheelSpeed.repeats(speed) || !wheelFlipped else { return }
+        flip(wheelTurned < 0 ? 1 : -1)
+        lastWheelFlip = now
+        wheelFlipped = true
+        wheelTurned = 0
     }
 
     private func flip(_ step: Int) {
@@ -863,7 +890,7 @@ final class LauncherController {
     /// The mouse's back and forward side buttons turn pages.
     private func handleSideButton(_ event: NSEvent) -> NSEvent? {
         guard isVisible, event.window === panel, !model.showSettings, model.sheet == nil,
-              model.openFolderID == nil, settings.browseStyle == .paged || model.drag != nil else { return event }
+              model.openFolderID == nil, settings.pageStyle == .paged || model.drag != nil else { return event }
         switch event.buttonNumber {
         case 3: flip(-1)
         case 4: flip(1)

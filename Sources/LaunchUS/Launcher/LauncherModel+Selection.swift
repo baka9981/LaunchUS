@@ -207,7 +207,7 @@ extension LauncherModel {
 
 
     /// The recent apps row: only while scrolling, where an extra row can't upset the pages.
-    var showsFrequentRow: Bool { settings.showFrequent && settings.browseStyle == .scroll }
+    var showsFrequentRow: Bool { settings.showFrequent && settings.pageStyle == .scroll }
 
     func updateFrequentApps() {
         guard showsFrequentRow else {

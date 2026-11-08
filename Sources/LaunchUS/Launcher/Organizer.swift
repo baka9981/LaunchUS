@@ -95,7 +95,7 @@ struct SheetCard: View {
             // Only when it doesn't fit: a frame on the card itself would stretch it to the room.
             ScrollView { cardContent }.scrollIndicators(.never).frame(height: room.height)
         }
-        .frame(width: 420)
+        .frame(width: cardWidth)
         .background(RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(nsColor: .windowBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -105,6 +105,12 @@ struct SheetCard: View {
         // Clicks inside the card must not reach the dimmed background.
         .contentShape(Rectangle())
         .onTapGesture {}
+    }
+
+    /// The photo editor sets its preview beside the sliders; everything else is one column.
+    private var cardWidth: CGFloat {
+        if case .photoWidget = sheet { return 700 }
+        return 420
     }
 
     private var cardContent: some View {
@@ -135,7 +141,7 @@ struct SheetCard: View {
             }
         }
         .padding(24)
-        .frame(width: 420)
+        .frame(width: cardWidth)
     }
 }
 

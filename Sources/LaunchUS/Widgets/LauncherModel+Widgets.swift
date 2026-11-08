@@ -21,7 +21,7 @@ extension LauncherModel {
     func addWidget(_ kind: String, size: WidgetItem.Size, page: Int? = nil, cell: Int = 0) -> WidgetItem? {
         guard canAddWidget, let provider = WidgetRegistry.shared.provider(kind) else { return nil }
         if layout.isEmpty { layout = [[]] }
-        let ordered = settings.sortOrder == .custom && settings.browseStyle == .paged
+        let ordered = settings.sortOrder == .custom && settings.pageStyle == .paged
         var index = ordered ? min(currentPage, layout.count - 1) : 0
         if ordered, let page {
             index = min(max(0, page), layout.count)

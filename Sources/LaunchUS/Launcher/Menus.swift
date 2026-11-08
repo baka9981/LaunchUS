@@ -121,13 +121,15 @@ enum LauncherMenus {
             for order in SortOrder.allCases {
                 sub.add(order.title, checked: settings.sortOrder == order) { settings.sortOrder = order }
             }
+            // The ring always turns pages; the browsing style is the grid's.
+            guard settings.displayMode != .ring else { return }
             sub.addItem(.separator())
             sub.addItem(.sectionHeader(title: String(localized: "浏览样式")))
             for style in BrowseStyle.allCases {
                 sub.add(style.title, checked: settings.browseStyle == style) { settings.browseStyle = style }
             }
             // The recent apps row is part of the scrolling grid only.
-            if settings.browseStyle == .scroll {
+            if settings.pageStyle == .scroll {
                 sub.addItem(.separator())
                 sub.add(String(localized: "最近一行"), checked: settings.showFrequent) { settings.showFrequent.toggle() }
             }
@@ -417,7 +419,7 @@ enum LauncherMenus {
         }
         sub.addSeparator()
         // Scrolling runs the pages together, so there are none to pick.
-        if Settings.shared.browseStyle == .scroll {
+        if Settings.shared.pageStyle == .scroll {
             sub.add(String(localized: "移到最前"), symbol: "arrow.up.to.line") { toEdge(true) }
             sub.add(String(localized: "移到最后"), symbol: "arrow.down.to.line") { toEdge(false) }
             return

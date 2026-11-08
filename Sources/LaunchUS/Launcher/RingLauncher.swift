@@ -41,7 +41,7 @@ struct RingLauncher: View {
                                 .delay(Double(index) * 0.006), value: shown)
                     }
                 }
-                .id(model.openFolderID ?? "page-\(model.currentPage)-\(model.isSearching)")
+                .id(model.showHiddenApps ? "hidden" : model.openFolderID ?? "page-\(model.currentPage)-\(model.isSearching)")
                 .transition(.scale(scale: 0.85).combined(with: .opacity))
                 .opacity(shown)
 
@@ -49,10 +49,14 @@ struct RingLauncher: View {
                     .position(layout.center)
                     .opacity(shown)
                     .scaleEffect(0.8 + 0.2 * shown)
+
+                overlays(geo.size)
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .animation(.easeOut(duration: 0.2), value: model.openFolderID)
+            .animation(.easeOut(duration: 0.2), value: model.showHiddenApps)
             .animation(.easeOut(duration: 0.18), value: model.currentPage)
+            .animation(.easeOut(duration: 0.18), value: model.sheet)
             .onAppear { model.screenSize = geo.size }
             .onChange(of: geo.size) { _, size in model.screenSize = size }
         }
@@ -61,9 +65,43 @@ struct RingLauncher: View {
         .transaction { model.settings.animationSpeed.adjust(&$0) }
     }
 
+    /// What sits over the launcher in every mode: the shade under a card (the card is a window of
+    /// its own), the click catcher while a tuning panel is open, and the guide and what's new.
+    @ViewBuilder
+    private func overlays(_ size: CGSize) -> some View {
+        if model.sheet != nil {
+            Color.black.opacity(0.3)
+                .contentShape(Rectangle())
+                .onTapGesture { model.dismissSheet() }
+                .transition(.opacity)
+        }
+        if model.showSettings, model.tuner != nil {
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture { model.closeSettings() }
+        }
+        if model.showGuide {
+            Color.black.opacity(0.3).contentShape(Rectangle()).transition(.opacity)
+            GuideView(model: model)
+                .position(x: size.width / 2, y: size.height / 2)
+                .transition(.scale(scale: 0.94).combined(with: .opacity))
+        } else if model.showWhatsNew {
+            Color.black.opacity(0.3)
+                .contentShape(Rectangle())
+                .onTapGesture { model.finishWhatsNew() }
+                .transition(.opacity)
+            WhatsNewView(model: model)
+                .position(x: size.width / 2, y: size.height / 2)
+                .transition(.scale(scale: 0.94).combined(with: .opacity))
+        }
+    }
+
     /// The open folder's apps, or the page's apps and folders (widgets and empty cells stay out),
     /// each with the slot it has in the grid so the keyboard selection lines up.
     private var entries: [(entry: GridEntry, slot: Int)] {
+        if model.showHiddenApps {
+            return model.hiddenApps.enumerated().map { (GridEntry.app($0.element), $0.offset) }
+        }
         if let folder = model.openFolder {
             return folder.1.enumerated().map { (GridEntry.app($0.element), $0.offset) }
         }
@@ -83,22 +121,22 @@ struct RingLauncher: View {
     private func hub(_ layout: RingLayout) -> some View {
         let d = layout.hubRadius * 2
         ZStack {
+            // Always dark glass, so the white writing on it reads on light wallpapers too.
             Circle().fill(.ultraThinMaterial)
+                .overlay(Circle().fill(.black.opacity(0.35)))
                 .overlay(Circle().strokeBorder(.white.opacity(0.18), lineWidth: 1))
                 .shadow(color: .black.opacity(0.3), radius: 12, y: 4)
             VStack(spacing: 6) {
-                if let folder = model.openFolder {
-                    Button { model.closeFolder() } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: "chevron.backward.circle.fill").font(.system(size: 22))
-                            Text(verbatim: folder.0.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
-                        }
-                        .foregroundStyle(.white)
-                        .frame(width: d * 0.8)
-                        .contentShape(Rectangle())
+                if model.showHiddenApps {
+                    HStack(spacing: 14) {
+                        hubButton("chevron.backward.circle.fill", String(localized: "返回")) { model.closeHiddenApps() }
+                        hubButton("lock.circle.fill", String(localized: "锁定隐藏的 App")) { model.lockHidden() }
                     }
-                    .buttonStyle(.plain)
-                    .help(String(localized: "返回"))
+                    Text("隐藏的 App").font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
+                } else if let folder = model.openFolder {
+                    hubButton("chevron.backward.circle.fill", String(localized: "返回")) { model.closeFolder() }
+                    RingFolderName(model: model, folder: folder.0)
+                        .frame(width: d * 0.72)
                 } else {
                     TextField(String(localized: "搜索"), text: $model.query)
                         .textFieldStyle(.plain)
@@ -111,26 +149,73 @@ struct RingLauncher: View {
                 Text(verbatim: hubCaption)
                     .font(.system(size: 11)).foregroundStyle(.white.opacity(0.75))
                     .lineLimit(1).frame(width: d * 0.8)
-                if model.openFolderID == nil, model.pageCount > 1 {
-                    HStack(spacing: 5) {
-                        ForEach(0..<model.pageCount, id: \.self) { i in
-                            Circle().fill(.white.opacity(i == model.currentPage ? 0.95 : 0.35))
-                                .frame(width: 5, height: 5)
-                                .onTapGesture { model.goToPage(i) }
-                        }
-                    }
+                if model.openFolderID == nil, !model.showHiddenApps, !model.isSearching {
+                    // The secret entrance to the hidden apps follows the dots, as on the grid.
+                    PageDots(count: model.pageCount, current: model.currentPage,
+                             phantom: model.settings.hiddenDotEntrance ? { model.revealHidden() } : nil,
+                             pointAtPhantom: model.tip == .hiddenDot) { model.goToPage($0) }
+                        .scaleEffect(0.8)
+                        .frame(height: 14)
                 }
             }
         }
         .frame(width: d, height: d)
+        .environment(\.colorScheme, .dark)
+    }
+
+    private func hubButton(_ symbol: String, _ help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol).font(.system(size: 22)).foregroundStyle(.white).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
     }
 
     private var hubCaption: String {
         if let hovered, let entry = entries.first(where: { $0.entry.id == hovered })?.entry {
             return entry.title
         }
+        if model.showHiddenApps && entries.isEmpty { return String(localized: "没有隐藏的 App") }
         if model.isSearching && entries.isEmpty { return String(localized: "没有找到") }
-        return model.openFolderID == nil && model.pageCount > 1 ? String(localized: "滚动翻页") : ""
+        return model.openFolderID == nil && !model.showHiddenApps && model.pageCount > 1 ? String(localized: "滚动翻页") : ""
+    }
+}
+
+/// The open folder's name in the middle, edited in place (右键 › 重命名 starts it focused).
+private struct RingFolderName: View {
+    let model: LauncherModel
+    let folder: Folder
+    @State private var name = ""
+    @FocusState private var renaming: Bool
+
+    var body: some View {
+        TextField("", text: $name)
+            .textFieldStyle(.plain)
+            .multilineTextAlignment(.center)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+            .tint(.white)
+            .focused($renaming)
+            .onSubmit { renaming = false }
+            .onAppear {
+                name = folder.name
+                if model.renameOnOpen {
+                    model.renameOnOpen = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { renaming = true }
+                }
+            }
+            .onChange(of: renaming) { _, editing in
+                model.isRenaming = editing
+                if !editing {
+                    model.renameFolder(folder.id, to: name)
+                    name = model.openFolder?.0.name ?? name
+                }
+            }
+            .onChange(of: model.renameEndRequest) { _, _ in renaming = false }
+            .onDisappear {
+                if name != folder.name { model.renameFolder(folder.id, to: name) }
+                model.isRenaming = false
+            }
     }
 }
 
@@ -145,12 +230,19 @@ private struct RingItem: View {
 
     var body: some View {
         let isHovered = hovered == entry.id
+        let lifted = (isHovered && model.settings.hoverLift) || selected || MenuTarget.shared.id == entry.id
         EntryIcon(entry: entry, icons: model.catalog.icons, size: size)
             .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
-            .scaleEffect(isHovered || selected ? 1.14 : 1)
+            .opacity(model.isStale(entry) ? 0.45 : 1)
+            .scaleEffect(lifted ? 1.14 : 1)
             .overlay(alignment: .bottom) {
-                if model.isRunning(entry) {
-                    Circle().fill(.white.opacity(0.9)).frame(width: 4, height: 4).offset(y: 7)
+                // Blue until first opened, white while running, as on the grid.
+                let isNew = model.isNew(entry)
+                if isNew || model.isRunning(entry) {
+                    LightStrip(color: isNew ? Color(red: 0.3, green: 0.65, blue: 1) : .white,
+                               pulsing: isNew && model.isPresented, windowed: false)
+                        .frame(width: size * 0.58, height: 4)
+                        .offset(y: 8)
                 }
             }
             .overlay(alignment: .topTrailing) {
@@ -161,12 +253,13 @@ private struct RingItem: View {
                         .offset(x: 4, y: -4)
                 }
             }
-            .animation(.easeOut(duration: 0.12), value: isHovered || selected)
+            .animation(.easeOut(duration: 0.12), value: lifted)
             .contentShape(Circle().inset(by: -size * 0.1))
             .onHover { inside in
                 if inside { hovered = entry.id } else if hovered == entry.id { hovered = nil }
             }
             .onTapGesture { model.activate(entry) }
+            .nativeContextMenu { EntryView.menu(entry, folderID: model.openFolderID, model: model) }
             .accessibilityLabel(Text(verbatim: entry.title))
             .accessibilityAddTraits(.isButton)
     }

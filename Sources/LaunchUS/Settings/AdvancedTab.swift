@@ -23,15 +23,6 @@ struct AdvancedTab: View {
                         Button(String(localized: "检查更新…")) { Updater.shared.checkForUpdates() }
                     }
                 }
-                Row(title: String(localized: "激活状态"),
-                    subtitle: License.shared.maskedCode) {
-                    HStack(spacing: 10) {
-                        LicenseBadge()
-                        Button(License.shared.isActivated ? String(localized: "查看…") : String(localized: "激活…")) {
-                            model.settingsTab = .license
-                        }
-                    }
-                }
                 if Updater.shared.isConfigured {
                     Row(title: String(localized: "自动检查更新")) {
                         HStack(spacing: 10) {
@@ -60,7 +51,7 @@ struct AdvancedTab: View {
                 Row(title: String(localized: "数据文件夹"), info: String(localized: "布局、文件夹、启动项、自定义图标和备份都存在这里")) {
                     Button(String(localized: "在访达中显示")) { model.reveal(LayoutStore.directory.path) }
                 }
-                Row(title: String(localized: "和开发者分享匿名使用信息"), subtitle: SharingSheet.summary(settings)) {
+                Row(title: String(localized: "和开发者分享匿名使用信息")) {
                     Button(String(localized: "查看详情")) { showSharing = true }
                 }
                 .sheet(isPresented: $showSharing) {
@@ -359,7 +350,7 @@ struct SharingSheet: View {
                      why: String(localized: "知道有多少台 Mac 在用、新版本有没有装上、还要不要支持旧版 macOS 和 Intel 芯片、先翻译哪种语言。关掉后，下面两项也不会发送。"))
                 Divider()
                 item(String(localized: "用了哪些功能"), isOn: $settings.shareFeatures, enabled: settings.shareUsage,
-                     sends: String(localized: "用全屏还是窗口，有没有开智能栏、iCloud 同步，有没有设置 AI（不含密钥和对话）。"),
+                     sends: String(localized: "用全屏、窗口还是圆环，有没有开智能栏、iCloud 同步，有没有设置 AI（不含密钥和对话）。"),
                      why: String(localized: "知道哪些功能值得继续做好，哪些没人用可以简化。"))
                 Divider()
                 item(String(localized: "怎么打开的"), isOn: $settings.shareOpens, enabled: settings.shareUsage,

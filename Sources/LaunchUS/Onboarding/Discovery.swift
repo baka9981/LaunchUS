@@ -115,7 +115,7 @@ extension LauncherModel {
         guard !showGuide, sheet == nil, !showSettings else { return }
         if WhatsNew.isPending {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.86)) { showWhatsNew = true }
-        } else if !showsFrequentRow, settings.browseStyle == .scroll, RecentLaunches.load().count >= Tip.frequentRowAfter {
+        } else if !showsFrequentRow, settings.pageStyle == .scroll, RecentLaunches.load().count >= Tip.frequentRowAfter {
             offerTip(.frequentRow)
         }
     }

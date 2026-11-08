@@ -253,68 +253,82 @@ struct PhotoWidgetCard: View {
 
     var body: some View {
         let cells = size.cells
-        let width: CGFloat = 372
-        let height = min(220, width * CGFloat(cells.height) / CGFloat(cells.width))
-        let previewWidth = height * CGFloat(cells.width) / CGFloat(cells.height)
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                Text(String(localized: "照片")).font(.system(size: 17, weight: .semibold))
-                Spacer()
-                Button(String(localized: "换一张…")) {
-                    model.choosePhoto(for: id)
-                    photo.file = WidgetStore.shared.photo(id).file
-                }
-                .controlSize(.small)
-            }
-            HStack {
-                Spacer()
-                PhotoWidget(id: id, unit: height / CGFloat(cells.height), card: CGSize(width: previewWidth, height: height), override: photo)
-                    .clipShape(RoundedRectangle(cornerRadius: min(previewWidth, height) * 0.12, style: .continuous))
-                    .shadow(color: .black.opacity(0.2), radius: 6, y: 2)
-                Spacer()
-            }
-            HStack(spacing: 6) {
-                ForEach(BackgroundStyle.presets.dropFirst()) { preset in
-                    Button(preset.title) {
-                        withAnimation(.easeOut(duration: 0.2)) { photo.style = preset.style }
+        // The preview fits a 260-point square, in the widget's own proportions.
+        let box: CGFloat = 260
+        let aspect = CGFloat(cells.width) / CGFloat(cells.height)
+        let previewWidth = aspect >= 1 ? box : box * aspect
+        let height = aspect >= 1 ? box / aspect : box
+        VStack(alignment: .leading, spacing: 20) {
+            Text(String(localized: "照片")).font(.system(size: 17, weight: .semibold))
+            HStack(alignment: .top, spacing: 24) {
+                VStack(spacing: 16) {
+                    PhotoWidget(id: id, unit: height / CGFloat(cells.height), card: CGSize(width: previewWidth, height: height), override: photo)
+                        .clipShape(RoundedRectangle(cornerRadius: min(previewWidth, height) * 0.12, style: .continuous))
+                        .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+                        .frame(width: box, height: height)
+                    Button {
+                        model.choosePhoto(for: id)
+                        photo.file = WidgetStore.shared.photo(id).file
+                    } label: {
+                        Label(String(localized: "换一张…"), systemImage: "photo").frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.mini)
-                    .tint(photo.style.matches(preset.style) ? .accentColor : nil)
+                    .controlSize(.large)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("风格").font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 4), spacing: 6) {
+                            ForEach(BackgroundStyle.presets.dropFirst()) { preset in
+                                StyleChip(title: preset.title, selected: photo.style.matches(preset.style)) {
+                                    withAnimation(.easeOut(duration: 0.2)) { photo.style = preset.style }
+                                }
+                            }
+                        }
+                    }
+                    Toggle(String(localized: "完整显示图片，不裁切"), isOn: $photo.fit)
+                        .toggleStyle(.checkbox)
+                        .font(.system(size: 12))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-            }
-            TunerGroup(title: String(localized: "模糊与颜色")) {
-                TunerSlider(title: String(localized: "模糊"),
-                            value: Binding(get: { (photo.style.blur / 240).squareRoot() },
-                                           set: { photo.style.blur = (240 * $0 * $0 * 10).rounded() / 10 }),
-                            range: 0...1, standard: 0, text: "\(Int(photo.style.blur.rounded()))")
-                TunerSlider(title: String(localized: "鲜艳度"), value: $photo.style.saturation,
-                            range: 0...2, standard: 1, text: percent(photo.style.saturation))
-                TunerSlider(title: String(localized: "色温"), value: $photo.style.temperature,
-                            range: -1...1, standard: 0, text: signed(photo.style.temperature)) {
-                    LinearGradient(colors: [BackgroundToning.cool, .gray.opacity(0.3), BackgroundToning.warm],
-                                   startPoint: .leading, endPoint: .trailing)
+                .frame(width: box)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    panel {
+                        TunerGroup(title: String(localized: "模糊与颜色")) {
+                            TunerSlider(title: String(localized: "模糊"),
+                                        value: Binding(get: { (photo.style.blur / 240).squareRoot() },
+                                                       set: { photo.style.blur = (240 * $0 * $0 * 10).rounded() / 10 }),
+                                        range: 0...1, standard: 0, text: "\(Int(photo.style.blur.rounded()))")
+                            TunerSlider(title: String(localized: "鲜艳度"), value: $photo.style.saturation,
+                                        range: 0...2, standard: 1, text: percent(photo.style.saturation))
+                            TunerSlider(title: String(localized: "色温"), value: $photo.style.temperature,
+                                        range: -1...1, standard: 0, text: signed(photo.style.temperature)) {
+                                LinearGradient(colors: [BackgroundToning.cool, .gray.opacity(0.3), BackgroundToning.warm],
+                                               startPoint: .leading, endPoint: .trailing)
+                            }
+                            TunerSlider(title: String(localized: "着色"), value: $photo.style.tint,
+                                        range: 0...1, standard: 0, text: percent(photo.style.tint))
+                            // Only matters once there is some 着色.
+                            if photo.style.tint > 0 {
+                                TunerSlider(title: String(localized: "色调"), value: $photo.style.tintHue,
+                                            range: 0...1, standard: 0.6, text: "\(Int((photo.style.tintHue * 360).rounded()))°") {
+                                    LinearGradient(colors: stride(from: 0.0, through: 1, by: 1.0 / 12).map {
+                                        Color(hue: $0, saturation: 0.7, brightness: 0.85)
+                                    }, startPoint: .leading, endPoint: .trailing)
+                                }
+                            }
+                        }
+                    }
+                    panel {
+                        TunerGroup(title: String(localized: "明暗与质感")) {
+                            TunerSlider(title: String(localized: "暗度"), value: $photo.style.dim,
+                                        range: 0...0.6, standard: 0, text: percent(photo.style.dim / 0.6))
+                            TunerSlider(title: String(localized: "暗角"), value: $photo.style.vignette,
+                                        range: 0...1, standard: 0, text: percent(photo.style.vignette))
+                            TunerSlider(title: String(localized: "颗粒感"), value: $photo.style.grain,
+                                        range: 0...1, standard: 0, text: percent(photo.style.grain))
+                        }
+                    }
                 }
-                TunerSlider(title: String(localized: "色调"), value: $photo.style.tintHue,
-                            range: 0...1, standard: 0.6, text: "\(Int((photo.style.tintHue * 360).rounded()))°") {
-                    LinearGradient(colors: stride(from: 0.0, through: 1, by: 1.0 / 12).map {
-                        Color(hue: $0, saturation: 0.7, brightness: 0.85)
-                    }, startPoint: .leading, endPoint: .trailing)
-                }
-                .opacity(photo.style.tint > 0 ? 1 : 0.5)
-                TunerSlider(title: String(localized: "着色"), value: $photo.style.tint,
-                            range: 0...1, standard: 0, text: percent(photo.style.tint))
-            }
-            TunerGroup(title: String(localized: "明暗与质感")) {
-                TunerSlider(title: String(localized: "暗度"), value: $photo.style.dim,
-                            range: 0...0.6, standard: 0, text: percent(photo.style.dim / 0.6))
-                TunerSlider(title: String(localized: "暗角"), value: $photo.style.vignette,
-                            range: 0...1, standard: 0, text: percent(photo.style.vignette))
-                TunerSlider(title: String(localized: "颗粒感"), value: $photo.style.grain,
-                            range: 0...1, standard: 0, text: percent(photo.style.grain))
-                Toggle(String(localized: "完整显示图片，不裁切"), isOn: $photo.fit)
-                    .toggleStyle(.checkbox)
-                    .font(.system(size: 12))
+                .frame(maxWidth: .infinity)
             }
             HStack {
                 Button(String(localized: "全部还原")) {
@@ -333,6 +347,7 @@ struct PhotoWidgetCard: View {
                 }
                 .keyboardShortcut(.defaultAction)
             }
+            .controlSize(.large)
         }
         .onAppear {
             guard !loaded else { return }
@@ -341,9 +356,38 @@ struct PhotoWidgetCard: View {
         }
     }
 
+    private func panel<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     private func percent(_ v: Double) -> String { "\(Int((v * 100).rounded()))%" }
     private func signed(_ v: Double) -> String {
         let n = Int((v * 100).rounded())
         return n > 0 ? "+\(n)" : "\(n)"
+    }
+}
+
+/// One of the photo editor's ready-made looks.
+private struct StyleChip: View {
+    let title: String
+    let selected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: selected ? .semibold : .regular))
+                .lineLimit(1)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+                .foregroundStyle(selected ? Color.white : .primary)
+                .background(selected ? Color.accentColor : Color.primary.opacity(0.07),
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

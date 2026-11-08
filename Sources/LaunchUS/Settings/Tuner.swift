@@ -276,7 +276,7 @@ private struct MotionTuner: View {
                 .font(.system(size: 12))
         }
         HStack {
-            Button(model.pageCount > 1 && settings.browseStyle == .paged ? String(localized: "试试翻页和文件夹") : String(localized: "试试文件夹")) { tryMotion() }
+            Button(model.pageCount > 1 && settings.pageStyle == .paged ? String(localized: "试试翻页和文件夹") : String(localized: "试试文件夹")) { tryMotion() }
                 .disabled(settings.animationsOff)
             Spacer()
             Button(String(localized: "全部还原")) {
@@ -293,7 +293,7 @@ private struct MotionTuner: View {
     private func tryMotion() {
         let speed = settings.animationSpeed
         var delay = 0.0
-        if model.pageCount > 1, settings.browseStyle == .paged, model.openFolderID == nil {
+        if model.pageCount > 1, settings.pageStyle == .paged, model.openFolderID == nil {
             let from = model.currentPage
             let to = from + 1 < model.pageCount ? from + 1 : from - 1
             model.goToPage(to)
@@ -315,7 +315,7 @@ private struct MotionTuner: View {
     /// The first folder whose tile is on screen now.
     private func visibleFolderID() -> String? {
         let page = model.pages.indices.contains(model.currentPage) ? model.pages[model.currentPage] : []
-        let candidates = settings.browseStyle == .paged ? page : model.pages.flatMap { $0 }
+        let candidates = settings.pageStyle == .paged ? page : model.pages.flatMap { $0 }
         for case .folder(let folder, _) in candidates where model.tileRect(ofFolder: folder.id) != nil {
             return folder.id
         }

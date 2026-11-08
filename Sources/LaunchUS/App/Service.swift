@@ -55,6 +55,21 @@ enum ServiceAPI {
         ]
     }
 
+    /// What `device` holds, one per line, for the dialog that asks before sending it.
+    static var deviceSummary: String {
+        let d = device
+        let lines: [(String, String)] = [
+            (String(localized: "Mac 名称"), d["name"] ?? ""),
+            (String(localized: "型号"), d["model"] ?? ""),
+            (String(localized: "芯片"), d["chip"] ?? ""),
+            (String(localized: "系统"), d["os"] ?? ""),
+            (String(localized: "LaunchUS 版本"), d["version"] ?? ""),
+            (String(localized: "语言"), d["locale"] ?? ""),
+            (String(localized: "时区"), d["tz"] ?? ""),
+        ]
+        return lines.filter { !$0.1.isEmpty }.map { "\($0.0)：\($0.1)" }.joined(separator: "\n")
+    }
+
     /// The Mac's hardware UUID, hashed: the same on every install on this Mac, and says nothing else.
     static let deviceID: String = {
         let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPlatformExpertDevice"))
@@ -167,10 +182,10 @@ final class License {
         let defaults = UserDefaults.standard
         guard Date().timeIntervalSince1970 - defaults.double(forKey: Self.checkedKey) > 20 * 3600 else { return }
         Task {
-            let device = ServiceAPI.device
-            guard let (status, json) = try? await ServiceAPI.post("check", ["code": code, "device": ServiceAPI.deviceID,
-                                                                           "version": device["version"] ?? "",
-                                                                           "os": device["os"] ?? ""]),
+            var body: [String: Any] = ServiceAPI.device
+            body["code"] = code
+            body["device"] = ServiceAPI.deviceID
+            guard let (status, json) = try? await ServiceAPI.post("check", body),
                   status == 200, let active = json["active"] as? Bool else { return }
             defaults.set(Date().timeIntervalSince1970, forKey: Self.checkedKey)
             if !active, self.code == code { clear() }
@@ -256,7 +271,8 @@ final class Feedback {
     }
 
     /// Only Macs that wrote something look for replies.
-    private var started: Bool { UserDefaults.standard.bool(forKey: Self.startedKey) }
+    /// The first message also asks before sending what comes with it; later ones don't.
+    var started: Bool { UserDefaults.standard.bool(forKey: Self.startedKey) }
 
     private init() {
         unread = UserDefaults.standard.integer(forKey: "feedbackUnread")
@@ -322,7 +338,7 @@ final class Feedback {
         sending = true
         defer { sending = false }
         var body: [String: Any] = ServiceAPI.device
-        body.removeValue(forKey: "name")
+        body["device"] = ServiceAPI.deviceID
         body["key"] = key
         body["category"] = category.rawValue
         body["text"] = text

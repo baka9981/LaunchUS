@@ -107,12 +107,15 @@ struct HiddenAppsTab: View {
                 .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             } else {
                 Card {
-                    let scrolling = settings.browseStyle == .scroll
-                    Row(title: String(localized: "隐形圆点"), subtitle: scrolling ? ModeNote.paged : String(localized: "最后一个分页圆点后面，鼠标移上去才会出现")) {
+                    let scrolling = settings.pageStyle == .scroll
+                    let ring = settings.displayMode == .ring
+                    Row(title: String(localized: "隐形圆点"), subtitle: scrolling ? ModeNote.paged
+                            : ring ? String(localized: "圆环中间，分页圆点后面，鼠标移上去才会出现")
+                            : String(localized: "最后一个分页圆点后面，鼠标移上去才会出现")) {
                         Toggle("", isOn: $settings.hiddenDotEntrance).toggleStyle(.switch).labelsHidden()
                             .disabled(scrolling)
                     }
-                    Row(title: String(localized: "隐形空位"), subtitle: scrolling
+                    Row(title: String(localized: "隐形空位"), subtitle: ring ? ModeNote.grid : scrolling
                             ? String(localized: "在最后一个 App 后面的空位上右键，点击出现的虚线框")
                             : String(localized: "在所选页最后一个 App 后面的空位上右键，点击出现的虚线框")) {
                         HStack(spacing: 8) {
@@ -126,6 +129,7 @@ struct HiddenAppsTab: View {
                             }
                             Toggle("", isOn: $settings.hiddenSlotEntrance).toggleStyle(.switch).labelsHidden()
                         }
+                        .disabled(ring)
                     }
                     Row(title: String(localized: "暗号"), subtitle: String(localized: "在搜索框输入暗号即可打开，留空则关闭")) {
                         SecureField(String(localized: "未设置"), text: $settings.hiddenPhrase)
@@ -209,7 +213,7 @@ struct OrganizeTab: View {
                     MenuPicker(selection: $settings.sortOrder, options: SortOrder.allCases, title: \.title)
                 }
                 Row(title: String(localized: "图标摆放"),
-                    subtitle: settings.browseStyle == .scroll ? ModeNote.paged
+                    subtitle: settings.pageStyle == .scroll ? ModeNote.paged
                         : settings.sortOrder != .custom ? String(localized: "按自定义排序时生效") : nil,
                     info: String(localized: "随处摆放：图标落在松手处的格子里，可以留出空位；调整行列数时，图标保持原来的行和列。依次排列：图标一个挨一个，空位自动补上")) {
                     Picker("", selection: $settings.freePlacement) {
@@ -217,16 +221,16 @@ struct OrganizeTab: View {
                         Text("随处摆放").tag(true)
                     }
                     .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
-                    .disabled(settings.browseStyle == .scroll)
+                    .disabled(settings.pageStyle == .scroll)
                 }
             }
         }
         SettingsSection(title: String(localized: "一键整理")) {
             Card {
-                Row(title: String(localized: "整理空位"), subtitle: settings.browseStyle == .scroll ? ModeNote.paged : nil,
+                Row(title: String(localized: "整理空位"), subtitle: settings.pageStyle == .scroll ? ModeNote.paged : nil,
                     info: String(localized: "按当前行列，把 App 向前移动，填满前面页面的空位。")) {
                     Button(String(localized: "重新整理")) { model.compactLayout() }
-                        .disabled(settings.browseStyle == .scroll)
+                        .disabled(settings.pageStyle == .scroll)
                 }
                 Row(title: String(localized: "整理布局"), info: String(localized: "按所选规则重新整理所有页面")) {
                     HStack {

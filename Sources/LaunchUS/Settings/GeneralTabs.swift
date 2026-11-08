@@ -61,6 +61,24 @@ struct GeneralTab: View {
                     SettingWarning(text: String(localized: "这个角落已设置了系统的触发角，两者会同时触发。"),
                                    openSettings: { SystemHotCorners.openSettings() })
                 }
+                Row(title: String(localized: "鼠标连点"), info: String(localized: "快速连续按几下鼠标的某个键时打开或关闭。中键或侧键最合适，左右键本身的点击也会照常生效。")) {
+                    MenuPicker(selection: $settings.clickButton, options: ClickButton.allCases, title: \.title)
+                }
+                if settings.clickButton != .off {
+                    Row(title: String(localized: "连点次数")) {
+                        MenuPicker(selection: $settings.clickCount, options: [2, 3, 4, 5]) {
+                            String(format: String(localized: "%lld 下"), $0)
+                        }
+                    }
+                    if let other = model.otherProfile(opening: { $0.clickButton == settings.clickButton }) {
+                        SettingWarning(text: String(localized: "方案「\(LayoutProfiles.title(other))」也用这个键连点，只有一个会打开。"))
+                    }
+                    if settings.clickButton == .left, settings.clickCount <= 3 {
+                        SettingWarning(text: String(localized: "左键双击打开文件、三击选中整段，连点这么几下时它们也会触发。建议用 4 下以上，或换成中键、侧键。"))
+                    } else if settings.clickButton == .right {
+                        SettingWarning(text: String(localized: "每次右键都会弹出菜单，连点时也一样。建议换成中键或侧键。"))
+                    }
+                }
             }
             Text(model.profileNames.count > 1
                  ? String(localized: "这些打开「\(model.profileLabel(model.currentProfile))」。每套方案可以有自己的快捷键、手势和触发角，用哪个就打开哪套方案。")
@@ -85,31 +103,44 @@ struct BehaviorTab: View {
     var body: some View {
         SettingsSection(title: String(localized: "行为")) {
             Card {
-                Row(title: String(localized: "回到主页面"), info: settings.browseStyle == .scroll
+                Row(title: String(localized: "回到主页面"), info: settings.pageStyle == .scroll
                         ? String(localized: "再次打开时，隔多久回到最上面；在这之前会停在上次浏览的位置")
                         : String(localized: "再次打开时，隔多久回到第一页；在这之前会停在上次浏览的位置")) {
                     MenuPicker(selection: $settings.returnHome, options: ReturnHome.allCases, title: \.title)
+                }
+                Row(title: String(localized: "鼠标滚轮翻页"),
+                    info: String(localized: "往左，要多滚几格才翻一页；中间，滚一下翻一页；往右，一直滚就一直翻。触控板不受影响")) {
+                    HStack(spacing: 8) {
+                        Text("慢").font(.system(size: 11)).foregroundStyle(.secondary)
+                        Slider(value: $settings.wheelSpeed, in: 0...1).frame(width: 160)
+                        Text("快").font(.system(size: 11)).foregroundStyle(.secondary)
+                        Button(String(localized: "还原")) { settings.wheelSpeed = 0.5 }
+                            .disabled(abs(settings.wheelSpeed - 0.5) < 0.01)
+                    }
                 }
                 Row(title: String(localized: "点击空白区域关闭")) {
                     Toggle("", isOn: $settings.clickBackgroundToClose).toggleStyle(.switch).labelsHidden()
                 }
             }
         }
-        SettingsSection(title: String(localized: "编辑")) {
-            Card {
-                Row(title: String(localized: "多选"), info: String(localized: "按住所选按键点按 App 可多选，之后可一起拖进文件夹、新建文件夹、加标签或隐藏")) {
-                    MenuPicker(selection: $settings.multiSelectKey, options: MultiSelectKey.allCases, title: \.title)
+        // The ring has no jiggle mode, multi-select or dragging; its right-click menu does the editing.
+        if settings.displayMode != .ring {
+            SettingsSection(title: String(localized: "编辑")) {
+                Card {
+                    Row(title: String(localized: "多选"), info: String(localized: "按住所选按键点按 App 可多选，之后可一起拖进文件夹、新建文件夹、加标签或隐藏")) {
+                        MenuPicker(selection: $settings.multiSelectKey, options: MultiSelectKey.allCases, title: \.title)
+                    }
+                    Row(title: String(localized: "卸载 App"), info: String(localized: "抖动模式（长按或按住 ⌥）下，可删除的 App 左上角显示 ✕")) {
+                        MenuPicker(selection: $settings.deleteBadges, options: [true, false]) { $0 ? String(localized: "抖动时显示 ✕") : String(localized: "关") }
+                    }
                 }
-                Row(title: String(localized: "卸载 App"), info: String(localized: "抖动模式（长按或按住 ⌥）下，可删除的 App 左上角显示 ✕")) {
-                    MenuPicker(selection: $settings.deleteBadges, options: [true, false]) { $0 ? String(localized: "抖动时显示 ✕") : String(localized: "关") }
-                }
+                Text(settings.displayMode == .window
+                     ? String(localized: "把图标拖出窗口，即可放到程序坞、访达或其他 App")
+                     : String(localized: "拖动图标到屏幕底边，即可放到程序坞、访达或其他 App"))
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 4)
             }
-            Text(settings.displayMode == .window
-                 ? String(localized: "把图标拖出窗口，即可放到程序坞、访达或其他 App")
-                 : String(localized: "拖动图标到屏幕底边，即可放到程序坞、访达或其他 App"))
-                .font(.system(size: 11)).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 4)
         }
         // What's offered when a search finds no app.
         SettingsSection(title: String(localized: "搜索")) {

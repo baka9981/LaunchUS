@@ -16,6 +16,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var f4Profile: String?
     /// Corners that open a particular layout profile.
     private var profileCorners: [HotCornerWatcher] = []
+    /// Mouse buttons clicked quickly to open a particular layout profile.
+    private var profileClicks: [MouseClickWatcher] = []
     private var appearanceWatch: NSKeyValueObservation?
 
     func applicationWillFinishLaunching(_ notification: Notification) {
@@ -155,12 +157,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updatePinch()
         case "hotCorner":
             updateCorners()
+        case "clickButton", "clickCount":
+            updateClicks()
         case "profileTriggers":
             // Also posted when profiles are switched, added, renamed or removed.
             updateShortcuts()
             updateF4Key()
             updatePinch()
             updateCorners()
+            updateClicks()
             updateStatusItems()
             updateLoginItem()
             updateDock()
@@ -205,6 +210,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             launcher.badgesSettingChanged()
         case "blur", "backgroundSaturation", "displayMode", "windowSize", "hideDock", "background", "backgroundImage":
             launcher.displaySettingsChanged()
+            // The ring always turns pages: the scrolling grid's cells come and go with it.
+            if key == "displayMode" { launcher.model.settingsChanged() }
         default:
             break
         }
@@ -410,6 +417,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.launcher.pinchEnded(opening: direction == .pinchIn, commit: commit)
             }
         )
+    }
+
+    private func updateClicks() {
+        let model = launcher.model
+        profileClicks.forEach { $0.invalidate() }
+        var taken = Set<ClickButton>()
+        profileClicks = model.profilesByPriority.compactMap { name in
+            let opening = model.opening(for: name)
+            guard opening.clickButton != .off, taken.insert(opening.clickButton).inserted else { return nil }
+            return MouseClickWatcher(button: opening.clickButton, count: opening.clickCount) { [weak self] in
+                self?.launcher.toggleProfile(name, via: .clicks)
+            }
+        }
     }
 
     private func updateCorners() {

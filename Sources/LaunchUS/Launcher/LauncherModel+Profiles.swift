@@ -225,6 +225,9 @@ extension LauncherModel {
         /// Pinch finger counts; empty when it doesn't open by pinching.
         var fingers: Set<Int> = []
         var corner: HotCorner = .off
+        /// Quick clicks of a mouse button; `.off` when it doesn't open that way.
+        var clickButton: ClickButton = .off
+        var clickCount = 3
     }
 
     func opening(for name: String) -> Opening {
@@ -232,7 +235,8 @@ extension LauncherModel {
         if name == profiles.current {
             return Opening(hotKey: settings.hotKey, f4: settings.f4Key,
                            fingers: settings.trackpadPinch ? TrackpadPinch.fingerCounts(for: settings.pinchFingers) : [],
-                           corner: settings.hotCorner)
+                           corner: settings.hotCorner,
+                           clickButton: settings.clickButton, clickCount: settings.clickCount)
         }
         // Profiles from before their settings were kept use the current ones' way of showing,
         // but no way to open of their own.
@@ -241,7 +245,9 @@ extension LauncherModel {
         return Opening(hotKey: ProfileSettings.value("hotKey", in: values, as: HotKeySpec?.self) ?? nil,
                        f4: ProfileSettings.value("f4Key", in: values, as: Bool.self) ?? false,
                        fingers: pinch ? TrackpadPinch.fingerCounts(for: ProfileSettings.value("pinchFingers", in: values, as: Int.self) ?? 4) : [],
-                       corner: ProfileSettings.value("hotCorner", in: values, as: HotCorner.self) ?? .off)
+                       corner: ProfileSettings.value("hotCorner", in: values, as: HotCorner.self) ?? .off,
+                       clickButton: ProfileSettings.value("clickButton", in: values, as: ClickButton.self) ?? .off,
+                       clickCount: ProfileSettings.value("clickCount", in: values, as: Int.self) ?? 3)
     }
 
     /// The current profile first: when two profiles ask for the same thing, it wins.

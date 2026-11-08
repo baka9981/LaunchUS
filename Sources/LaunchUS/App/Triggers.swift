@@ -423,3 +423,72 @@ final class HotCornerWatcher {
         }
     }
 }
+
+/// Counts quick clicks of one mouse button: n in a row, each soon after the last and close to
+/// where the first one was, make a burst. Pure, so the timing can be tested.
+struct ClickBurst {
+    var count: Int
+    /// Longest gap between two clicks of a burst.
+    static let gap: TimeInterval = 0.4
+    /// How far the pointer may wander between clicks.
+    static let slop: CGFloat = 12
+    private var clicks = 0
+    private var last: TimeInterval = -.infinity
+    private var start = CGPoint.zero
+
+    init(count: Int) { self.count = count }
+
+    /// Adds one click; true when it completes a burst (the count then starts over).
+    mutating func click(at time: TimeInterval, _ point: CGPoint) -> Bool {
+        if time - last > Self.gap || hypot(point.x - start.x, point.y - start.y) > Self.slop {
+            clicks = 0
+            start = point
+        }
+        last = time
+        clicks += 1
+        guard clicks >= count else { return false }
+        clicks = 0
+        last = -.infinity
+        return true
+    }
+}
+
+/// Toggles the launcher when one mouse button is clicked quickly n times. Watches the clicks
+/// macOS lets other apps see; it never swallows them.
+@MainActor
+final class MouseClickWatcher {
+    private var monitors: [Any] = []
+    private var burst: ClickBurst
+    private let button: ClickButton
+    private let action: () -> Void
+
+    init?(button: ClickButton, count: Int, action: @escaping () -> Void) {
+        guard let number = button.number else { return nil }
+        self.button = button
+        burst = ClickBurst(count: max(2, count))
+        self.action = action
+        let mask: NSEvent.EventTypeMask = switch number {
+        case 0: .leftMouseDown
+        case 1: .rightMouseDown
+        default: .otherMouseDown
+        }
+        if let m = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { [weak self] event in
+            let n = event.buttonNumber, t = event.timestamp
+            MainActor.assumeIsolated { self?.clicked(n, t) }
+        }) { monitors.append(m) }
+        if let m = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { [weak self] event in
+            self?.clicked(event.buttonNumber, event.timestamp)
+            return event
+        }) { monitors.append(m) }
+    }
+
+    func invalidate() {
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
+    }
+
+    private func clicked(_ number: Int, _ time: TimeInterval) {
+        guard number == button.number, burst.click(at: time, NSEvent.mouseLocation) else { return }
+        action()
+    }
+}

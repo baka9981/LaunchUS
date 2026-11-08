@@ -24,9 +24,9 @@ extension LauncherModel {
         dismissFolderPick()
         dragLocation = pointer
         // The scrolling grid's cells don't know how far it is scrolled; find the icon on screen.
-        var iconCenter = folderID == nil && settings.browseStyle == .scroll
+        var iconCenter = folderID == nil && settings.pageStyle == .scroll
             ? scrollIconCenter(of: entry.id) ?? iconCenter : iconCenter
-        if case .widget(let widget) = entry, folderID == nil, settings.browseStyle == .scroll,
+        if case .widget(let widget) = entry, folderID == nil, settings.pageStyle == .scroll,
            let first = scrollIconCenter(of: entry.id) {
             // That's its first cell; a widget is held by its card.
             let rect = metrics.widgetRect(first: first, span: widget.size.span(columns: columns, rows: rows))
@@ -77,7 +77,7 @@ extension LauncherModel {
         if case .widget(let widget) = session.item {
             probe = metrics.widgetFirstCell(center: probe, span: widget.size.span(columns: columns, rows: rows))
         }
-        if settings.browseStyle == .scroll {
+        if settings.pageStyle == .scroll {
             handleEdgeScrolling(at: point)
             hoverInScrollGrid(at: probe)
             return
@@ -280,7 +280,7 @@ extension LauncherModel {
         if case .widget(let widget) = item {
             let span = widget.size.span(columns: columns, rows: rows)
             let first: CGPoint
-            if settings.browseStyle == .scroll {
+            if settings.pageStyle == .scroll {
                 guard let c = scrollIconCenter(of: id) else { return nil }
                 first = c
             } else {
@@ -290,7 +290,7 @@ extension LauncherModel {
             let rect = m.widgetRect(first: first, span: span)
             return CGPoint(x: rect.midX, y: rect.midY)
         }
-        if settings.browseStyle == .scroll { return scrollIconCenter(of: id) }
+        if settings.pageStyle == .scroll { return scrollIconCenter(of: id) }
         guard let pos = location(of: id), pos.page == currentPage else { return nil }
         return m.iconCenter(slot: pos.slot)
     }

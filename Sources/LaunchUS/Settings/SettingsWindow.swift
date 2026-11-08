@@ -190,7 +190,7 @@ private struct ProfilesTab: View {
 
     var body: some View {
         SettingsSection(title: String(localized: "布局方案")) {
-            Text("每个方案有自己的页面、文件夹、隐藏的 App 和设置。点「编辑」进入它的设置。")
+            Text("每个方案有自己的页面、文件夹、隐藏的 App 和设置。")
                 .font(.system(size: 12)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 4)
@@ -208,6 +208,7 @@ private struct ProfilesTab: View {
                     Label(String(localized: "新建方案…"), systemImage: "plus")
                 }
             }
+            .padding(.top, 2)
         }
     }
 }
@@ -219,47 +220,51 @@ private struct ProfileRow: View {
     var body: some View {
         let current = name == model.currentProfile
         let mode = model.profileMode(name)
-        HStack(spacing: 12) {
-            Image(nsImage: IconArt.image(model.appIcon(of: name), size: 64))
-                .resizable().frame(width: 32, height: 32)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Text(LayoutProfiles.title(name)).font(.system(size: 13, weight: .medium))
+        HStack(spacing: 14) {
+            Image(nsImage: IconArt.image(model.appIcon(of: name), size: 96))
+                .resizable().frame(width: 40, height: 40)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(LayoutProfiles.title(name)).font(.system(size: 14, weight: .semibold))
                     if current {
                         Text("正在使用").font(.system(size: 10, weight: .medium))
                             .foregroundStyle(Color.accentColor)
-                            .padding(.horizontal, 6).padding(.vertical, 1)
-                            .background(Color.accentColor.opacity(0.14), in: Capsule())
+                            .padding(.horizontal, 7).padding(.vertical, 2)
+                            .background(Color.accentColor.opacity(0.12), in: Capsule())
                     }
                 }
-                Text(verbatim: details(mode: mode)).font(.system(size: 11)).foregroundStyle(.secondary)
-                    .lineLimit(1)
+                Text(verbatim: details(mode: mode)).font(.system(size: 12)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
             }
-            Spacer(minLength: 8)
-            if !current {
-                Button(String(localized: "使用")) { model.switchProfile(name, reopen: false) }
-                    .help(String(localized: "切换到这个方案"))
-            }
-            Button(String(localized: "编辑")) {
-                model.switchProfile(name, reopen: false)
-                model.settingsTab = .display
-            }
-            .keyboardShortcut(current ? .defaultAction : nil)
-            Menu {
-                Button(String(localized: "重命名…")) {
-                    model.closeSettings()
-                    model.sheet = .renameProfile(name)
+            .layoutPriority(1)
+            Spacer(minLength: 12)
+            HStack(spacing: 8) {
+                if !current {
+                    Button(String(localized: "使用")) { model.switchProfile(name, reopen: false) }
+                        .help(String(localized: "切换到这个方案"))
                 }
-                Button(String(localized: "删除方案…"), role: .destructive) { confirmDelete() }
-            } label: {
-                Image(systemName: "ellipsis")
+                Button(String(localized: "编辑")) {
+                    model.switchProfile(name, reopen: false)
+                    model.settingsTab = .display
+                }
+                Menu {
+                    Button(String(localized: "重命名…")) {
+                        model.closeSettings()
+                        model.sheet = .renameProfile(name)
+                    }
+                    Button(String(localized: "删除方案…"), role: .destructive) { confirmDelete() }
+                } label: {
+                    Image(systemName: "ellipsis.circle").font(.system(size: 16)).foregroundStyle(.secondary)
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                .disabled(name.isEmpty)
+                .opacity(name.isEmpty ? 0.35 : 1)
+                .help(name.isEmpty ? String(localized: "默认方案不能重命名或删除") : String(localized: "更多"))
             }
-            .menuStyle(.button).menuIndicator(.hidden).fixedSize()
-            .disabled(name.isEmpty)
-            .help(name.isEmpty ? String(localized: "默认方案不能重命名或删除") : "")
+            .controlSize(.regular)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .contentShape(Rectangle())
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(verbatim: model.profileLabel(name)))

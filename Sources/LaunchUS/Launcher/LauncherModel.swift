@@ -454,7 +454,7 @@ final class LauncherModel {
     var pageCount: Int { max(1, pages.count) }
     var metrics: GridMetrics {
         GridMetrics(size: screenSize, columns: columns, rows: rows, windowed: settings.displayMode == .window,
-                    paged: settings.browseStyle == .paged, frequentRow: showsFrequentRow, categoryBar: showsCategoryBar, folderItemCount: openFolder?.1.count ?? 0, folderHasQuery: openFolder?.0.query != nil, hideNames: settings.hideNames && settings.hideFolderNames,
+                    paged: settings.pageStyle == .paged, frequentRow: showsFrequentRow, categoryBar: showsCategoryBar, folderItemCount: openFolder?.1.count ?? 0, folderHasQuery: openFolder?.0.query != nil, hideNames: settings.hideNames && settings.hideFolderNames,
                     iconScale: settings.iconScale)
     }
 
@@ -982,7 +982,7 @@ final class LauncherModel {
     }
 
     private func updateScrollCells() {
-        guard settings.browseStyle == .scroll else {
+        guard settings.pageStyle == .scroll else {
             if !scrollCells.isEmpty { scrollCells = [] }
             return
         }
@@ -1023,7 +1023,7 @@ final class LauncherModel {
         guard !isSearching else { return nil }
         let m = metrics
         let size = m.iconSize * 0.8
-        if settings.browseStyle == .scroll {
+        if settings.pageStyle == .scroll {
             // Scrolled out of sight: the panel opens from the middle instead.
             guard let c = scrollIconCenter(of: "folder:" + id) else { return nil }
             return CGRect(x: c.x - size / 2, y: c.y - size / 2, width: size, height: size)
@@ -1127,7 +1127,7 @@ final class LauncherModel {
     /// The first time something is hidden: point at the dot that brings it back (it's
     /// invisible until hovered).
     func offerHiddenDotTip() {
-        if settings.hiddenDotEntrance, settings.browseStyle != .scroll, !isSearching { offerTip(.hiddenDot) }
+        if settings.hiddenDotEntrance, settings.pageStyle != .scroll, !isSearching { offerTip(.hiddenDot) }
     }
 
     // MARK: - Hidden apps
@@ -1211,7 +1211,7 @@ final class LauncherModel {
 
     /// Scroll mode: the secret slot sits right after the last app (there are no pages to pick).
     var phantomScrollSlot: Bool {
-        settings.browseStyle == .scroll && settings.hiddenSlotEntrance && !isSearching && categoryFilter == nil && !isEditing
+        settings.pageStyle == .scroll && settings.hiddenSlotEntrance && !isSearching && categoryFilter == nil && !isEditing
     }
 
     func armPhantomSlot() {

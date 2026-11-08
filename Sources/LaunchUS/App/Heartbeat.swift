@@ -121,7 +121,7 @@ enum Heartbeat {
 
 /// What opened the launcher, counted for the ping.
 enum OpenSource: String, CaseIterable, Sendable {
-    case hotKey, pinch, hotCorner, f4, appIcon, menuBar, link, other
+    case hotKey, pinch, hotCorner, clicks, f4, appIcon, menuBar, link, other
 }
 
 /// Crashes, from the reports macOS writes to ~/Library/Logs/DiagnosticReports. Sent once each,

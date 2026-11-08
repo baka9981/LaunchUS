@@ -175,9 +175,35 @@ enum DarkIconMode: String, CaseIterable, Codable {
     }
 }
 enum HotCorner: String, CaseIterable, Codable { case off, topLeft, topRight, bottomLeft, bottomRight }
+/// The mouse button that opens a profile by quick clicks.
+enum ClickButton: String, CaseIterable, Codable {
+    case off, middle, back, forward, left, right
+    /// `NSEvent.buttonNumber`; nil when off.
+    var number: Int? {
+        switch self {
+        case .off: nil
+        case .left: 0
+        case .right: 1
+        case .middle: 2
+        case .back: 3
+        case .forward: 4
+        }
+    }
+}
 enum TargetScreen: String, CaseIterable, Codable { case dock, mouse, active, main }
 enum ReturnHome: Int, CaseIterable, Codable {
     case immediately = 0, thirtySeconds = 30, oneMinute = 60, fiveMinutes = 300, fifteenMinutes = 900, oneHour = 3600, never = -1
+}
+/// How readily the mouse wheel turns pages: 0 slowest, 0.5 one page a spin, 1 fastest.
+enum WheelSpeed {
+    /// Wheel notches to turn before a page flips: 4 at the slowest, 1 from the middle up.
+    static func notches(_ s: Double) -> Double { s < 0.5 ? 1 + (0.5 - s) * 6 : 1 }
+    /// The fewest seconds between two flips: 1.4 at the slowest, 0.6 in the middle, 0.15 at the fastest.
+    static func interval(_ s: Double) -> TimeInterval { s <= 0.5 ? 1.4 - s * 1.6 : 0.6 - (s - 0.5) * 0.9 }
+    /// The quiet that ends one spin, so the next starts afresh: 0.8 down to 0.2 seconds.
+    static func pause(_ s: Double) -> TimeInterval { 0.8 - s * 0.6 }
+    /// Past this a spin that keeps going keeps flipping; below it a spin flips once.
+    static func repeats(_ s: Double) -> Bool { s > 0.6 }
 }
 /// What the Dock icon's menu lists.
 enum DockMenuContent: String, CaseIterable, Codable { case pages, alphabetical, recent }
@@ -249,6 +275,19 @@ extension HotCorner {
         case .topRight: String(localized: "右上角")
         case .bottomLeft: String(localized: "左下角")
         case .bottomRight: String(localized: "右下角")
+        }
+    }
+}
+
+extension ClickButton {
+    var title: String {
+        switch self {
+        case .off: String(localized: "关")
+        case .left: String(localized: "左键")
+        case .right: String(localized: "右键")
+        case .middle: String(localized: "中键（按滚轮）")
+        case .back: String(localized: "侧键（后退）")
+        case .forward: String(localized: "侧键（前进）")
         }
     }
 }
@@ -331,6 +370,9 @@ final class Settings {
     /// Fingers in the pinch, thumb included: 3, 4 or 5.
     var pinchFingers: Int { didSet { save(pinchFingers, "pinchFingers") } }
     var hotCorner: HotCorner { didSet { save(hotCorner.rawValue, "hotCorner") } }
+    /// The mouse button clicked quickly `clickCount` times to open this profile.
+    var clickButton: ClickButton { didSet { save(clickButton.rawValue, "clickButton") } }
+    var clickCount: Int { didSet { save(clickCount, "clickCount") } }
     /// Whether this profile starts with the Mac; LaunchUS is a login item while any profile does.
     var startAtLogin: Bool { didSet { save(startAtLogin, "startAtLogin") } }
     /// This profile's language, put into `AppleLanguages` (read at launch, so a change needs a relaunch).
@@ -354,6 +396,8 @@ final class Settings {
     var hideDock: Bool { didSet { save(hideDock, "hideDock") } }
     var sortOrder: SortOrder { didSet { save(sortOrder.rawValue, "sortOrder") } }
     var browseStyle: BrowseStyle { didSet { save(browseStyle.rawValue, "browseStyle") } }
+    /// How the home pages actually behave: the ring always turns pages, whatever the grid's style.
+    var pageStyle: BrowseStyle { displayMode == .ring ? .paged : browseStyle }
     /// How an open folder with more apps than fit is browsed.
     var folderBrowseStyle: BrowseStyle { didSet { save(folderBrowseStyle.rawValue, "folderBrowseStyle") } }
     /// Window mode's row of category tabs under the search field.
@@ -481,6 +525,7 @@ final class Settings {
     var targetScreen: TargetScreen { didSet { save(targetScreen.rawValue, "targetScreen") } }
     var returnHome: ReturnHome { didSet { save(returnHome.rawValue, "returnHome") } }
     var clickBackgroundToClose: Bool { didSet { save(clickBackgroundToClose, "clickBackgroundToClose") } }
+    var wheelSpeed: Double { didSet { save(wheelSpeed, "wheelSpeed") } }
     var searchEngine: SearchEngine { didSet { save(searchEngine.rawValue, "searchEngine") } }
     /// Show matching files and folders from Spotlight under the app results.
     var searchFiles: Bool { didSet { save(searchFiles, "searchFiles") } }
@@ -524,6 +569,8 @@ final class Settings {
         let fingers = value("pinchFingers", 4)
         pinchFingers = fingers == TrackpadPinch.fourOrFive ? fingers : min(5, max(3, fingers))
         hotCorner = HotCorner(rawValue: value("hotCorner", "")) ?? .off
+        clickButton = ClickButton(rawValue: value("clickButton", "")) ?? .off
+        clickCount = min(5, max(2, value("clickCount", 3)))
         startAtLogin = value("startAtLogin", false)
         language = AppLanguage(rawValue: value("language", d === UserDefaults.standard ? AppLanguage.current.rawValue : "")) ?? .system
         showMenuBarIcon = value("showMenuBarIcon", true)
@@ -604,6 +651,7 @@ final class Settings {
         targetScreen = TargetScreen(rawValue: value("targetScreen", "")) ?? .dock
         returnHome = ReturnHome(rawValue: value("returnHome", 300)) ?? .fiveMinutes
         clickBackgroundToClose = value("clickBackgroundToClose", true)
+        wheelSpeed = min(1, max(0, value("wheelSpeed", 0.5)))
         searchEngine = SearchEngine(rawValue: value("searchEngine", "")) ?? .google
         searchFiles = value("searchFiles", true)
         autoBackupCount = min(50, max(0, value("autoBackupCount", 10)))

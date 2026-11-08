@@ -10,6 +10,8 @@ enum ModeNote {
     static var paged: String { String(localized: "仅在分页浏览时可用") }
     static var scroll: String { String(localized: "仅在滚动浏览时可用") }
     static var fullScreen: String { String(localized: "仅在全屏模式下可用") }
+    /// Things that live in the grid's cells (names, empty slots, dragging): not in the ring.
+    static var grid: String { String(localized: "仅在全屏和窗口模式下可用") }
 }
 
 struct SettingsSection<Content: View>: View {

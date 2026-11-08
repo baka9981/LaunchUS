@@ -379,7 +379,7 @@ extension LauncherModel {
         if let at = placedWidgets.first(where: { $0.widget.id == widget.id }) { text += ", at \(place(at.slot, page: at.page))" }
         text += "."
         if widget.size != size { text += " It doesn't come in \(size.rawValue), so it got the nearest size." }
-        if p > 1, !(settings.sortOrder == .custom && settings.browseStyle == .paged) {
+        if p > 1, !(settings.sortOrder == .custom && settings.pageStyle == .paged) {
             text += " The launcher is sorted or scrolls, so widgets go on the first page."
         }
         return (text, true)

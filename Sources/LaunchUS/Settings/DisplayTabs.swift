@@ -14,15 +14,17 @@ struct DisplayTab: View {
 
     var body: some View {
         let full = settings.displayMode == .fullScreen
+        let ring = settings.displayMode == .ring
         SettingsSection(title: String(localized: "布局")) {
-            Card {
-                Row(title: String(localized: "显示方式"),
-                    info: String(localized: "全屏：铺满屏幕，像原来的启动台。窗口：浮在桌面上，像一个 App 窗口。圆环：在指针周围排成一圈，文件夹点开是里面的一圈")) {
-                    Picker("", selection: $settings.displayMode) {
-                        ForEach(DisplayMode.allCases, id: \.self) { Text($0.title).tag($0) }
+            HStack(alignment: .top, spacing: 10) {
+                ForEach(DisplayMode.allCases, id: \.self) { mode in
+                    DisplayModeCard(mode: mode, selected: settings.displayMode == mode, thumbHeight: 84, fillHeight: true) {
+                        settings.displayMode = mode
                     }
-                    .pickerStyle(.segmented).labelsHidden().fixedSize()
                 }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            Card {
                 Row(title: String(localized: "显示在")) {
                     MenuPicker(selection: $settings.targetScreen, options: TargetScreen.allCases, title: \.title)
                 }
@@ -39,19 +41,23 @@ struct DisplayTab: View {
                 Row(title: String(localized: "图标大小"), subtitle: percent(settings.iconScale)) {
                     SizeSlider(value: $settings.iconScale, range: 0.6...1.3, symbol: "app")
                 }
-                Row(title: String(localized: "网格布局"), subtitle: String(localized: "列 × 行")) {
+                Row(title: String(localized: "网格布局"),
+                    subtitle: ring ? String(localized: "列 × 行，圆环每页放 \(settings.columns * settings.rows) 个") : String(localized: "列 × 行")) {
                     HStack(spacing: 8) {
                         NumberStepper(value: $settings.columns, range: 4...10)
                         Text("×").foregroundStyle(.secondary)
                         NumberStepper(value: $settings.rows, range: 3...8)
                     }
                 }
-                Row(title: String(localized: "隐藏名称")) {
-                    HStack(spacing: 14) {
-                        Toggle("App", isOn: $settings.hideNames)
-                        Toggle(String(localized: "文件夹"), isOn: $settings.hideFolderNames)
+                // The ring shows no names, only the one under the pointer in the middle.
+                if !ring {
+                    Row(title: String(localized: "隐藏名称")) {
+                        HStack(spacing: 14) {
+                            Toggle("App", isOn: $settings.hideNames)
+                            Toggle(String(localized: "文件夹"), isOn: $settings.hideFolderNames)
+                        }
+                        .toggleStyle(.checkbox)
                     }
-                    .toggleStyle(.checkbox)
                 }
             }
         }
@@ -86,6 +92,12 @@ struct DisplayTab: View {
                 }
             }
         }
+        // The ring always turns pages, opens folders as rings and has no smart bar.
+        if !ring { browsing }
+    }
+
+    @ViewBuilder
+    private var browsing: some View {
         SettingsSection(title: String(localized: "浏览")) {
             Card {
                 Row(title: String(localized: "浏览样式"), info: String(localized: "分页：左右翻页，可以留出空位。滚动：所有页面连成一列上下滚动，顶部可以显示最近一行")) {
@@ -96,12 +108,12 @@ struct DisplayTab: View {
                     .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
                 }
                 Row(title: String(localized: "最近一行"),
-                    subtitle: settings.browseStyle == .paged ? ModeNote.scroll : nil,
+                    subtitle: settings.pageStyle == .paged ? ModeNote.scroll : nil,
                     info: String(localized: "滚动浏览时，在最上面一行显示最近打开的 App，下面用一条线隔开")) {
-                    Toggle("", isOn: Binding(get: { settings.showFrequent && settings.browseStyle == .scroll },
+                    Toggle("", isOn: Binding(get: { settings.showFrequent && settings.pageStyle == .scroll },
                                              set: { settings.showFrequent = $0 }))
                         .toggleStyle(.switch).labelsHidden()
-                        .disabled(settings.browseStyle == .paged)
+                        .disabled(settings.pageStyle == .paged)
                 }
                 Row(title: String(localized: "文件夹内浏览"), info: String(localized: "文件夹里的 App 超过一屏时，分页左右翻，滚动上下滑")) {
                     Picker("", selection: $settings.folderBrowseStyle) {
@@ -151,6 +163,8 @@ struct DisplayModeCard: View {
     let selected: Bool
     var thumbHeight: CGFloat = 100
     var compact = false
+    /// Stretch to the tallest card in its row.
+    var fillHeight = false
     let select: () -> Void
 
     var body: some View {
@@ -169,7 +183,7 @@ struct DisplayModeCard: View {
                 .padding(.horizontal, 2)
             }
             .padding(compact ? 9 : 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: fillHeight ? .infinity : nil, alignment: .topLeading)
             .background(Color.primary.opacity(selected ? 0.07 : 0.035), in: shape)
             .overlay(shape.strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: selected ? 2 : 1))
             .contentShape(shape)
