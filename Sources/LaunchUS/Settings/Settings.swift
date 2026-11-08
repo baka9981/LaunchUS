@@ -116,7 +116,24 @@ struct MotionCurve: Codable, Equatable, Hashable {
     }
 }
 
-enum BackgroundKind: String, CaseIterable, Codable { case wallpaper, glass, image }
+enum BackgroundKind: String, CaseIterable, Codable { case wallpaper, glass, image, dynamic }
+/// What a 动态 background shows.
+enum DynamicWallpaper: String, CaseIterable, Codable {
+    /// The sky's colour through the day: dawn, day, dusk, night.
+    case sky
+    /// A city's weather live: rain, snow, clouds, fog, thunder, over its sky.
+    case weather
+    /// A video of the user's own, looping silently.
+    case live
+
+    var title: String {
+        switch self {
+        case .sky: String(localized: "天色")
+        case .weather: String(localized: "城市天气")
+        case .live: String(localized: "视频")
+        }
+    }
+}
 /// Light or dark look for LaunchUS's cards, menus and window, apart from the Mac's own.
 enum AppearanceMode: String, CaseIterable, Codable {
     case system, light, dark
@@ -393,6 +410,15 @@ final class Settings {
     /// File name in `BackgroundImage.directory`, used when `background` is `.image`.
     var backgroundImage: String { didSet { save(backgroundImage, "backgroundImage") } }
     var background: BackgroundKind { didSet { save(background.rawValue, "background") } }
+    var dynamicWallpaper: DynamicWallpaper { didSet { save(dynamicWallpaper.rawValue, "dynamicWallpaper") } }
+    /// The city for 城市天气, as found by the weather service; empty uses the Mac's time zone.
+    var weatherCity: String { didSet { save(weatherCity, "weatherCity") } }
+    var weatherLatitude: Double { didSet { save(weatherLatitude, "weatherLatitude") } }
+    var weatherLongitude: Double { didSet { save(weatherLongitude, "weatherLongitude") } }
+    /// The city, temperature and weather in a corner of a 城市天气 background.
+    var showWeatherLabel: Bool { didSet { save(showWeatherLabel, "showWeatherLabel") } }
+    /// File name in `LiveWallpaper.directory`, for 动态 › 视频.
+    var liveWallpaper: String { didSet { save(liveWallpaper, "liveWallpaper") } }
     /// Wallpaper blur radius in screen points, 0…240.
     var blur: Double { didSet { save(blur, "blur") } }
     /// Colour of the wallpaper or picture: 1 as is, 0 grey, up to 2 more vivid.
@@ -530,6 +556,12 @@ final class Settings {
         hoverLift = value("hoverLift", false)
         backgroundImage = value("backgroundImage", "")
         background = BackgroundKind(rawValue: value("background", "")) ?? .wallpaper
+        dynamicWallpaper = DynamicWallpaper(rawValue: value("dynamicWallpaper", "")) ?? .sky
+        weatherCity = value("weatherCity", "")
+        weatherLatitude = value("weatherLatitude", 0.0)
+        weatherLongitude = value("weatherLongitude", 0.0)
+        showWeatherLabel = value("showWeatherLabel", true)
+        liveWallpaper = value("liveWallpaper", "")
         blur = value("blur", 38.0)
         backgroundSaturation = min(2, max(0, value("backgroundSaturation", 1.05)))
         dim = value("dim", 0.2)

@@ -63,6 +63,7 @@ struct DisplayTab: View {
                             Text("系统壁纸").tag(BackgroundKind.wallpaper)
                             Text("毛玻璃").tag(BackgroundKind.glass)
                             Text("图片").tag(BackgroundKind.image)
+                            Text("动态").tag(BackgroundKind.dynamic)
                         }
                         .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
                     }
@@ -71,6 +72,9 @@ struct DisplayTab: View {
                                 ? String(localized: "还没有选择，暂时使用系统壁纸") : nil) {
                             Button(String(localized: "选择图片…"), action: chooseBackground)
                         }
+                    }
+                    if settings.background == .dynamic {
+                        DynamicWallpaperRows(model: model, settings: settings)
                     }
                     Row(title: String(localized: "效果"),
                         info: String(localized: "模糊、颜色、色温、色调、暗角和颗粒感。选一个样式，或点「调整…」边看边调，调好的可以存成自己的样式")) {

@@ -65,6 +65,8 @@ private struct BackgroundTuner: View {
 
     private var style: BackgroundStyle { settings.backgroundStyle }
     private var picture: Bool { settings.background != .glass }
+    /// A drawn sky has nothing to blur; a picture or a video does.
+    private var blurs: Bool { settings.background != .dynamic || settings.dynamicWallpaper == .live }
 
     private var selectedSaved: BackgroundStyle.Saved? {
         settings.savedBackgroundStyles.first { $0.style.matches(style) }
@@ -113,11 +115,13 @@ private struct BackgroundTuner: View {
 
         TunerGroup(title: String(localized: "模糊与颜色")) {
             if picture {
+                if blurs {
                 TunerSlider(title: String(localized: "模糊"),
                             value: Binding(get: { (settings.blur / 240).squareRoot() },
                                            set: { settings.blur = (240 * $0 * $0 * 10).rounded() / 10 }),
                             range: 0...1, standard: (38.0 / 240).squareRoot(),
                             text: "\(Int(settings.blur.rounded()))")
+                }
                 TunerSlider(title: String(localized: "鲜艳度"), value: $settings.backgroundSaturation,
                             range: 0...2, standard: 1.05, text: percent(settings.backgroundSaturation))
             } else {

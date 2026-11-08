@@ -20,6 +20,8 @@ final class WallpaperProvider {
 
     func prepare(for screen: NSScreen, blur: Double) {
         let settings = Settings.shared
+        // 动态 draws itself; the picture stays as it was for when it's switched back.
+        if settings.background == .dynamic { return }
         // Debug aid for website pictures: LAUNCHUS_WALLPAPER=/path.png stands in for the desktop picture.
         let demo = ProcessInfo.processInfo.environment["LAUNCHUS_WALLPAPER"].map { URL(fileURLWithPath: $0) }
         let chosen = demo ?? (settings.background == .image ? BackgroundImage.url(settings.backgroundImage) : nil)
@@ -138,6 +140,10 @@ struct BackgroundView: View {
     /// Frosted glass over what's behind the window instead of the wallpaper.
     var glass = false
     var style = BackgroundStyle.standard
+    /// 动态: drawn live instead of a picture.
+    var dynamic: DynamicWallpaper?
+    /// The launcher is on screen, so a 动态 background moves.
+    var animating = true
     @Environment(\.colorScheme) private var colorScheme
 
     /// The dark look darkens the background further, so icons and names stand out like in dark mode elsewhere.
@@ -147,9 +153,11 @@ struct BackgroundView: View {
     }
 
     var body: some View {
-        let picture = !glass ? wallpaper.image : nil
+        let picture = !glass && dynamic == nil ? wallpaper.image : nil
         ZStack {
-            if let image = picture {
+            if let dynamic, !glass {
+                DynamicBackground(kind: dynamic, animating: animating, style: style)
+            } else if let image = picture {
                 // Sized by the screen, not the picture: a landscape picture on a portrait
                 // screen would otherwise widen the whole launcher and push the grid aside.
                 Color.clear
@@ -164,8 +172,13 @@ struct BackgroundView: View {
                 VisualEffectBackground()
                     .opacity(glass ? style.glassStrength : 1)
             }
-            BackgroundToning(style: style, blends: picture != nil)
+            BackgroundToning(style: style, blends: picture != nil || (dynamic != nil && !glass))
             Color.black.opacity(shade)
+            if dynamic == .weather, !glass, Settings.shared.showWeatherLabel {
+                WeatherLabel()
+                    .padding(.leading, 36).padding(.top, 30)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
         }
         .compositingGroup()
         .contentShape(Rectangle())

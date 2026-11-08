@@ -24,7 +24,9 @@ struct LauncherView: View {
                         WindowGlass()
                     } else {
                         BackgroundView(wallpaper: wallpaper, glass: settings.background == .glass,
-                                       style: settings.backgroundStyle)
+                                       style: settings.backgroundStyle,
+                                       dynamic: settings.background == .dynamic ? settings.dynamicWallpaper : nil,
+                                       animating: model.isPresented)
                     }
                 }
                     .opacity(model.shownAmount)
