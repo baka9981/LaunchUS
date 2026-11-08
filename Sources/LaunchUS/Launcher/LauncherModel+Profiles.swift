@@ -225,8 +225,8 @@ extension LauncherModel {
         /// Pinch finger counts; empty when it doesn't open by pinching.
         var fingers: Set<Int> = []
         var corner: HotCorner = .off
-        /// Quick clicks of a mouse button; `.off` when it doesn't open that way.
-        var clickButton: ClickButton = .off
+        /// Quick clicks of a mouse button; `MouseButton.off` when it doesn't open that way.
+        var clickButton = MouseButton.off
         var clickCount = 3
     }
 
@@ -246,7 +246,7 @@ extension LauncherModel {
                        f4: ProfileSettings.value("f4Key", in: values, as: Bool.self) ?? false,
                        fingers: pinch ? TrackpadPinch.fingerCounts(for: ProfileSettings.value("pinchFingers", in: values, as: Int.self) ?? 4) : [],
                        corner: ProfileSettings.value("hotCorner", in: values, as: HotCorner.self) ?? .off,
-                       clickButton: ProfileSettings.value("clickButton", in: values, as: ClickButton.self) ?? .off,
+                       clickButton: ProfileSettings.value("clickButton", in: values, as: Int.self) ?? MouseButton.off,
                        clickCount: ProfileSettings.value("clickCount", in: values, as: Int.self) ?? 3)
     }
 

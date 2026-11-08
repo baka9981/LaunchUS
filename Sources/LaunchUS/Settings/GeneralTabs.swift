@@ -61,10 +61,10 @@ struct GeneralTab: View {
                     SettingWarning(text: String(localized: "这个角落已设置了系统的触发角，两者会同时触发。"),
                                    openSettings: { SystemHotCorners.openSettings() })
                 }
-                Row(title: String(localized: "鼠标连点"), info: String(localized: "快速连续按几下鼠标的某个键时打开或关闭。中键或侧键最合适，左右键本身的点击也会照常生效。")) {
-                    MenuPicker(selection: $settings.clickButton, options: ClickButton.allCases, title: \.title)
+                Row(title: String(localized: "鼠标连点"), info: String(localized: "点一下右边，再按一下要用的鼠标键；之后快速连按它几下就打开或关闭。中键或侧键最合适，左右键本身的点击也会照常生效。")) {
+                    MouseButtonRecorder(button: $settings.clickButton)
                 }
-                if settings.clickButton != .off {
+                if settings.clickButton >= 0 {
                     Row(title: String(localized: "连点次数")) {
                         MenuPicker(selection: $settings.clickCount, options: [2, 3, 4, 5]) {
                             String(format: String(localized: "%lld 下"), $0)
@@ -73,9 +73,9 @@ struct GeneralTab: View {
                     if let other = model.otherProfile(opening: { $0.clickButton == settings.clickButton }) {
                         SettingWarning(text: String(localized: "方案「\(LayoutProfiles.title(other))」也用这个键连点，只有一个会打开。"))
                     }
-                    if settings.clickButton == .left, settings.clickCount <= 3 {
+                    if settings.clickButton == 0, settings.clickCount <= 3 {
                         SettingWarning(text: String(localized: "左键双击打开文件、三击选中整段，连点这么几下时它们也会触发。建议用 4 下以上，或换成中键、侧键。"))
-                    } else if settings.clickButton == .right {
+                    } else if settings.clickButton == 1 {
                         SettingWarning(text: String(localized: "每次右键都会弹出菜单，连点时也一样。建议换成中键或侧键。"))
                     }
                 }
@@ -109,13 +109,12 @@ struct BehaviorTab: View {
                     MenuPicker(selection: $settings.returnHome, options: ReturnHome.allCases, title: \.title)
                 }
                 Row(title: String(localized: "鼠标滚轮翻页"),
-                    info: String(localized: "往左，要多滚几格才翻一页；中间，滚一下翻一页；往右，一直滚就一直翻。触控板不受影响")) {
+                    info: String(localized: "滚几格鼠标滚轮翻一页：最慢 6 格，最快 1 格。触控板和妙控鼠标按手势翻页，不受影响。")) {
                     HStack(spacing: 8) {
-                        Text("慢").font(.system(size: 11)).foregroundStyle(.secondary)
-                        Slider(value: $settings.wheelSpeed, in: 0...1).frame(width: 160)
-                        Text("快").font(.system(size: 11)).foregroundStyle(.secondary)
-                        Button(String(localized: "还原")) { settings.wheelSpeed = 0.5 }
-                            .disabled(abs(settings.wheelSpeed - 0.5) < 0.01)
+                        Text(WheelSpeed.notchesText(settings.wheelSpeed))
+                            .font(.system(size: 12)).foregroundStyle(.secondary).monospacedDigit()
+                            .fixedSize()
+                        Slider(value: $settings.wheelSpeed, in: 0...1).frame(width: 150)
                     }
                 }
                 Row(title: String(localized: "点击空白区域关闭")) {
@@ -171,6 +170,54 @@ struct HotKeyRecorder: View {
             Button(String(localized: "清除")) { spec = nil }
                 .disabled(spec == nil)
         }
+    }
+}
+
+/// Click, then press the mouse button to use: whatever buttons this mouse has, and only those.
+/// Esc or a click on it again cancels.
+struct MouseButtonRecorder: View {
+    @Binding var button: Int
+    @State private var recording = false
+    @State private var monitor: Any?
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button {
+                recording ? stop() : start()
+            } label: {
+                Text(recording ? String(localized: "请按一下要用的鼠标键…") : MouseButton.title(button))
+                    .font(.system(size: 13))
+                    .foregroundStyle(recording ? Color.accentColor : button < 0 ? .secondary : .primary)
+                    .frame(width: 160, height: 26)
+                    .background(RoundedRectangle(cornerRadius: 7).fill(Color(nsColor: .controlBackgroundColor)))
+                    .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(recording ? Color.accentColor : Color.primary.opacity(0.15)))
+            }
+            .buttonStyle(.plain)
+            Button(String(localized: "清除")) { stop(); button = MouseButton.off }
+                .disabled(button < 0)
+        }
+        .onDisappear(perform: stop)
+    }
+
+    private func start() {
+        recording = true
+        // Added after the click that started it, so the next press is the one recorded.
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown, .keyDown]) { event in
+            if event.type == .keyDown {
+                guard event.keyCode == 53 else { return event }  // Esc
+                stop()
+                return nil
+            }
+            button = event.buttonNumber
+            stop()
+            return nil
+        }
+    }
+
+    private func stop() {
+        recording = false
+        if let monitor { NSEvent.removeMonitor(monitor) }
+        monitor = nil
     }
 }
 

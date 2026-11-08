@@ -175,18 +175,17 @@ enum DarkIconMode: String, CaseIterable, Codable {
     }
 }
 enum HotCorner: String, CaseIterable, Codable { case off, topLeft, topRight, bottomLeft, bottomRight }
-/// The mouse button that opens a profile by quick clicks.
-enum ClickButton: String, CaseIterable, Codable {
-    case off, middle, back, forward, left, right
-    /// `NSEvent.buttonNumber`; nil when off.
-    var number: Int? {
-        switch self {
-        case .off: nil
-        case .left: 0
-        case .right: 1
-        case .middle: 2
-        case .back: 3
-        case .forward: 4
+/// The mouse button clicked quickly to open a profile: `NSEvent.buttonNumber`, picked by
+/// pressing it, so only buttons the mouse really has can be chosen.
+enum MouseButton {
+    static let off = -1
+    static func title(_ number: Int) -> String {
+        switch number {
+        case ..<0: String(localized: "未设置")
+        case 0: String(localized: "左键")
+        case 1: String(localized: "右键")
+        case 2: String(localized: "中键")
+        default: String(format: String(localized: "侧键 %lld"), number - 2)
         }
     }
 }
@@ -196,14 +195,20 @@ enum ReturnHome: Int, CaseIterable, Codable {
 }
 /// How readily the mouse wheel turns pages: 0 slowest, 0.5 one page a spin, 1 fastest.
 enum WheelSpeed {
-    /// Wheel notches to turn before a page flips: 4 at the slowest, 1 from the middle up.
-    static func notches(_ s: Double) -> Double { s < 0.5 ? 1 + (0.5 - s) * 6 : 1 }
-    /// The fewest seconds between two flips: 1.4 at the slowest, 0.6 in the middle, 0.15 at the fastest.
-    static func interval(_ s: Double) -> TimeInterval { s <= 0.5 ? 1.4 - s * 1.6 : 0.6 - (s - 0.5) * 0.9 }
-    /// The quiet that ends one spin, so the next starts afresh: 0.8 down to 0.2 seconds.
-    static func pause(_ s: Double) -> TimeInterval { 0.8 - s * 0.6 }
-    /// Past this a spin that keeps going keeps flipping; below it a spin flips once.
-    static func repeats(_ s: Double) -> Bool { s > 0.6 }
+    /// Wheel notches per page: 6 at the slow end, 1 at the fast end, evenly in between as felt
+    /// (each step of the slider multiplies by the same amount).
+    static func notches(_ s: Double) -> Double { pow(6, 1 - min(1, max(0, s))) }
+    /// Least gap between two flips, so a quick spin can't run through pages faster than they
+    /// slide: a third of a second slow, a tenth fast.
+    static func interval(_ s: Double) -> TimeInterval { 0.35 - 0.25 * min(1, max(0, s)) }
+    /// A pause this long starts the count over, so a leftover part of a page doesn't add to the
+    /// next spin.
+    static let pause: TimeInterval = 0.5
+    /// "约滚 3 格翻一页" for the setting.
+    static func notchesText(_ s: Double) -> String {
+        let n = Int(notches(s).rounded())
+        return n <= 1 ? String(localized: "滚一格翻一页") : String(format: String(localized: "滚约 %lld 格翻一页"), n)
+    }
 }
 /// What the Dock icon's menu lists.
 enum DockMenuContent: String, CaseIterable, Codable { case pages, alphabetical, recent }
@@ -275,19 +280,6 @@ extension HotCorner {
         case .topRight: String(localized: "右上角")
         case .bottomLeft: String(localized: "左下角")
         case .bottomRight: String(localized: "右下角")
-        }
-    }
-}
-
-extension ClickButton {
-    var title: String {
-        switch self {
-        case .off: String(localized: "关")
-        case .left: String(localized: "左键")
-        case .right: String(localized: "右键")
-        case .middle: String(localized: "中键（按滚轮）")
-        case .back: String(localized: "侧键（后退）")
-        case .forward: String(localized: "侧键（前进）")
         }
     }
 }
@@ -371,7 +363,7 @@ final class Settings {
     var pinchFingers: Int { didSet { save(pinchFingers, "pinchFingers") } }
     var hotCorner: HotCorner { didSet { save(hotCorner.rawValue, "hotCorner") } }
     /// The mouse button clicked quickly `clickCount` times to open this profile.
-    var clickButton: ClickButton { didSet { save(clickButton.rawValue, "clickButton") } }
+    var clickButton: Int { didSet { save(clickButton, "clickButton") } }
     var clickCount: Int { didSet { save(clickCount, "clickCount") } }
     /// Whether this profile starts with the Mac; LaunchUS is a login item while any profile does.
     var startAtLogin: Bool { didSet { save(startAtLogin, "startAtLogin") } }
@@ -569,7 +561,7 @@ final class Settings {
         let fingers = value("pinchFingers", 4)
         pinchFingers = fingers == TrackpadPinch.fourOrFive ? fingers : min(5, max(3, fingers))
         hotCorner = HotCorner(rawValue: value("hotCorner", "")) ?? .off
-        clickButton = ClickButton(rawValue: value("clickButton", "")) ?? .off
+        clickButton = max(-1, value("clickButton", MouseButton.off))
         clickCount = min(5, max(2, value("clickCount", 3)))
         startAtLogin = value("startAtLogin", false)
         language = AppLanguage(rawValue: value("language", d === UserDefaults.standard ? AppLanguage.current.rawValue : "")) ?? .system

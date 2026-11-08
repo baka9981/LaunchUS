@@ -201,7 +201,7 @@ enum ProfileSettings {
         values["f4Key"] = "[false]"
         values["trackpadPinch"] = "[false]"
         values["hotCorner"] = #"["off"]"#
-        values["clickButton"] = #"["off"]"#
+        values["clickButton"] = "[-1]"
         values["startAtLogin"] = "[false]"
         values["showMenuBarIcon"] = "[false]"
     }

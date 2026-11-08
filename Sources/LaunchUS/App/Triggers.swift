@@ -459,12 +459,12 @@ struct ClickBurst {
 final class MouseClickWatcher {
     private var monitors: [Any] = []
     private var burst: ClickBurst
-    private let button: ClickButton
+    private let button: Int
     private let action: () -> Void
 
-    init?(button: ClickButton, count: Int, action: @escaping () -> Void) {
-        guard let number = button.number else { return nil }
-        self.button = button
+    init?(button number: Int, count: Int, action: @escaping () -> Void) {
+        guard number >= 0 else { return nil }
+        self.button = number
         burst = ClickBurst(count: max(2, count))
         self.action = action
         let mask: NSEvent.EventTypeMask = switch number {
@@ -488,7 +488,7 @@ final class MouseClickWatcher {
     }
 
     private func clicked(_ number: Int, _ time: TimeInterval) {
-        guard number == button.number, burst.click(at: time, NSEvent.mouseLocation) else { return }
+        guard number == button, burst.click(at: time, NSEvent.mouseLocation) else { return }
         action()
     }
 }

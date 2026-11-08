@@ -422,10 +422,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateClicks() {
         let model = launcher.model
         profileClicks.forEach { $0.invalidate() }
-        var taken = Set<ClickButton>()
+        var taken = Set<Int>()
         profileClicks = model.profilesByPriority.compactMap { name in
             let opening = model.opening(for: name)
-            guard opening.clickButton != .off, taken.insert(opening.clickButton).inserted else { return nil }
+            guard opening.clickButton >= 0, taken.insert(opening.clickButton).inserted else { return nil }
             return MouseClickWatcher(button: opening.clickButton, count: opening.clickCount) { [weak self] in
                 self?.launcher.toggleProfile(name, via: .clicks)
             }

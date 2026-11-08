@@ -46,7 +46,6 @@ final class LauncherController {
     private var lastWheelFlip = Date.distantPast
     /// Lines turned in the current spin, and whether it has flipped yet.
     private var wheelTurned = 0.0
-    private var wheelFlipped = false
     private let running = RunningApps()
     private let dockBadges = DockBadges()
     private var lastDockBadges: [String: String] = [:]
@@ -853,31 +852,25 @@ final class LauncherController {
 
     /// Mouse wheel: a spin sends a burst of events, each notch one (a smooth-scrolling mouse, many
     /// small ones). Notches are counted, not lines: macOS speeds lines up on a quick spin, so one
-    /// notch can say five. Once 鼠标滚轮翻页's notches add up a page flips; then, up to a little
-    /// past the middle, the spin has to stop before the next flip, and on every setting flips keep
-    /// a slower or faster least gap.
+    /// notch can say five. Every 鼠标滚轮翻页 notches a page flips, flips kept a least gap apart.
     private func wheelFlip(_ event: NSEvent) {
         let delta = event.scrollingDeltaY != 0 ? event.scrollingDeltaY : event.scrollingDeltaX
         guard delta != 0 else { return }
         let speed = settings.wheelSpeed
         let now = Date()
-        let newSpin = now.timeIntervalSince(lastWheelEvent) > WheelSpeed.pause(speed)
-        lastWheelEvent = now
-        if newSpin || (wheelTurned != 0 && (wheelTurned < 0) != (delta < 0)) {
+        if now.timeIntervalSince(lastWheelEvent) > WheelSpeed.pause || (wheelTurned != 0 && (wheelTurned < 0) != (delta < 0)) {
             wheelTurned = 0
-            wheelFlipped = false
         }
+        lastWheelEvent = now
         let notch = event.hasPreciseScrollingDeltas ? min(1, abs(delta) / 10) : 1
         wheelTurned += delta < 0 ? -notch : notch
         if ProcessInfo.processInfo.environment["LAUNCHUS_WHEEL_LOG"] != nil {
-            NSLog("wheel delta=\(delta) precise=\(event.hasPreciseScrollingDeltas) turned=\(wheelTurned) newSpin=\(newSpin)")
+            NSLog("wheel delta=\(delta) precise=\(event.hasPreciseScrollingDeltas) turned=\(wheelTurned)")
         }
         guard abs(wheelTurned) >= WheelSpeed.notches(speed) - 0.001,
-              now.timeIntervalSince(lastWheelFlip) >= WheelSpeed.interval(speed),
-              WheelSpeed.repeats(speed) || !wheelFlipped else { return }
+              now.timeIntervalSince(lastWheelFlip) >= WheelSpeed.interval(speed) else { return }
         flip(wheelTurned < 0 ? 1 : -1)
         lastWheelFlip = now
-        wheelFlipped = true
         wheelTurned = 0
     }
 

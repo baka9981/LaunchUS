@@ -19,10 +19,9 @@ import Testing
         #expect(bursts(2, [(0, 0), (0.1, 100), (0.2, 104)]) == [false, false, true])
     }
 
-    @Test func buttonsMapToEventNumbers() {
-        #expect(ClickButton.off.number == nil)
-        #expect(ClickButton.left.number == 0)
-        #expect(ClickButton.middle.number == 2)
-        #expect(ClickButton.forward.number == 4)
+    @Test func buttonTitles() {
+        #expect(MouseButton.title(MouseButton.off) == "未设置")
+        #expect(MouseButton.title(2) == "中键")
+        #expect(MouseButton.title(3) == "侧键 1")
     }
 }

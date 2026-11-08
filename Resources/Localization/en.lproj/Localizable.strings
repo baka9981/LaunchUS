@@ -1475,21 +1475,23 @@
 "激活这台 Mac？" = "Activate this Mac?";
 "用全屏、窗口还是圆环，有没有开智能栏、iCloud 同步，有没有设置 AI（不含密钥和对话）。" = "Whether you use full screen, window or ring; whether the smart bar and iCloud sync are on; whether AI is set up (never keys or chats).";
 "风格" = "Style";
-"往左，要多滚几格才翻一页；中间，滚一下翻一页；往右，一直滚就一直翻。触控板不受影响" = "Left: turn the wheel a few notches for one page. Middle: one spin, one page. Right: keep spinning to keep turning pages. Trackpads aren't affected";
 "快" = "Fast";
 "慢" = "Slow";
 "鼠标滚轮翻页" = "Mouse wheel paging";
 
 /* Mouse clicks */
 "%lld 下" = "%lld clicks";
-"中键（按滚轮）" = "Middle (wheel press)";
-"侧键（前进）" = "Side (forward)";
-"侧键（后退）" = "Side (back)";
 "右键" = "Right";
 "左键" = "Left";
 "左键双击打开文件、三击选中整段，连点这么几下时它们也会触发。建议用 4 下以上，或换成中键、侧键。" = "A left double-click opens files and a triple-click selects a paragraph, so they'll happen too with this few clicks. Use 4 or more, or the middle or a side button.";
-"快速连续按几下鼠标的某个键时打开或关闭。中键或侧键最合适，左右键本身的点击也会照常生效。" = "Opens or closes when you click one mouse button quickly several times. The middle or a side button works best; left and right clicks still do what they normally do.";
 "方案「%@」也用这个键连点，只有一个会打开。" = "The layout “%@” uses this button too; only one will open.";
 "每次右键都会弹出菜单，连点时也一样。建议换成中键或侧键。" = "Every right-click opens a menu, also while clicking quickly. Use the middle or a side button instead.";
 "连点次数" = "Clicks";
 "鼠标连点" = "Mouse clicks";
+"中键" = "Middle";
+"侧键 %lld" = "Side %lld";
+"滚一格翻一页" = "1 notch a page";
+"滚几格鼠标滚轮翻一页：最慢 6 格，最快 1 格。触控板和妙控鼠标按手势翻页，不受影响。" = "How many notches of the mouse wheel turn a page: 6 at the slowest, 1 at the fastest. Trackpads and the Magic Mouse turn pages by gesture and aren’t affected.";
+"滚约 %lld 格翻一页" = "About %lld notches a page";
+"点一下右边，再按一下要用的鼠标键；之后快速连按它几下就打开或关闭。中键或侧键最合适，左右键本身的点击也会照常生效。" = "Click the box, then press the mouse button to use. After that, click it quickly a few times to open or close. The middle or a side button works best; left and right clicks still do what they normally do.";
+"请按一下要用的鼠标键…" = "Press the mouse button to use…";
