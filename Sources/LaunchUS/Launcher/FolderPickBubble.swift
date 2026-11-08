@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Over a folder clicked with the multi-select key: pick the folder itself, or open it and pick
-/// apps inside. A small glass capsule pointing at the folder; Esc or a click elsewhere drops it.
+/// Over a folder just picked with the multi-select key: it stays picked (the ticked option, or
+/// Esc / a click elsewhere), or is let go and opened to pick apps inside. A small glass capsule pointing at the folder; Esc or a click elsewhere drops it.
 struct FolderPickBubble: View {
     let model: LauncherModel
     let windowed: Bool
@@ -12,7 +12,7 @@ struct FolderPickBubble: View {
         VStack(spacing: 0) {
             if below, showsPointer { pointer.rotationEffect(.degrees(180)) }
             HStack(spacing: 2) {
-                option(String(localized: "选中文件夹"), symbol: "checkmark.circle.fill", accent: true) {
+                option(String(localized: "已选中文件夹"), symbol: "checkmark.circle.fill", accent: true) {
                     model.resolveFolderPick(open: false)
                 }
                 Rectangle()

@@ -23,19 +23,18 @@ extension LauncherModel {
         }
     }
 
-    /// A click with the multi-select key held. An app is picked or let go at once; a folder
-    /// asks first whether to pick it or to open it and pick apps inside (`folderPick`). A
-    /// picked folder is let go at once, and clicking the asking folder again picks it.
+    /// A click with the multi-select key held. An app is picked or let go at once. A folder is
+    /// picked at once too, with a bubble over it (`folderPick`) offering to pick apps inside
+    /// instead; clicking a picked folder lets it go.
     func multiSelectClick(_ entry: GridEntry) {
         switch entry {
         case .app(let app):
             dismissFolderPick()
             toggleMultiSelect(app.id)
         case .folder(let folder, _):
-            if multiSelection.contains(Self.folderKey(folder.id)) || folderPick == folder.id {
-                dismissFolderPick()
-                toggleMultiSelect(Self.folderKey(folder.id))
-            } else {
+            dismissFolderPick()
+            toggleMultiSelect(Self.folderKey(folder.id))
+            if multiSelection.contains(Self.folderKey(folder.id)) {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { folderPick = folder.id }
             }
         case .widget, .gap:
@@ -43,11 +42,14 @@ extension LauncherModel {
         }
     }
 
-    /// The answer to `folderPick`: pick the folder, or open it to pick apps inside.
+    /// The answer to `folderPick`: keep the folder picked, or let it go and open it to pick
+    /// apps inside.
     func resolveFolderPick(open: Bool) {
         guard let id = folderPick else { return }
         dismissFolderPick()
-        if open { openFolder(id) } else { toggleMultiSelect(Self.folderKey(id)) }
+        guard open else { return }
+        if multiSelection.contains(Self.folderKey(id)) { toggleMultiSelect(Self.folderKey(id)) }
+        openFolder(id)
     }
 
     func dismissFolderPick() {

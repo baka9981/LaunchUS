@@ -443,6 +443,9 @@ struct SmartBarEditor: View {
                     HStack(spacing: 6) {
                         Button { startNew("") } label: { Image(systemName: "plus").frame(width: 18, height: 16) }
                             .help(String(localized: "新建智能文件夹"))
+                        Button { if let selected { delete(selected) } } label: { Image(systemName: "minus").frame(width: 18, height: 16) }
+                            .help(String(localized: "删除智能文件夹"))
+                            .disabled(selected == nil)
                         Spacer()
                         if !model.importableCategories.isEmpty {
                             Button(String(localized: "导入系统分类")) { model.importSystemCategories() }
@@ -491,10 +494,6 @@ struct SmartBarEditor: View {
         VStack(alignment: .leading, spacing: 14) {
             ScrollView { fields.padding(20) }
                 .scrollBounceBehavior(.basedOnSize)
-            if let selected {
-                Button(String(localized: "删除智能文件夹"), role: .destructive) { delete(selected) }
-                    .padding([.horizontal, .bottom], 20)
-            }
         }
     }
 

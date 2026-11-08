@@ -1367,5 +1367,5 @@
 "让 Claude、Codex、Cursor 等 AI 工具搜索、打开和退出 App，打开文件夹或分组，新建、切换和修改布局方案及其设置，添加和移除小组件。所有布局方案共用。" = "Let AI tools like Claude, Codex and Cursor find, open and quit apps, open folders or groups, create, switch and change layouts and their settings, and add or remove widgets. Shared by all layouts.";
 "可用工具：%@" = "Tools: %@";
 
-"选中文件夹" = "Select Folder";
+"已选中文件夹" = "Folder Selected";
 "打开并选择里面的 App" = "Open to Pick Apps Inside";
