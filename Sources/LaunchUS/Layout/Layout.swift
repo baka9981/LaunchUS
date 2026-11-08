@@ -457,6 +457,37 @@ enum LayoutOps {
         return result
     }
 
+    /// Lined-up pages that had no room for the first item of the page after them, so that
+    /// page break most likely came from overflow, not from the user.
+    static func fullPages(_ pages: [[LayoutItem]], columns: Int, rows: Int) -> [Bool] {
+        pages.indices.map { i in
+            guard i + 1 < pages.count, let first = pages[i + 1].first(where: { !$0.isGap }) else { return false }
+            return !pack(pages[i] + [first], columns: columns, rows: rows, free: false).overflow.isEmpty
+        }
+    }
+
+    /// After something on a page got smaller or went away (a widget), the pages that were full
+    /// (`fullPages`, judged before) take back what was pushed on to the page after them, as
+    /// much as fits again, so adding a widget and removing it leaves the apps where they were.
+    static func refill(_ pages: [[LayoutItem]], wasFull: [Bool], columns: Int, rows: Int) -> [[LayoutItem]] {
+        var result = pages.map { $0.filter { !$0.isGap } }
+        func full(_ i: Int) -> Bool { i < wasFull.count && wasFull[i] }
+        for i in result.indices where full(i) {
+            var next = i + 1
+            while next < result.count {
+                guard let first = result[next].first else {
+                    // Emptied: go on to the page after it only if that break was overflow too.
+                    guard full(next) else { break }
+                    next += 1
+                    continue
+                }
+                guard pack(result[i] + [first], columns: columns, rows: rows, free: false).overflow.isEmpty else { break }
+                result[i].append(result[next].removeFirst())
+            }
+        }
+        return repack(result, perPage: columns * rows, columns: columns)
+    }
+
     /// Default layout: everything alphabetically, like a fresh Launchpad.
     static func alphabetical(_ apps: [AppItem], perPage: Int) -> [[LayoutItem]] {
         repack([apps.map { .app($0.id) }], perPage: perPage)

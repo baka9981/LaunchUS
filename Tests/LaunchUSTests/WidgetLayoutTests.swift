@@ -47,6 +47,50 @@ import Testing
         }
     }
 
+    /// Widgets pushing apps on to later pages, then going again: the apps come back, so pages
+    /// aren't left half empty (what scrolling, which only adds to the first page, piled up).
+    @Test func removingWidgetsTakesBackPushedApps() {
+        let original = LayoutOps.repack([(1...40).map { .app("a\($0)") }], perPage: 35, columns: 7)
+        var layout = original
+        let widgets = (1...6).map { WidgetItem(id: "w\($0)", kind: "k", size: $0 % 2 == 0 ? .small : .medium) }
+        for w in widgets {
+            layout[0].insert(.widget(w), at: 0)
+            layout = LayoutOps.repack(layout, perPage: 35, columns: 7)
+        }
+        #expect(layout.count == 3)
+        for w in widgets {
+            let wasFull = LayoutOps.fullPages(layout, columns: 7, rows: 5)
+            let p = layout.firstIndex { $0.contains(.widget(w)) }!
+            layout[p][layout[p].firstIndex(of: .widget(w))!] = .cover("")
+            layout = LayoutOps.refill(layout, wasFull: wasFull, columns: 7, rows: 5)
+        }
+        #expect(layout == original)
+    }
+
+    /// A page the user ended early keeps its break; only full pages take apps back.
+    @Test func refillKeepsPagesEndedByHand() {
+        let pages: [[LayoutItem]] = [[.widget(clock)] + (1...8).map { .app("a\($0)") }, [.app("b1"), .app("b2")], [.app("c1")]]
+        let wasFull = LayoutOps.fullPages(pages, columns: 4, rows: 3)
+        #expect(wasFull == [true, false, false])
+        var removed = LayoutOps.repack(pages, perPage: 12, columns: 4)
+        removed[0][0] = .cover("")
+        let result = LayoutOps.refill(removed, wasFull: wasFull, columns: 4, rows: 3)
+        #expect(result == [(1...8).map { .app("a\($0)") } + [.app("b1"), .app("b2")], [.app("c1")]])
+    }
+
+    /// A widget made smaller frees cells the pushed apps come back to.
+    @Test func shrinkingWidgetTakesBackPushedApps() {
+        let big = WidgetItem(id: "L", kind: "k", size: .large)
+        let pages = LayoutOps.repack([[.widget(big)] + (1...12).map { .app("a\($0)") }], perPage: 24, columns: 6)
+        #expect(pages.count == 2)
+        let wasFull = LayoutOps.fullPages(pages, columns: 6, rows: 4)
+        var shrunk = pages
+        shrunk[0][0] = .widget(WidgetItem(id: "L", kind: "k", size: .small))
+        let result = LayoutOps.refill(shrunk, wasFull: wasFull, columns: 6, rows: 4)
+        #expect(result.count == 1)
+        #expect(result[0].filter { !$0.isGap }.count == 13)
+    }
+
     @Test func removingWidgetClosesItsCellsWhenLinedUp() {
         let page = LayoutOps.pack([.widget(clock), .app("a"), .app("b"), .app("c")], columns: 4, rows: 3, free: false).page
         var removed = page

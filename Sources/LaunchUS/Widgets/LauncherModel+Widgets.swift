@@ -36,8 +36,10 @@ extension LauncherModel {
 
     func resizeWidget(_ id: String, to size: WidgetItem.Size) {
         guard let pos = location(of: "widget:" + id), case .widget(var widget) = layout[pos.page][pos.slot] else { return }
+        let wasFull = LayoutOps.fullPages(layout, columns: columns, rows: rows)
         widget.size = size
         layout[pos.page][pos.slot] = .widget(widget)
+        refillIfLinedUp(wasFull)
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
     }
 
@@ -45,9 +47,19 @@ extension LauncherModel {
         guard let pos = location(of: "widget:" + id) else { return }
         if editingNoteID == id { editingNoteID = nil }
         WidgetStore.shared.forget(id)
-        // Placed freely, its cells simply empty out; lined up, the icons after it close the gap.
+        // Placed freely, its cells simply empty out; lined up, the icons after it close the gap
+        // and the page takes back what it pushed on to the next one.
+        let wasFull = LayoutOps.fullPages(layout, columns: columns, rows: rows)
         layout[pos.page][pos.slot] = freePlacement ? .gap : .cover("")
+        refillIfLinedUp(wasFull)
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
+    }
+
+    /// Lined up, the apps a widget pushed on to the next page come back when it shrinks or
+    /// goes (free placement keeps every icon where it is).
+    private func refillIfLinedUp(_ wasFull: [Bool]) {
+        guard !freePlacement else { return }
+        layout = LayoutOps.refill(layout, wasFull: wasFull, columns: columns, rows: rows)
     }
 
     /// A click on a widget, at a point on its card (nil from the keyboard): the tools act on
