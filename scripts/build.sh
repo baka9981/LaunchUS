@@ -26,7 +26,9 @@ JSON
 # Release builds compile the module as a whole, so one file holds every value.
 INTENT_FLAGS=()
 if [[ "$CONFIG" == "release" ]]; then
-    INTENT_FLAGS=(-Xswiftc -emit-const-values-path -Xswiftc "$INTENTS_DIR/LaunchUS.swiftconstvalues"
+    # Optimized for size: a sixth smaller, and the busy work happens in AppKit and SwiftUI anyway.
+    INTENT_FLAGS=(-Xswiftc -Osize
+                  -Xswiftc -emit-const-values-path -Xswiftc "$INTENTS_DIR/LaunchUS.swiftconstvalues"
                   -Xswiftc -Xfrontend -Xswiftc -const-gather-protocols-file -Xswiftc -Xfrontend -Xswiftc "$INTENTS_DIR/protocols.json")
 fi
 swift build -c "$CONFIG" ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"} ${INTENT_FLAGS[@]+"${INTENT_FLAGS[@]}"}
@@ -61,6 +63,12 @@ rm -rf "$INTENTS_DIR"
 mkdir -p "$APP/Contents/Frameworks"
 # Sparkle comes universal; keep only this build's architecture.
 ditto --arch "$ARCH" "$BIN_DIR/Sparkle.framework" "$APP/Contents/Frameworks/Sparkle.framework"
+# Nor what an app that isn't sandboxed never uses: headers, the XPC services (only for sandboxed
+# apps; Info.plist doesn't turn them on) and languages LaunchUS isn't in.
+SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+rm -rf "$SPARKLE"/{Headers,PrivateHeaders,Modules,XPCServices} "$SPARKLE"/Versions/B/{Headers,PrivateHeaders,Modules,XPCServices}
+find "$SPARKLE/Versions/B/Resources" -maxdepth 1 -name "*.lproj" \
+    ! -name Base.lproj ! -name ja.lproj ! -name "zh_*.lproj" -exec rm -rf {} +
 
 # Update feed from update.conf (FEED_URL in the environment wins).
 source update.conf
@@ -95,8 +103,7 @@ if [[ -z "${SIGN_IDENTITY:-}" ]] && security find-identity -p codesigning | grep
     SIGN_IDENTITY="$LOCAL_IDENTITY"
 fi
 # Inside out: Sparkle's helpers, the framework, then the app.
-SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
-for item in "$SPARKLE"/Versions/B/XPCServices/*.xpc "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app" "$SPARKLE"; do
+for item in "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app" "$SPARKLE"; do
     codesign --force --options runtime --sign "${SIGN_IDENTITY:--}" "$item" 2>&1 | { grep -v "replacing existing" || true; }
 done
 codesign --force --sign "${SIGN_IDENTITY:--}" "$APP" 2>&1 | { grep -v "replacing existing" || true; }
