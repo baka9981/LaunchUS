@@ -62,6 +62,12 @@ struct LicenseTab: View {
                             Divider().padding(.horizontal, 14)
                             emailForm(button: String(localized: "绑定"), purpose: .bind, submit: bindNow)
                         }
+                        Divider().padding(.horizontal, 14)
+                        // Only an activated Mac can turn it off; before that it's not mentioned at all.
+                        perkRow(icon: "bell", title: String(localized: "每日反馈提醒"),
+                                detail: String(localized: "每天第一次打开时，在底部请你提些建议和反馈")) {
+                            Toggle("", isOn: $feedbackReminder).toggleStyle(.switch).labelsHidden()
+                        }
                     } else if mode == .email {
                         Divider().padding(.horizontal, 14)
                         emailForm(button: String(localized: "登录"), purpose: .login, submit: loginNow)
@@ -115,49 +121,58 @@ struct LicenseTab: View {
             }
         }
         .onAppear { license.checkIfDue(force: true) }
-        // Only an activated Mac has these; before that they're not mentioned at all.
-        if license.isActivated {
-            SettingsSection(title: String(localized: "激活后可用")) {
-                Card {
-                    Row(title: String(localized: "每日反馈提醒"),
-                        info: String(localized: "每天第一次打开时，在底部请你提些建议和反馈")) {
-                        Toggle("", isOn: $feedbackReminder).toggleStyle(.switch).labelsHidden()
-                    }
-                }
-            }
-        }
-        SettingsSection(title: String(localized: "博主计划")) {
+        SettingsSection(title: String(localized: "支持 LaunchUS")) {
             Card {
-                Row(title: String(localized: "发帖领激活码"),
-                    info: String(localized: "在任何平台发一篇介绍 LaunchUS 的帖子，上传截图，审核通过后自动发码，没有粉丝数要求")) {
-                    Button(String(localized: "参加博主计划…")) {
+                perkRow(icon: "megaphone", title: String(localized: "博主计划"),
+                        detail: String(localized: "在任何平台发帖介绍 LaunchUS，上传截图，审核通过后自动发码，没有粉丝数要求")) {
+                    Button(String(localized: "参加…")) {
                         NSWorkspace.shared.open(URL(string: "https://launchusapp.com/creators/")!)
                     }
                 }
-            }
-        }
-        SettingsSection(title: String(localized: "捐赠")) {
-            Card {
-                VStack(spacing: 12) {
-                    HStack(alignment: .top, spacing: 24) {
+                HStack(alignment: .top, spacing: 10) {
+                    rowIcon("heart")
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("捐赠").font(.system(size: 13))
+                        Text("捐赠时请备注邮箱，或通过反馈联系。在 2.0 版本之前，无论金额大小，您将获得一个激活码。")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                    HStack(spacing: 12) {
                         DonateCode(file: "wechat", title: String(localized: "微信"))
                         DonateCode(file: "alipay", title: String(localized: "支付宝"))
                     }
-                    Text("捐赠时请备注邮箱，或通过反馈联系。在 2.0 版本之前，无论金额大小，您将获得一个激活码。")
-                        .font(.system(size: 12)).foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: .infinity)
                 .padding(14)
             }
         }
+    }
+
+    private func rowIcon(_ name: String) -> some View {
+        Image(systemName: name).font(.system(size: 15)).foregroundStyle(.secondary).frame(width: 34)
+    }
+
+    /// An icon, a title with a line under it, and a control on the right.
+    private func perkRow(icon: String, title: String, detail: String,
+                         @ViewBuilder trailing: () -> some View) -> some View {
+        HStack(spacing: 10) {
+            rowIcon(icon)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13))
+                Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .padding(14)
     }
 
     /// The bound email with 解绑, or a nudge to bind one.
     @ViewBuilder private func boundRow(_ license: License) -> some View {
         HStack(spacing: 10) {
             Image(systemName: license.email == nil ? "envelope.badge" : "envelope")
+                .font(.system(size: 15))
                 .foregroundStyle(license.needsEmail ? Color.orange : .secondary)
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 2) {
@@ -332,10 +347,11 @@ private struct DonateCode: View {
             if let url = Bundle.main.url(forResource: file, withExtension: "png", subdirectory: "Donate"),
                let image = NSImage(contentsOf: url) {
                 Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
-                    .frame(width: 150, height: 150)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    .frame(width: 96, height: 96)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.primary.opacity(0.08)))
             }
-            Text(title).font(.system(size: 12, weight: .medium))
+            Text(title).font(.system(size: 11)).foregroundStyle(.secondary)
         }
     }
 }

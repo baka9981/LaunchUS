@@ -1555,3 +1555,6 @@
 "重新发送（%lld）" = "Resend (%lld)";
 "验证码已发到 %@，10 分钟内有效。没收到的话看看垃圾邮件" = "Code sent to %@, valid for 10 minutes. Check spam if it doesn't arrive.";
 "验证码没发出去，请稍后再试" = "Couldn't send the code. Please try again later";
+"参加…" = "Join…";
+"在任何平台发帖介绍 LaunchUS，上传截图，审核通过后自动发码，没有粉丝数要求" = "Post about LaunchUS on any platform and upload a screenshot. Once it's approved, a code is sent automatically. No follower minimum.";
+"支持 LaunchUS" = "Support LaunchUS";

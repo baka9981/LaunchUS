@@ -106,8 +106,9 @@ final class LauncherController {
         center.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 // The Touch ID / password prompt belongs to another process.
-                guard self?.model.isAuthenticating == false, self?.dragOut == nil else { return }
-                self?.hide(restoreFocus: false)
+                guard let self, !self.model.isAuthenticating, self.dragOut == nil else { return }
+                // The settings window stays, as an ordinary window other apps can come in front of.
+                self.hide(restoreFocus: false, keepSettings: true)
             }
         }
         center.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
@@ -414,9 +415,11 @@ final class LauncherController {
     ///   - restoreFocus: hand focus back to the previous app (Esc / click outside).
     ///   - force: close even with the settings open (they close too). Otherwise the launcher
     ///     stays while the settings are open, since they show their changes on it.
-    func hide(restoreFocus: Bool, force: Bool = false) {
+    ///   - keepSettings: close the launcher but leave the settings window open (another app
+    ///     came to the front); it comes back over the launcher when that opens again.
+    func hide(restoreFocus: Bool, force: Bool = false, keepSettings: Bool = false) {
         guard panel.isVisible, !isHiding else { return }
-        if model.showSettings {
+        if model.showSettings, !keepSettings {
             guard force else { return }
             model.tuner = nil
             model.showSettings = false
