@@ -4,7 +4,20 @@ import SwiftUI
 
 /// 设置 › 激活: type a code to activate this Mac. Without one, everything keeps working.
 struct LicenseTab: View {
+    enum Mode: Hashable { case code, email }
+    /// Where the code flow is: the code alone, then the email it gets bound to (or, for a
+    /// code bound already, the email that moves it here; `hint` shows which).
+    enum Step: Equatable { case code, email(hint: String?) }
+
+    @State private var mode: Mode = .code
+    @State private var step: Step = .code
     @State private var code = ""
+    @AppStorage("licenseEmailTyped") private var email = ""
+    @State private var otp = ""
+    /// The address the last verification code went to, and when.
+    @State private var sentTo: String?
+    @State private var sentAt: Date?
+    @State private var binding = false
     @State private var message: String?
     @State private var justActivated = false
     @AppStorage(Settings.feedbackReminderKey, store: .app) private var feedbackReminder = true
@@ -32,43 +45,76 @@ struct LicenseTab: View {
                             Button(String(localized: "解除激活…")) { confirmDeactivate() }
                                 .disabled(license.busy)
                                 .help(String(localized: "换电脑时先解除，激活码就能用在另一台 Mac 上"))
+                        } else {
+                            Picker("", selection: $mode) {
+                                Text("激活码").tag(Mode.code)
+                                Text("邮箱登录").tag(Mode.email)
+                            }
+                            .pickerStyle(.segmented).labelsHidden().fixedSize()
+                            .onChange(of: mode) { _, _ in reset() }
                         }
                     }
                     .padding(14)
-                    if !license.isActivated {
+                    if license.isActivated {
+                        Divider().padding(.horizontal, 14)
+                        boundRow(license)
+                        if binding, license.email == nil {
+                            Divider().padding(.horizontal, 14)
+                            emailForm(button: String(localized: "绑定"), purpose: .bind, submit: bindNow)
+                        }
+                    } else if mode == .email {
+                        Divider().padding(.horizontal, 14)
+                        emailForm(button: String(localized: "登录"), purpose: .login, submit: loginNow)
+                    } else {
                         Divider().padding(.horizontal, 14)
                         HStack(spacing: 10) {
                             TextField(String(localized: "LUS-XXXX-XXXX-XXXX-XXXX"), text: $code)
                                 .textFieldStyle(.roundedBorder)
                                 .font(.system(size: 13, design: .monospaced))
+                                .disabled(step != .code)
                                 .onSubmit(activate)
-                            if license.busy {
-                                ProgressView().controlSize(.small)
+                            if step != .code {
+                                Button(String(localized: "换一个")) { reset() }
+                            } else {
+                                if license.busy { ProgressView().controlSize(.small) }
+                                Button(String(localized: "激活"), action: activate)
+                                    .keyboardShortcut(.defaultAction)
+                                    .disabled(license.busy || code.trimmingCharacters(in: .whitespaces).isEmpty)
                             }
-                            Button(String(localized: "激活"), action: activate)
-                                .keyboardShortcut(.defaultAction)
-                                .disabled(license.busy || code.trimmingCharacters(in: .whitespaces).isEmpty)
                         }
                         .padding(14)
+                        if case .email(let hint) = step {
+                            Divider().padding(.horizontal, 14)
+                            Text(hint.map { String(localized: "这个激活码绑定了 \($0)。填写这个邮箱，收到验证码后就能在这台 Mac 上激活") }
+                                 ?? String(localized: "激活码需要绑定一个邮箱：以后换 Mac 或重装系统，用邮箱就能找回。验证码会发到这个邮箱"))
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding([.horizontal, .top], 14)
+                            emailForm(button: String(localized: "激活"), purpose: .activate, submit: activateWithEmail)
+                        }
                     }
                 }
             }
             if !license.isActivated {
-                Text("您可通过购买激活码赞助开发者。")
+                Text(mode == .email ? String(localized: "已经绑定过邮箱的激活码，在新的 Mac 上用邮箱登录即可；激活台数满了会自动退出最久没用的那台。")
+                                    : String(localized: "您可通过购买激活码赞助开发者。"))
                     .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 4)
             }
             if justActivated, license.isActivated {
                 Text("激活成功，谢谢你的支持！")
                     .font(.system(size: 12)).foregroundStyle(.green).padding(.leading, 4)
             }
-            if let message, !license.isActivated {
+            if let message {
                 Text(verbatim: message)
                     .font(.system(size: 12)).foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.leading, 4)
             }
         }
+        .onAppear { license.checkIfDue(force: true) }
         // Only an activated Mac has these; before that they're not mentioned at all.
         if license.isActivated {
             SettingsSection(title: String(localized: "激活后可用")) {
@@ -80,6 +126,120 @@ struct LicenseTab: View {
                 }
             }
         }
+        SettingsSection(title: String(localized: "博主计划")) {
+            Card {
+                Row(title: String(localized: "发帖领激活码"),
+                    info: String(localized: "在任何平台发一篇介绍 LaunchUS 的帖子，上传截图，审核通过后自动发码，没有粉丝数要求")) {
+                    Button(String(localized: "参加博主计划…")) {
+                        NSWorkspace.shared.open(URL(string: "https://launchusapp.com/creators/")!)
+                    }
+                }
+            }
+        }
+        SettingsSection(title: String(localized: "捐赠")) {
+            Card {
+                VStack(spacing: 12) {
+                    HStack(alignment: .top, spacing: 24) {
+                        DonateCode(file: "wechat", title: String(localized: "微信"))
+                        DonateCode(file: "alipay", title: String(localized: "支付宝"))
+                    }
+                    Text("捐赠时请备注邮箱，或通过反馈联系。在 2.0 版本之前，无论金额大小，您将获得一个激活码。")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(14)
+            }
+        }
+    }
+
+    /// The bound email with 解绑, or a nudge to bind one.
+    @ViewBuilder private func boundRow(_ license: License) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: license.email == nil ? "envelope.badge" : "envelope")
+                .foregroundStyle(license.needsEmail ? Color.orange : .secondary)
+                .frame(width: 34)
+            VStack(alignment: .leading, spacing: 2) {
+                if let bound = license.email {
+                    Text("已绑定邮箱 \(bound)").font(.system(size: 13))
+                    Text("换 Mac 时在新 Mac 上用这个邮箱登录").font(.system(size: 11)).foregroundStyle(.secondary)
+                } else {
+                    Text("还没有绑定邮箱").font(.system(size: 13))
+                        .foregroundStyle(license.needsEmail ? Color.orange : .primary)
+                    Text("不绑定的话，这个激活码只能用在这台 Mac 上，换 Mac 也没法找回")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 0)
+            if license.email != nil {
+                Button(String(localized: "解绑…")) { confirmUnbind() }.disabled(license.busy)
+            } else if !binding {
+                Button(String(localized: "绑定邮箱…")) { reset(); binding = true }.disabled(license.busy)
+            }
+        }
+        .padding(14)
+    }
+
+    /// Email, then the six-digit code mailed to it, then `button`.
+    private func emailForm(button: String, purpose: License.Purpose, submit: @escaping () -> Void) -> some View {
+        let license = License.shared
+        let typed = email.trimmingCharacters(in: .whitespaces)
+        return VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                TextField(String(localized: "邮箱"), text: $email)
+                    .textFieldStyle(.roundedBorder)
+                    .textContentType(.emailAddress)
+                    .onSubmit { send(purpose) }
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    let wait = sentAt.map { 60 - Int(context.date.timeIntervalSince($0)) } ?? 0
+                    Button(wait > 0 && sentTo == typed ? String(localized: "重新发送（\(wait)）")
+                           : sentTo == nil ? String(localized: "发送验证码") : String(localized: "重新发送")) { send(purpose) }
+                        .disabled(license.busy || !typed.contains("@") || (wait > 0 && sentTo == typed))
+                }
+            }
+            if sentTo != nil {
+                HStack(spacing: 10) {
+                    TextField(String(localized: "6 位验证码"), text: $otp)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 13, design: .monospaced))
+                        .onSubmit(submit)
+                    if license.busy { ProgressView().controlSize(.small) }
+                    Button(button, action: submit)
+                        .keyboardShortcut(.defaultAction)
+                        .disabled(license.busy || otp.filter(\.isNumber).count != 6)
+                }
+                Text("验证码已发到 \(sentTo ?? "")，10 分钟内有效。没收到的话看看垃圾邮件")
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(14)
+    }
+
+    private func reset() {
+        step = .code
+        otp = ""
+        sentTo = nil
+        sentAt = nil
+        binding = false
+        message = nil
+    }
+
+    private func send(_ purpose: License.Purpose) {
+        let typed = email.trimmingCharacters(in: .whitespaces)
+        guard typed.contains("@") else { return }
+        message = nil
+        Task {
+            if let error = await License.shared.sendCode(to: typed, for: purpose, code: purpose == .activate ? code : nil) {
+                message = error
+            } else {
+                sentTo = typed
+                sentAt = Date()
+                otp = ""
+            }
+        }
     }
 
     private func activate() {
@@ -89,23 +249,68 @@ struct LicenseTab: View {
         confirmAlert(String(localized: "激活这台 Mac？"),
                      String(localized: "会把下面这些发给 LaunchUS 的服务器，用来核对激活台数，服务器还会按网络地址记下大致所在地区：") + "\n\n"
                         + String(localized: "激活码：\(typed)") + "\n" + ServiceAPI.deviceSummary,
-                     button: String(localized: "激活")) { activateNow() }
+                     button: String(localized: "激活")) { run { await License.shared.activate(code) } }
     }
 
-    private func activateNow() {
+    private func activateWithEmail() {
+        let typed = sentTo ?? email
+        run { await License.shared.activate(code, email: typed, otp: otp) }
+    }
+
+    private func loginNow() {
+        let typed = sentTo ?? email
+        confirmAlert(String(localized: "用邮箱激活这台 Mac？"),
+                     String(localized: "会把下面这些发给 LaunchUS 的服务器，用来核对激活台数，服务器还会按网络地址记下大致所在地区：") + "\n\n"
+                        + ServiceAPI.deviceSummary,
+                     button: String(localized: "激活")) { run { await License.shared.login(email: typed, otp: otp) } }
+    }
+
+    private func run(_ work: @escaping () async -> License.Outcome) {
+        message = nil
         Task {
-            if let error = await License.shared.activate(code) {
+            switch await work() {
+            case .activated:
+                code = ""
+                reset()
+                justActivated = true
+            case .needsEmail:
+                step = .email(hint: nil)
+            case .needsOTP(let hint):
+                step = .email(hint: hint)
+            case .failed(let error):
+                message = error
+            }
+        }
+    }
+
+    private func bindNow() {
+        let typed = sentTo ?? email
+        Task {
+            if let error = await License.shared.bind(email: typed, otp: otp) {
                 message = error
             } else {
-                code = ""
-                justActivated = true
+                reset()
+            }
+        }
+    }
+
+    private func confirmUnbind() {
+        confirmAlert(String(localized: "解绑邮箱？"),
+                     String(localized: "解绑后这台 Mac 仍然是激活的，也可以再绑定邮箱；但这个激活码不能再用到别的 Mac 上，直到重新绑定。"),
+                     button: String(localized: "解绑")) {
+            Task {
+                if let error = await License.shared.unbind() {
+                    confirmAlert(String(localized: "没能解绑"), error, button: String(localized: "好")) {}
+                }
             }
         }
     }
 
     private func confirmDeactivate() {
         confirmAlert(String(localized: "解除这台 Mac 的激活？"),
-                     String(localized: "解除后这台 Mac 显示未激活，激活码可以用在另一台 Mac 上。"),
+                     License.shared.email == nil && License.shared.needsEmail
+                        ? String(localized: "这个激活码没有绑定邮箱，解除后只能在这台 Mac 上重新激活。想换到别的 Mac，请先绑定邮箱。")
+                        : String(localized: "解除后这台 Mac 显示未激活，激活码可以用在另一台 Mac 上。"),
                      button: String(localized: "解除激活")) {
             Task {
                 justActivated = false
@@ -113,6 +318,24 @@ struct LicenseTab: View {
                     confirmAlert(String(localized: "没能解除激活"), error, button: String(localized: "好")) {}
                 }
             }
+        }
+    }
+}
+
+/// One payment QR code, bundled in Resources/Donate.
+private struct DonateCode: View {
+    let file: String
+    let title: String
+
+    var body: some View {
+        VStack(spacing: 6) {
+            if let url = Bundle.main.url(forResource: file, withExtension: "png", subdirectory: "Donate"),
+               let image = NSImage(contentsOf: url) {
+                Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fit)
+                    .frame(width: 150, height: 150)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+            Text(title).font(.system(size: 12, weight: .medium))
         }
     }
 }

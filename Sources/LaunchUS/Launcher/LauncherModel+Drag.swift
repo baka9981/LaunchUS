@@ -6,12 +6,23 @@ import SwiftUI
 extension LauncherModel {
     // MARK: - Drag and drop
 
+    /// Sorted by name or date, or filtered to a category, icons have no places of their own to
+    /// move to; a press that wanted to drag says why nothing happens.
+    func explainNoRearrange() {
+        let text = categoryFilter != nil
+            ? String(localized: "正在按分类筛选，不能拖动。先显示全部 App 再拖")
+            : String(localized: "现在按「\(settings.sortOrder.title)」排序，不能拖动。在空白处右键 › 视图里选「自定义」后就能拖了")
+        guard notice != text else { return }
+        showNotice(text, for: 4)
+    }
+
     var draggedID: String? { drag?.item.id ?? landing?.item.id }
     /// A drag just finished; the mouse-up must not also count as a click.
     var dragJustEnded: Bool { Date().timeIntervalSince(lastDragEnd) < 0.3 }
 
     func beginDrag(_ entry: GridEntry, inFolder folderID: String?, pointer: CGPoint, iconCenter: CGPoint) {
-        guard drag == nil, !isSearching, canRearrange else { return }
+        guard drag == nil, !isSearching else { return }
+        guard canRearrange else { return explainNoRearrange() }
         if let folderID, openFolder?.0.id == folderID, openFolder?.0.isSmart == true { return }
         let item: LayoutItem
         switch entry {

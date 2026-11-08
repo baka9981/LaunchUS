@@ -43,6 +43,8 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 for lproj in Resources/Localization/*.lproj; do
     ditto "$lproj" "$APP/Contents/Resources/$(basename "$lproj")"
 done
+# The donation QR codes on the 激活 page.
+ditto Resources/Donate "$APP/Contents/Resources/Donate"
 if [[ -f "$INTENTS_DIR/LaunchUS.swiftconstvalues" ]]; then
     find "$PWD/Sources/LaunchUS" -name "*.swift" | sort > "$INTENTS_DIR/sources.txt"
     echo "$INTENTS_DIR/LaunchUS.swiftconstvalues" > "$INTENTS_DIR/constvals.txt"

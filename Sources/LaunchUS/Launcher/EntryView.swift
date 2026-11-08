@@ -290,6 +290,7 @@ struct EntryView: View {
                     let work = DispatchWorkItem {
                         longPressFired = true
                         withAnimation { model.isEditing = true }
+                        if !model.canRearrange { model.explainNoRearrange() }
                     }
                     longPress = work
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.7, execute: work)

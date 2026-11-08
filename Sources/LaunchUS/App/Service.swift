@@ -105,19 +105,38 @@ final class License {
     private static let codeKey = "licenseCode"
     private static let receiptKey = "licenseReceipt"
     private static let checkedKey = "licenseChecked"
+    private static let emailKey = "licenseEmail"
+    private static let unboundKey = "licenseUnbound"
     /// The server's Ed25519 key that signs receipts (`admin_server.py license-key`).
     private static let publicKey = "+gD/D0LALzTxCN4k0scs6wF+KmciijGLdh4P7v4G6oY="
 
     private(set) var code: String?
     private(set) var busy = false
+    /// The email the code is bound to, partly hidden (a***@example.com).
+    private(set) var email: String?
+    /// The server said this code has no email yet and can mail a verification code.
+    private(set) var needsEmail = false
 
     var isActivated: Bool { code != nil }
+
+    enum Outcome: Equatable {
+        case activated
+        /// A code nobody bound yet: an email has to go with it.
+        case needsEmail
+        /// A code bound to `hint`: only that email moves it to this Mac.
+        case needsOTP(hint: String)
+        case failed(String)
+    }
+
+    enum Purpose: String { case activate, bind, login }
 
     private init() {
         let defaults = UserDefaults.standard
         if let code = defaults.string(forKey: Self.codeKey), let receipt = defaults.string(forKey: Self.receiptKey),
            Self.verify(receipt, code: code) {
             self.code = code
+            email = defaults.string(forKey: Self.emailKey)
+            needsEmail = defaults.bool(forKey: Self.unboundKey)
         }
     }
 
@@ -129,30 +148,97 @@ final class License {
         return [parts[0], parts[1], "••••", "••••", parts[4]].joined(separator: "-")
     }
 
-    /// Nil when it worked, else what to tell the user.
-    func activate(_ typed: String) async -> String? {
+    /// With a code alone first; the answer says whether an email and its verification code
+    /// have to follow.
+    func activate(_ typed: String, email: String? = nil, otp: String? = nil) async -> Outcome {
         let trimmed = typed.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return String(localized: "请输入激活码") }
-        busy = true
-        defer { busy = false }
+        guard !trimmed.isEmpty else { return .failed(String(localized: "请输入激活码")) }
         var body: [String: Any] = ServiceAPI.device
         body["code"] = trimmed
         body["device"] = ServiceAPI.deviceID
+        body["v"] = 2
+        if let email { body["email"] = email }
+        if let otp { body["otp"] = otp }
+        return await finish("activate", body)
+    }
+
+    /// Activates this Mac with the code bound to `email`.
+    func login(email: String, otp: String) async -> Outcome {
+        var body: [String: Any] = ServiceAPI.device
+        body["email"] = email
+        body["otp"] = otp
+        body["device"] = ServiceAPI.deviceID
+        return await finish("login", body)
+    }
+
+    private func finish(_ path: String, _ body: [String: Any]) async -> Outcome {
+        busy = true
+        defer { busy = false }
         do {
-            let (status, json) = try await ServiceAPI.post("activate", body)
+            let (status, json) = try await ServiceAPI.post(path, body)
+            if status == 200, json["needs_email"] as? Bool == true { return .needsEmail }
+            if status == 200, json["needs_otp"] as? Bool == true { return .needsOTP(hint: json["email"] as? String ?? "") }
             guard status == 200, let code = json["code"] as? String, let receipt = json["receipt"] as? String,
                   Self.verify(receipt, code: code) else {
-                return json["error"] as? String ?? String(localized: "激活失败，请稍后再试")
+                return .failed(json["error"] as? String ?? String(localized: "激活失败，请稍后再试"))
             }
             let defaults = UserDefaults.standard
             defaults.set(code, forKey: Self.codeKey)
             defaults.set(receipt, forKey: Self.receiptKey)
             defaults.set(Date().timeIntervalSince1970, forKey: Self.checkedKey)
             self.code = code
+            setEmail(json["email"] as? String, mail: true)
+            return .activated
+        } catch {
+            return .failed(error.localizedDescription)
+        }
+    }
+
+    /// Mails a six-digit code to `email`. Nil when sent, else what to tell the user.
+    func sendCode(to email: String, for purpose: Purpose, code typed: String? = nil) async -> String? {
+        var body: [String: Any] = ["email": email, "purpose": purpose.rawValue,
+                                   "locale": Locale.preferredLanguages.first ?? ""]
+        if let typed = typed ?? code { body["code"] = typed }
+        busy = true
+        defer { busy = false }
+        do {
+            let (status, json) = try await ServiceAPI.post("email/send", body)
+            return status == 200 ? nil : json["error"] as? String ?? String(localized: "验证码没发出去，请稍后再试")
+        } catch {
+            return error.localizedDescription
+        }
+    }
+
+    /// Binds an email to the code this Mac is activated with.
+    func bind(email: String, otp: String) async -> String? {
+        await change("bind", ["email": email, "otp": otp])
+    }
+
+    /// Takes the email off the code. This Mac stays activated; the code can't move to another
+    /// Mac until an email is bound again.
+    func unbind() async -> String? {
+        await change("unbind", [:])
+    }
+
+    private func change(_ path: String, _ extra: [String: Any]) async -> String? {
+        guard let code else { return nil }
+        busy = true
+        defer { busy = false }
+        do {
+            let (status, json) = try await ServiceAPI.post(path, extra.merging(["code": code, "device": ServiceAPI.deviceID]) { a, _ in a })
+            guard status == 200 else { return json["error"] as? String ?? String(localized: "没有成功，请稍后再试") }
+            setEmail(json["email"] as? String, mail: true)
             return nil
         } catch {
             return error.localizedDescription
         }
+    }
+
+    private func setEmail(_ masked: String?, mail: Bool) {
+        email = masked
+        needsEmail = masked == nil && mail
+        UserDefaults.standard.set(masked, forKey: Self.emailKey)
+        UserDefaults.standard.set(needsEmail, forKey: Self.unboundKey)
     }
 
     /// Frees this Mac's seat so the code can go on another one.
@@ -172,17 +258,18 @@ final class License {
 
     private func clear() {
         let defaults = UserDefaults.standard
-        defaults.removeObject(forKey: Self.codeKey)
-        defaults.removeObject(forKey: Self.receiptKey)
+        for key in [Self.codeKey, Self.receiptKey, Self.emailKey, Self.unboundKey] { defaults.removeObject(forKey: key) }
         code = nil
+        email = nil
+        needsEmail = false
     }
 
-    /// Once a day: a code stopped on the server, or this Mac released there, goes back to 未激活.
-    /// No network keeps it as it is.
-    func checkIfDue() {
+    /// Once a day, and whenever 设置 › 激活 opens: a code stopped on the server, or this Mac
+    /// released there, goes back to 未激活; the bound email is refreshed. No network keeps it as it is.
+    func checkIfDue(force: Bool = false) {
         guard let code else { return }
         let defaults = UserDefaults.standard
-        guard Date().timeIntervalSince1970 - defaults.double(forKey: Self.checkedKey) > 20 * 3600 else { return }
+        guard force || Date().timeIntervalSince1970 - defaults.double(forKey: Self.checkedKey) > 20 * 3600 else { return }
         Task {
             var body: [String: Any] = ServiceAPI.device
             body["code"] = code
@@ -190,7 +277,9 @@ final class License {
             guard let (status, json) = try? await ServiceAPI.post("check", body),
                   status == 200, let active = json["active"] as? Bool else { return }
             defaults.set(Date().timeIntervalSince1970, forKey: Self.checkedKey)
-            if !active, self.code == code { clear() }
+            guard self.code == code else { return }
+            if !active { return clear() }
+            if json.keys.contains("email") { setEmail(json["email"] as? String, mail: json["mail"] as? Bool ?? false) }
         }
     }
 
