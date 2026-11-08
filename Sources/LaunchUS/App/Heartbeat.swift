@@ -78,7 +78,7 @@ enum Heartbeat {
         ]
         if Settings.shared.shareFeatures {
             parts.queryItems! += [
-                URLQueryItem(name: "mode", value: Settings.shared.displayMode == .fullScreen ? "full" : "window"),
+                URLQueryItem(name: "mode", value: Settings.shared.displayMode == .fullScreen ? "full" : Settings.shared.displayMode.rawValue),
                 URLQueryItem(name: "bar", value: smartBarInUse() ? "1" : "0"),
                 URLQueryItem(name: "icloud", value: Settings.shared.iCloudSync ? "1" : "0"),
                 URLQueryItem(name: "ai", value: AIClient.isConfigured ? "1" : "0"),

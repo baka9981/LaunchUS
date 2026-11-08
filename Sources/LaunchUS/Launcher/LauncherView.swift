@@ -9,6 +9,15 @@ struct LauncherView: View {
     @State private var dragIsPaging = false
 
     var body: some View {
+        if model.settings.displayMode == .ring {
+            RingLauncher(model: model)
+                .coordinateSpace(.named(LauncherView.space))
+        } else {
+            grid
+        }
+    }
+
+    private var grid: some View {
         GeometryReader { geo in
             let folder = model.openFolder
             let settings = model.settings

@@ -17,7 +17,7 @@ struct DisplayTab: View {
         SettingsSection(title: String(localized: "布局")) {
             Card {
                 Row(title: String(localized: "显示方式"),
-                    info: String(localized: "全屏：铺满屏幕，像原来的启动台。窗口：浮在桌面上，像一个 App 窗口")) {
+                    info: String(localized: "全屏：铺满屏幕，像原来的启动台。窗口：浮在桌面上，像一个 App 窗口。圆环：在指针周围排成一圈，文件夹点开是里面的一圈")) {
                     Picker("", selection: $settings.displayMode) {
                         ForEach(DisplayMode.allCases, id: \.self) { Text($0.title).tag($0) }
                     }
@@ -31,7 +31,7 @@ struct DisplayTab: View {
                         info: String(localized: "全屏时盖住程序坞和菜单栏；关掉则让程序坞留在最上面")) {
                         Toggle("", isOn: $settings.hideDock).toggleStyle(.switch).labelsHidden()
                     }
-                } else {
+                } else if settings.displayMode == .window {
                     Row(title: String(localized: "窗口大小"), subtitle: percent(settings.windowSize)) {
                         SizeSlider(value: $settings.windowSize, range: Settings.windowSizeRange, symbol: "macwindow")
                     }
@@ -157,12 +157,12 @@ struct DisplayModeCard: View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         Button(action: select) {
             VStack(alignment: .leading, spacing: compact ? 7 : 10) {
-                ModeThumb(windowed: mode == .window)
+                ModeThumb(windowed: mode == .window, ring: mode == .ring)
                     .frame(maxWidth: .infinity)
                     .frame(height: thumbHeight)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(mode.title).font(.system(size: 13, weight: .semibold))
-                    Text(mode == .fullScreen ? String(localized: "铺满屏幕，像原来的启动台") : String(localized: "浮在桌面上，像一个 App 窗口"))
+                    Text(mode.summary)
                         .font(.system(size: 11)).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -183,6 +183,7 @@ struct DisplayModeCard: View {
 /// Little picture of full-screen vs window mode, drawn for a 100-point height and scaled.
 struct ModeThumb: View {
     let windowed: Bool
+    var ring = false
 
     var body: some View {
         GeometryReader { geo in
@@ -195,6 +196,18 @@ struct ModeThumb: View {
                         .frame(width: 120 * k, height: 72 * k)
                         .shadow(color: .black.opacity(0.2), radius: 6 * k, y: 3 * k)
                 }
+                if ring {
+                    // Two rings of icons round the pointer.
+                    ForEach(0..<14, id: \.self) { i in
+                        let inner = i < 6
+                        let angle = Double(inner ? i : i - 6) / (inner ? 6 : 8) * 2 * .pi - .pi / 2
+                        let r = (inner ? 19 : 36) * k
+                        RoundedRectangle(cornerRadius: 3 * k, style: .continuous).fill(.white.opacity(0.85))
+                            .frame(width: 12 * k, height: 12 * k)
+                            .offset(x: cos(angle) * r, y: sin(angle) * r)
+                    }
+                    Image(systemName: "cursorarrow").font(.system(size: 11 * k)).foregroundStyle(.white)
+                } else {
                 let dot = windowed ? Color.gray.opacity(0.4) : Color.white.opacity(0.85)
                 VStack(spacing: (windowed ? 6 : 9) * k) {
                     ForEach(0..<3, id: \.self) { _ in
@@ -205,6 +218,7 @@ struct ModeThumb: View {
                             }
                         }
                     }
+                }
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)

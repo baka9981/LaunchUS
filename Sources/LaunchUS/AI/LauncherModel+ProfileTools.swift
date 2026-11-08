@@ -87,7 +87,8 @@ extension LauncherModel {
         case "": mode = settings.displayMode
         case "fullscreen", "full": mode = .fullScreen
         case "window", "windowed": mode = .window
-        default: return ("Unknown mode \(rawMode). Use fullScreen or window.", false)
+        case "ring", "circle", "radial": mode = .ring
+        default: return ("Unknown mode \(rawMode). Use fullScreen, window or ring.", false)
         }
         let byName: Bool
         switch pages.lowercased() {

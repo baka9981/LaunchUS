@@ -64,7 +64,7 @@ enum MCPServer {
         // Layouts (profiles): each has its own pages, settings and way to open.
         Tool(name: "create_layout", description: "Create a new layout (a profile with its own pages and settings) and switch to it. It starts without a shortcut, F4, pinch or hot corner of its own.",
              properties: ["name": string("Name for the new layout"),
-                          "mode": string("How it's shown: \"fullScreen\" or \"window\" (default: like the layout in use)"),
+                          "mode": string("How it's shown: \"fullScreen\", \"window\" or \"ring\" (icons in rings round the pointer) (default: like the layout in use)"),
                           "pages": string("\"copy\" copies the pages of the layout in use (the default); \"by_name\" puts every app in name order"),
                           "settings_from": string("The layout whose settings it starts with (default: the one in use)")],
              required: ["name"], annotations: additive),

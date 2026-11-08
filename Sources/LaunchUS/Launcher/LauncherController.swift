@@ -169,7 +169,7 @@ final class LauncherController {
         // Full screen covers the menu bar and Dock, unless the Dock should stay on top.
         let level: Int = if windowed {
             Int(CGWindowLevelForKey(.modalPanelWindow))
-        } else if settings.hideDock {
+        } else if settings.hideDock || settings.displayMode == .ring {
             Int(CGWindowLevelForKey(.mainMenuWindow)) + 2
         } else {
             Int(CGWindowLevelForKey(.dockWindow)) - 1
@@ -206,6 +206,10 @@ final class LauncherController {
         let screen = targetScreen()
         configurePanel(for: screen)
         wallpaper.prepare(for: screen, blur: settings.blur)
+        // The ring opens round the pointer (or the middle, when it is on another screen).
+        let mouse = NSEvent.mouseLocation, f = screen.frame
+        model.ringCenter = NSMouseInRect(mouse, f, false)
+            ? CGPoint(x: mouse.x - f.minX, y: f.maxY - mouse.y) : CGPoint(x: f.width / 2, y: f.height / 2)
         catalog.reload()
         // The settings window stays open across the launcher coming and going.
         let openSettings = (model.showSettings, model.tuner)
@@ -790,6 +794,21 @@ final class LauncherController {
         }
         // Cards (the App manager's lists) scroll themselves; the pages stay put.
         if model.showSettings || model.sheet != nil { return event }
+        if settings.displayMode == .ring {
+            // The ring turns its pages with the wheel, or a swipe either way.
+            if !isTrackpad { wheelFlip(event); return nil }
+            if !event.momentumPhase.isEmpty { return nil }
+            let delta = abs(event.scrollingDeltaX) >= abs(event.scrollingDeltaY) ? event.scrollingDeltaX : event.scrollingDeltaY
+            switch event.phase {
+            case .began: rawDrag = 0
+            case .changed: rawDrag += delta
+            case .ended, .cancelled:
+                if abs(rawDrag) > 40 { flip(rawDrag < 0 ? 1 : -1) }
+                rawDrag = 0
+            default: break
+            }
+            return nil
+        }
         // The scrolling browse style scrolls natively, unless a folder is open.
         if settings.browseStyle == .scroll, model.openFolderID == nil { return event }
         if model.openFolderID != nil, model.folderScrolls {

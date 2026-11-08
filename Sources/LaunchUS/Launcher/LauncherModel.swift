@@ -193,6 +193,8 @@ final class LauncherModel {
     /// Live horizontal offset while a swipe or mouse drag is in progress.
     var dragOffset: CGFloat = 0
     var isPresented = false
+    /// 圆环: where the pointer was when the launcher opened, from the panel's top left.
+    var ringCenter: CGPoint?
     /// Set while a trackpad pinch is opening or closing the launcher: how shown it is, 0…1.
     var gestureProgress: Double?
     /// How shown the launcher is, following a pinch in progress.

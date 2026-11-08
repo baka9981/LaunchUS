@@ -3,7 +3,7 @@ import AppKit
 import Carbon.HIToolbox
 import Observation
 
-enum DisplayMode: String, CaseIterable, Codable { case fullScreen, window }
+enum DisplayMode: String, CaseIterable, Codable { case fullScreen, window, ring }
 enum SortOrder: String, CaseIterable, Codable { case custom, name, recentlyAdded, recentlyUsed, mostUsed }
 enum BrowseStyle: String, CaseIterable, Codable { case paged, scroll }
 /// How fast the launcher's animations run.
@@ -214,8 +214,27 @@ extension SortOrder {
 }
 
 extension DisplayMode {
-    var title: String { self == .fullScreen ? String(localized: "全屏") : String(localized: "窗口") }
-    var symbol: String { self == .fullScreen ? "rectangle.inset.filled" : "macwindow" }
+    var title: String {
+        switch self {
+        case .fullScreen: String(localized: "全屏")
+        case .window: String(localized: "窗口")
+        case .ring: String(localized: "圆环")
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .fullScreen: "rectangle.inset.filled"
+        case .window: "macwindow"
+        case .ring: "circle.circle"
+        }
+    }
+    var summary: String {
+        switch self {
+        case .fullScreen: String(localized: "铺满屏幕，像原来的启动台")
+        case .window: String(localized: "浮在桌面上，像一个 App 窗口")
+        case .ring: String(localized: "围着指针排成一圈，点一下就开")
+        }
+    }
 }
 
 extension BrowseStyle {
