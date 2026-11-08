@@ -185,6 +185,18 @@ struct AITab: View {
 
 /// How to add LaunchUS to Claude Code, Codex, Claude Desktop, Cursor and other MCP clients.
 struct MCPSection: View {
+    private enum Client: CaseIterable {
+        case claude, codex, other
+        var title: String {
+            switch self {
+            case .claude: "Claude Code"
+            case .codex: "Codex"
+            case .other: String(localized: "其他客户端")
+            }
+        }
+    }
+    @State private var client = Client.claude
+
     private var executable: String {
         Bundle.main.executablePath ?? "/Applications/LaunchUS.app/Contents/MacOS/LaunchUS"
     }
@@ -219,11 +231,20 @@ struct MCPSection: View {
                 .font(.system(size: 12)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, 4)
+            Picker("", selection: $client) {
+                ForEach(Client.allCases, id: \.self) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
             Card {
-                snippet(title: "Claude Code", text: command)
-                snippet(title: "Codex", text: codexCommand)
-                snippet(title: String(localized: "Codex（写进 ~/.codex/config.toml）"), text: codexToml)
-                snippet(title: String(localized: "其他客户端（JSON 配置）"), text: json)
+                switch client {
+                case .claude:
+                    snippet(title: String(localized: "在终端里运行"), text: command)
+                case .codex:
+                    snippet(title: String(localized: "在终端里运行"), text: codexCommand)
+                    snippet(title: String(localized: "或者写进 ~/.codex/config.toml"), text: codexToml)
+                case .other:
+                    snippet(title: String(localized: "写进客户端的 MCP 配置（Claude Desktop、Cursor 等）"), text: json)
+                }
             }
             Text("可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout")
                 .font(.system(size: 11, design: .monospaced)).foregroundStyle(.tertiary)

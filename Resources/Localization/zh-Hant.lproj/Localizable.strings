@@ -672,7 +672,6 @@
 "↩ 发送 · ⌘N 新对话 · Esc 退出" = "↩ 傳送 · ⌘N 新對話 · Esc 離開";
 "保存在钥匙串中" = "儲存在鑰匙圈中";
 "停止" = "停止";
-"其他客户端（JSON 配置）" = "其他用戶端（JSON 設定）";
 "可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout" = "可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout";
 "在搜索栏输入 128*3，按 ↩ 复制结果" = "在搜尋欄輸入 128*3，按 ↩ 拷貝結果";
 "地址" = "位址";
@@ -696,7 +695,6 @@
 "网关地址无效" = "閘道位址無效";
 "计算" = "計算";
 "让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。" = "讓 Claude、Codex、Cursor 等 AI 工具搜尋和打開 App、結束 App、打開檔案夾或群組、切換佈局。";
-"Codex（写进 ~/.codex/config.toml）" = "Codex（寫進 ~/.codex/config.toml）";
 "连接成功" = "連線成功";
 "连接成功：%@" = "連線成功：%@";
 "重试" = "重試";
@@ -1352,3 +1350,7 @@
 "还有 %lld 项" = "還有 %lld 項";
 "随手记点东西，支持 Markdown。点一下直接在卡片上写，右键换纸的颜色。" = "隨手記點東西，支援 Markdown。點一下直接在卡片上寫，右鍵換紙的顏色。";
 "预约体检" = "預約體檢";
+"在终端里运行" = "在終端機裡執行";
+"或者写进 ~/.codex/config.toml" = "或者寫進 ~/.codex/config.toml";
+"写进客户端的 MCP 配置（Claude Desktop、Cursor 等）" = "寫進用戶端的 MCP 設定（Claude Desktop、Cursor 等）";
+"其他客户端" = "其他用戶端";

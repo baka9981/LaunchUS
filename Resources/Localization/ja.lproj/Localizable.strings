@@ -672,7 +672,6 @@
 "↩ 发送 · ⌘N 新对话 · Esc 退出" = "↩ 送信 · ⌘N 新しいチャット · Esc 終了";
 "保存在钥匙串中" = "キーチェーンに保存されます";
 "停止" = "停止";
-"其他客户端（JSON 配置）" = "その他のクライアント（JSON 設定）";
 "可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout" = "ツール：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout";
 "在搜索栏输入 128*3，按 ↩ 复制结果" = "検索フィールドに 128*3 と入力し、↩ で結果をコピー";
 "地址" = "アドレス";
@@ -696,7 +695,6 @@
 "网关地址无效" = "ゲートウェイのアドレスが無効です";
 "计算" = "計算";
 "让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。" = "Claude、Codex、Cursor などの AI ツールから、App の検索・起動・終了、フォルダやグループを開く、レイアウトの切り替えができます。";
-"Codex（写进 ~/.codex/config.toml）" = "Codex（~/.codex/config.toml に記述）";
 "连接成功" = "接続できました";
 "连接成功：%@" = "接続できました：%@";
 "重试" = "再試行";
@@ -1352,3 +1350,7 @@
 "还有 %lld 项" = "ほか %lld 件";
 "随手记点东西，支持 Markdown。点一下直接在卡片上写，右键换纸的颜色。" = "さっとメモ、Markdown 対応。クリックしてカードに直接書き、右クリックで紙の色を変更。";
 "预约体检" = "健康診断を予約";
+"在终端里运行" = "ターミナルで実行";
+"或者写进 ~/.codex/config.toml" = "または ~/.codex/config.toml に記述";
+"写进客户端的 MCP 配置（Claude Desktop、Cursor 等）" = "クライアントの MCP 設定に記述（Claude Desktop、Cursor など）";
+"其他客户端" = "その他のクライアント";

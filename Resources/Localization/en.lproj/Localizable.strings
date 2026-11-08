@@ -672,7 +672,6 @@
 "↩ 发送 · ⌘N 新对话 · Esc 退出" = "↩ Send · ⌘N New Chat · Esc Leave";
 "保存在钥匙串中" = "Stored in the keychain";
 "停止" = "Stop";
-"其他客户端（JSON 配置）" = "Other clients (JSON config)";
 "可用工具：search_apps、list_apps、open_app、quit_app、running_apps、list_folders、open_folder、open_group、show_launcher、search、list_layouts、switch_layout" = "Tools: search_apps, list_apps, open_app, quit_app, running_apps, list_folders, open_folder, open_group, show_launcher, search, list_layouts, switch_layout";
 "在搜索栏输入 128*3，按 ↩ 复制结果" = "Type 128*3 in the search field and press ↩ to copy the result";
 "地址" = "Address";
@@ -696,7 +695,6 @@
 "网关地址无效" = "The gateway address isn't valid";
 "计算" = "Calculator";
 "让 Claude、Codex、Cursor 等 AI 工具搜索和打开 App、退出 App、打开文件夹或分组、切换布局。" = "Let AI tools like Claude, Codex and Cursor find, open and quit apps, open folders or groups, and switch layouts.";
-"Codex（写进 ~/.codex/config.toml）" = "Codex (in ~/.codex/config.toml)";
 "连接成功" = "Connected";
 "连接成功：%@" = "Connected: %@";
 "重试" = "Retry";
@@ -1352,3 +1350,7 @@
 "还有 %lld 项" = "%lld more";
 "随手记点东西，支持 Markdown。点一下直接在卡片上写，右键换纸的颜色。" = "Jot things down, with Markdown. Click to write right on the card, right-click to change the paper color.";
 "预约体检" = "Book a checkup";
+"在终端里运行" = "Run in Terminal";
+"或者写进 ~/.codex/config.toml" = "Or add to ~/.codex/config.toml";
+"写进客户端的 MCP 配置（Claude Desktop、Cursor 等）" = "Add to the client's MCP config (Claude Desktop, Cursor and others)";
+"其他客户端" = "Other Clients";
