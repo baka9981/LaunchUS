@@ -1,6 +1,6 @@
 #!/bin/bash
-# Wraps build/LaunchUS.app in a drag-to-install disk image:
-#   ./scripts/dmg.sh <out.dmg>
+# Wraps build/LaunchUS.app (or the given app) in a drag-to-install disk image:
+#   ./scripts/dmg.sh <out.dmg> [path/to/LaunchUS.app]
 # The window shows the app, an arrow and Applications on a drawn background
 # (layout in dmg-background.swift: 1000×520, icons at x 330 and 670, y 260).
 # Laying out the window drives Finder, so macOS may ask once to allow that.
@@ -8,7 +8,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 OUT="${1:?usage: dmg.sh <out.dmg>}"
-APP=build/LaunchUS.app
+APP="${2:-build/LaunchUS.app}"
 VOLUME=LaunchUS
 [[ -d "$APP" ]] || { echo "Build the app first (scripts/build.sh release)." >&2; exit 1; }
 
@@ -70,7 +70,7 @@ SetFile -a C "/Volumes/$VOLUME"
 sync
 hdiutil detach -quiet "/Volumes/$VOLUME"
 rm -f "$OUT"
-hdiutil convert -quiet "$WORK/rw.dmg" -format ULFO -o "$OUT"
+hdiutil convert -quiet "$WORK/rw.dmg" -format ULMO -o "$OUT"
 
 # Same identity as the app (build.sh), when the local signing certificate exists.
 if security find-identity -p codesigning | grep -q "LaunchUS Local Signing"; then

@@ -15,7 +15,11 @@ OUT="releases/v$VERSION"
 ZIP="$OUT/LaunchUS-$VERSION.zip"
 DMG="$OUT/LaunchUS-$VERSION.dmg"
 FEED="$OUT/appcast.xml"
-for f in "$ZIP" "$DMG" "$FEED"; do
+# The Intel build: its own update zip, dmg and feed.
+INTEL_ZIP="$OUT/LaunchUS-$VERSION-Intel.zip"
+INTEL_DMG="$OUT/LaunchUS-$VERSION-Intel.dmg"
+INTEL_FEED="$OUT/appcast-intel.xml"
+for f in "$ZIP" "$DMG" "$FEED" "$INTEL_ZIP" "$INTEL_DMG" "$INTEL_FEED"; do
     [[ -f "$f" ]] || { echo "Missing $f — run ./scripts/release.sh $VERSION first." >&2; exit 1; }
 done
 
@@ -23,10 +27,13 @@ DL="$DEPLOY_DIR/dl"
 # rsync writes to a temporary name and renames, so nobody downloads half a file.
 # The update zip goes first, then the dmg (only as LaunchUS.dmg, the latest), and the feed
 # last, so the feed never lists a file that isn't up yet.
+# The Intel build the same way: its zip next to the other, LaunchUS-Intel.dmg, appcast-intel.xml.
 ssh "$DEPLOY_HOST" "mkdir -p '$DL/v$VERSION'"
-rsync -t --progress "$ZIP" "$DEPLOY_HOST:$DL/v$VERSION/"
+rsync -t --progress "$ZIP" "$INTEL_ZIP" "$DEPLOY_HOST:$DL/v$VERSION/"
 rsync -t "$DMG" "$DEPLOY_HOST:$DL/LaunchUS.dmg"
+rsync -t "$INTEL_DMG" "$DEPLOY_HOST:$DL/LaunchUS-Intel.dmg"
 rsync -t "$FEED" "$DEPLOY_HOST:$DL/appcast.xml"
+rsync -t "$INTEL_FEED" "$DEPLOY_HOST:$DL/appcast-intel.xml"
 # The server keeps only this release (the feed lists just it, and in-app updates from China
 # need its zip here); older versions live on GitHub Releases.
 ssh "$DEPLOY_HOST" "find '$DL' -mindepth 1 -maxdepth 1 -type d -name 'v*' ! -name 'v$VERSION' -exec rm -rf {} +"
@@ -37,6 +44,6 @@ if [[ -n "${GITHUB_REPO:-}" ]]; then
     [[ -f "$OUT/LaunchUS-$VERSION.md" ]] && NOTES=(--notes-file "$OUT/LaunchUS-$VERSION.md")
     # appcast.xml too: 1.2.2 and earlier check github.com/<repo>/releases/latest/download/appcast.xml,
     # and its download links point at the download site, so they update from there.
-    gh release create "v$VERSION" "$DMG" "$ZIP" "$FEED" --repo "$GITHUB_REPO" --target main \
+    gh release create "v$VERSION" "$DMG" "$ZIP" "$FEED" "$INTEL_DMG" "$INTEL_ZIP" "$INTEL_FEED" --repo "$GITHUB_REPO" --target main \
         --title "LaunchUS $VERSION" "${NOTES[@]}"
 fi
