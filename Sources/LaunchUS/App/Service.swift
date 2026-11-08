@@ -345,7 +345,6 @@ final class Feedback {
     private static let polledKey = "feedbackPolled"
 
     private(set) var messages: [Message] = []
-    private(set) var loading = false
     private(set) var sending = false
     /// Replies not seen yet in Settings.
     private(set) var unread = 0
@@ -386,8 +385,6 @@ final class Feedback {
 
     func refresh(notify: Bool = false) async {
         guard started else { return }
-        loading = messages.isEmpty
-        defer { loading = false }
         guard let (status, json) = try? await ServiceAPI.post("messages", ["key": key]), status == 200,
               let rows = json["messages"] as? [[String: Any]] else { return }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.polledKey)

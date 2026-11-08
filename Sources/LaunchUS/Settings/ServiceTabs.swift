@@ -370,24 +370,20 @@ struct FeedbackTab: View {
         SettingsSection(title: String(localized: "反馈")) {
             if !feedback.messages.isEmpty {
                 Card {
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(spacing: 10) {
-                                ForEach(feedback.messages) { message in
-                                    Bubble(message: message).id(message.id)
-                                }
+                    // Opens at the latest message and follows new ones. Not scrollTo: that also
+                    // scrolled the settings page around it, so the page jumped as the tab opened.
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(feedback.messages) { message in
+                                Bubble(message: message)
                             }
-                            .padding(14)
                         }
-                        .frame(height: 260)
-                        .onAppear { proxy.scrollTo(feedback.messages.last?.id, anchor: .bottom) }
-                        .onChange(of: feedback.messages.count) { _, _ in
-                            withAnimation { proxy.scrollTo(feedback.messages.last?.id, anchor: .bottom) }
-                        }
+                        .padding(14)
                     }
+                    .defaultScrollAnchor(.bottom, for: .initialOffset)
+                    .defaultScrollAnchor(.bottom, for: .sizeChanges)
+                    .frame(height: 260)
                 }
-            } else if feedback.loading {
-                ProgressView().controlSize(.small).frame(maxWidth: .infinity)
             }
 
             Card {
