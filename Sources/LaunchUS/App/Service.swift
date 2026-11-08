@@ -30,7 +30,7 @@ enum ServiceAPI {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let data: Data, response: URLResponse
         do {
-            (data, response) = try await URLSession(configuration: .ephemeral).data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch {
             throw Failure(message: String(localized: "连不上服务器，请检查网络后再试"))
         }
@@ -38,6 +38,8 @@ enum ServiceAPI {
         let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         return (status, json)
     }
+
+    private static let session = URLSession(configuration: .ephemeral)
 
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?" }
 

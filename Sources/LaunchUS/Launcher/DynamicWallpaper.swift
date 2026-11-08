@@ -53,13 +53,16 @@ final class WeatherService {
         guard fetching != key else { return }
         fetching = key
         Task {
-            defer { fetching = nil }
+            defer { if fetching == key { fetching = nil } }
             var lat = s.weatherLatitude, lon = s.weatherLongitude
             if s.weatherCity.isEmpty || (lat == 0 && lon == 0) {
                 guard let place = await Self.search(Self.timeZoneCity).first else { failed = true; return }
                 lat = place.latitude; lon = place.longitude
             }
-            if let fresh = await Self.fetch(latitude: lat, longitude: lon) {
+            let fresh = await Self.fetch(latitude: lat, longitude: lon)
+            // A newer city was picked meanwhile: its own fetch decides.
+            guard fetching == key else { return }
+            if let fresh {
                 now = fresh
                 failed = false
                 lastKey = key
@@ -286,7 +289,9 @@ struct SkyView: View {
         let now = weather ? service.now : nil
         let condition = weather ? Condition(code: Self.debugCode ?? now?.code ?? 0) : .clear
         let sunrise = now?.sunrise ?? 390, sunset = now?.sunset ?? 1125
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !animating)) { context in
+        // Rain, snow and lightning need 30 fps; stars and drifting clouds look the same at 10.
+        let fast = condition == .rain || condition == .drizzle || condition == .snow || condition == .thunder
+        TimelineView(.animation(minimumInterval: fast ? 1.0 / 30 : 1.0 / 10, paused: !animating)) { context in
             let minute = Self.debugMinute ?? Self.minute(of: context.date, utcOffset: now?.utcOffset)
             let t = context.date.timeIntervalSinceReferenceDate
             Canvas(rendersAsynchronously: true) { gc, size in
