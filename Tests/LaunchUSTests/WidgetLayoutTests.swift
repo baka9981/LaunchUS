@@ -171,3 +171,20 @@ import Testing
         #expect(result.count == 2 && result[1].first == .widget(clock))
     }
 }
+
+@Suite struct DragHoverZoneTests {
+    /// Dead centre makes a folder, the space between icons makes room, the rim waits longer.
+    @Test func zonesByDistance() {
+        #expect(LauncherModel.hoverZone(distance: 10, iconSize: 80, merging: false) == .merge)
+        #expect(LauncherModel.hoverZone(distance: 40, iconSize: 80, merging: false) == .rim)
+        #expect(LauncherModel.hoverZone(distance: 60, iconSize: 80, merging: false) == .between)
+        #expect(LauncherModel.HoverZone.rim.reorderDelay > LauncherModel.HoverZone.between.reorderDelay)
+    }
+
+    /// A lit folder holds out to the rim, so a wobble while aiming doesn't drop it.
+    @Test func litFolderHoldsToRim() {
+        #expect(LauncherModel.hoverZone(distance: 45, iconSize: 80, merging: true) == .merge)
+        #expect(LauncherModel.hoverZone(distance: 45, iconSize: 80, merging: false) == .rim)
+        #expect(LauncherModel.hoverZone(distance: 55, iconSize: 80, merging: true) == .between)
+    }
+}

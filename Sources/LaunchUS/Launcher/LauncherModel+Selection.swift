@@ -190,6 +190,7 @@ extension LauncherModel {
     }
 
     func activate(_ entry: GridEntry) {
+        dismissFolderPick()
         if case .widget(let widget) = entry, editingNoteID == widget.id { return }
         endNoteEditing()
         switch entry {
@@ -390,7 +391,9 @@ extension LauncherModel {
 
     /// Click on empty space: leave the folder / jiggle mode first, then close the launcher.
     func backgroundTapped() {
-        if editingNoteID != nil {
+        if folderPick != nil {
+            dismissFolderPick()
+        } else if editingNoteID != nil {
             endNoteEditing()
         } else if showGuide {
             finishGuide()
@@ -417,7 +420,9 @@ extension LauncherModel {
 
     /// Esc: finish renaming, close the folder, leave jiggle mode, clear the search, then close.
     func escape() {
-        if editingNoteID != nil {
+        if folderPick != nil {
+            dismissFolderPick()
+        } else if editingNoteID != nil {
             endNoteEditing()
         } else if showGuide {
             finishGuide()

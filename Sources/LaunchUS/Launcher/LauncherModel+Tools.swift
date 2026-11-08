@@ -6,15 +6,58 @@ import SwiftUI
 extension LauncherModel {
     // MARK: - Multi-select
 
+    /// A picked folder is kept in `multiSelection` under this key, next to the apps' IDs.
+    static func folderKey(_ id: String) -> String { "folder:" + id }
+
     func toggleMultiSelect(_ id: String) {
         withAnimation(.easeOut(duration: 0.12)) {
             if multiSelection.contains(id) { multiSelection.remove(id) } else { multiSelection.insert(id) }
         }
     }
 
+    func isPicked(_ entry: GridEntry) -> Bool {
+        switch entry {
+        case .app(let app): multiSelection.contains(app.id)
+        case .folder(let folder, _): multiSelection.contains(Self.folderKey(folder.id))
+        case .widget, .gap: false
+        }
+    }
+
+    /// A click with the multi-select key held. An app is picked or let go at once; a folder
+    /// asks first whether to pick it or to open it and pick apps inside (`folderPick`). A
+    /// picked folder is let go at once, and clicking the asking folder again picks it.
+    func multiSelectClick(_ entry: GridEntry) {
+        switch entry {
+        case .app(let app):
+            dismissFolderPick()
+            toggleMultiSelect(app.id)
+        case .folder(let folder, _):
+            if multiSelection.contains(Self.folderKey(folder.id)) || folderPick == folder.id {
+                dismissFolderPick()
+                toggleMultiSelect(Self.folderKey(folder.id))
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) { folderPick = folder.id }
+            }
+        case .widget, .gap:
+            break
+        }
+    }
+
+    /// The answer to `folderPick`: pick the folder, or open it to pick apps inside.
+    func resolveFolderPick(open: Bool) {
+        guard let id = folderPick else { return }
+        dismissFolderPick()
+        if open { openFolder(id) } else { toggleMultiSelect(Self.folderKey(id)) }
+    }
+
+    func dismissFolderPick() {
+        guard folderPick != nil else { return }
+        withAnimation(.easeOut(duration: 0.15)) { folderPick = nil }
+    }
+
     // MARK: - Marquee
 
-    /// Picks the apps on the current page whose icons the dragged rectangle touches.
+    /// Picks the apps and folders on the current page whose icons the dragged rectangle touches.
     func marqueeChanged(from start: CGPoint, to end: CGPoint) {
         let base = marqueeBase ?? multiSelection
         marqueeBase = base
@@ -26,9 +69,14 @@ extension LauncherModel {
         let half = m.iconSize * 0.4
         var hits = Set<String>()
         for (slot, entry) in pages[currentPage].enumerated() {
-            guard case .app(let app) = entry else { continue }
+            let key: String
+            switch entry {
+            case .app(let app): key = app.id
+            case .folder(let folder, _): key = Self.folderKey(folder.id)
+            case .widget, .gap: continue
+            }
             let c = m.iconCenter(slot: slot)
-            if rect.intersects(CGRect(x: c.x - half, y: c.y - half, width: half * 2, height: half * 2)) { hits.insert(app.id) }
+            if rect.intersects(CGRect(x: c.x - half, y: c.y - half, width: half * 2, height: half * 2)) { hits.insert(key) }
         }
         let picked = base.union(hits)
         if picked != multiSelection { multiSelection = picked }
@@ -39,9 +87,49 @@ extension LauncherModel {
         marqueeBase = nil
     }
 
-    /// The selection, in grid order.
+    /// The picked apps, in grid order (picked folders aren't in it).
     var multiSelectedIDs: [String] {
         layout.joined().flatMap(\.appIDs).filter(multiSelection.contains)
+    }
+
+    /// Everything picked, in grid order: picked folders whole, and the picked apps, those in
+    /// folders too (but not those in a folder that is picked itself).
+    var multiSelectedItems: [LayoutItem] {
+        layout.joined().flatMap { item -> [LayoutItem] in
+            switch item {
+            case .app(let id): multiSelection.contains(id) ? [item] : []
+            case .folder(let folder) where multiSelection.contains(Self.folderKey(folder.id)): [item]
+            case .folder(let folder): folder.apps.filter(multiSelection.contains).map(LayoutItem.app)
+            case .gap, .widget, .cover: []
+            }
+        }
+    }
+
+    /// The apps the selection holds, for putting into a folder: the picked apps and those of
+    /// the picked folders (not smart ones, whose apps come from their condition), in grid order.
+    private func selectionAppsForFolder(excluding target: String? = nil) -> (apps: [String], folders: [String]) {
+        var apps: [String] = [], folders: [String] = []
+        for item in multiSelectedItems {
+            switch item {
+            case .app(let id): apps.append(id)
+            case .folder(let folder) where !folder.isSmart && folder.id != target:
+                apps.append(contentsOf: folder.apps)
+                folders.append(folder.id)
+            default: break
+            }
+        }
+        var seen = Set<String>()
+        return (apps.filter { seen.insert($0).inserted }, folders)
+    }
+
+    /// Takes an app or a folder out of the layout.
+    func lift(_ item: LayoutItem) {
+        switch item {
+        case .app(let id): detach(id)
+        case .folder(let folder):
+            if let loc = location(ofFolder: folder.id) { vacate(page: loc.page, slot: loc.slot) }
+        case .gap, .widget, .cover: break
+        }
     }
 
     /// Removes an app from wherever it sits in the layout (home grid or a folder).
@@ -115,10 +203,14 @@ extension LauncherModel {
 
     /// Scroll mode has no pages to pick: moves apps to the very start or end of the grid.
     func moveApps(_ ids: [String], toStart: Bool) {
-        for id in ids { detach(id) }
+        moveItems(ids.map(LayoutItem.app), toStart: toStart)
+    }
+
+    /// Moves apps and folders to the very start or end of the grid.
+    func moveItems(_ items: [LayoutItem], toStart: Bool) {
+        for item in items { lift(item) }
         layout = layout.filter { !$0.isEmpty }
         if layout.isEmpty { layout = [[]] }
-        let items = ids.map(LayoutItem.app)
         if toStart { layout[0].insert(contentsOf: items, at: 0) } else { layout[layout.count - 1].append(contentsOf: items) }
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) {
             if openFolderID != nil, openFolder == nil { dropFolder() }
@@ -126,11 +218,17 @@ extension LauncherModel {
         }
     }
 
-    /// Puts the selected apps into a new folder where the first one was.
+    /// Puts the selected apps, and those of the selected folders, into a new folder where the
+    /// first of them was. The selected folders are merged into it.
     func folderFromSelection() {
-        let ids = multiSelectedIDs
-        guard ids.count > 1, let first = ids.first else { return }
-        let anchor = location(of: "app:" + first) ?? folderContaining(first).flatMap { location(ofFolder: $0) }
+        let (ids, folders) = selectionAppsForFolder()
+        guard ids.count > 1, let first = multiSelectedItems.first else { return }
+        let anchor: GridPos? = switch first {
+        case .folder(let folder): location(ofFolder: folder.id)
+        case .app(let id): location(of: "app:" + id) ?? folderContaining(id).flatMap { location(ofFolder: $0) }
+        default: nil
+        }
+        for folder in folders { if let loc = location(ofFolder: folder) { vacate(page: loc.page, slot: loc.slot) } }
         for id in ids { detach(id) }
         let byID = Dictionary(catalog.apps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         let folder = Folder(name: AppCategoryName.folderName(for: ids.map { byID[$0]?.category }), apps: ids)
@@ -148,9 +246,12 @@ extension LauncherModel {
         apps.forEach { onLaunch?($0) }
     }
 
+    /// The selected apps, and those of the selected folders (which are merged in), go into a folder.
     func moveSelection(toFolder folderID: String) {
-        let ids = multiSelectedIDs.filter { folderContaining($0) != folderID }
+        let (all, folders) = selectionAppsForFolder(excluding: folderID)
+        let ids = all.filter { folderContaining($0) != folderID }
         multiSelection = []
+        for folder in folders { if let loc = location(ofFolder: folder) { vacate(page: loc.page, slot: loc.slot) } }
         for id in ids { detach(id) }
         guard let loc = location(ofFolder: folderID), case .folder(var folder) = layout[loc.page][loc.slot] else { return }
         folder.apps.append(contentsOf: ids)
@@ -161,15 +262,15 @@ extension LauncherModel {
         }
     }
 
-    /// Moves the selected apps to the end of a home page; `layout.count` makes a new page.
+    /// Moves the selected apps and folders to the end of a home page; `layout.count` makes a new page.
     func moveSelection(toPage page: Int) {
-        let ids = multiSelectedIDs
+        let items = multiSelectedItems
         multiSelection = []
-        for id in ids { detach(id) }
+        for item in items { lift(item) }
         layout = layout.filter { !$0.isEmpty }
         let target = min(page, layout.count)
         if target == layout.count { layout.append([]) }
-        layout[target].append(contentsOf: ids.map(LayoutItem.app))
+        layout[target].append(contentsOf: items)
         withAnimation(.spring(response: 0.42, dampingFraction: 1)) {
             if openFolderID != nil, openFolder == nil { dropFolder() }
             commitLayout()

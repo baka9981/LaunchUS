@@ -141,7 +141,7 @@ struct EntryView: View {
 
     var body: some View {
         let isDragged = model.draggedID == entry.id
-        let picked: Bool = if case .app(let app) = entry { model.multiSelection.contains(app.id) } else { false }
+        let picked = model.isPicked(entry)
         let isNew = model.isNew(entry)
         let running = model.isRunning(entry)
         let folderOpen: Bool = if case .folder(let folder, _) = entry { model.openFolderID == folder.id } else { false }
@@ -251,10 +251,9 @@ struct EntryView: View {
         // The right-click menu comes from the grid around it (`EntryView.menu`).
     }
 
-    /// The right-click menu of a cell: the picked apps' when it's one of several picked.
+    /// The right-click menu of a cell: the selection's when it's one of several picked.
     static func menu(_ entry: GridEntry, folderID: String?, model: LauncherModel) -> NSMenu {
-        let picked: Bool = if case .app(let app) = entry { model.multiSelection.contains(app.id) } else { false }
-        let menu = picked && model.multiSelection.count > 1
+        let menu = model.isPicked(entry) && model.multiSelectedItems.count > 1
             ? LauncherMenus.selection(model)
             : LauncherMenus.entry(entry, model: model, folderID: folderID)
         return MenuTarget.tag(menu, entry.id)
@@ -306,10 +305,14 @@ struct EntryView: View {
                 defer { longPressFired = false }
                 // The drag itself is finished by the controller's mouse-up monitor.
                 guard Self.distance(value) < 5, !longPressFired, model.drag == nil, !model.dragJustEnded else { return }
-                if let flag = model.settings.multiSelectKey.flag, NSEvent.modifierFlags.contains(flag),
-                   case .app(let app) = entry {
-                    model.toggleMultiSelect(app.id)
-                    return
+                if let flag = model.settings.multiSelectKey.flag, NSEvent.modifierFlags.contains(flag) {
+                    switch entry {
+                    case .app, .folder:
+                        model.multiSelectClick(entry)
+                        return
+                    case .widget, .gap:
+                        break
+                    }
                 }
                 model.activate(entry)
             }

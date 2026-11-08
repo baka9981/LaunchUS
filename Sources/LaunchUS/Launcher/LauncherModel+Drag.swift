@@ -21,6 +21,7 @@ extension LauncherModel {
         case .gap: return
         }
         selection = nil
+        dismissFolderPick()
         dragLocation = pointer
         // The scrolling grid's cells don't know how far it is scrolled; find the icon on screen.
         var iconCenter = folderID == nil && settings.browseStyle == .scroll
@@ -36,11 +37,16 @@ extension LauncherModel {
             folderID: folderID,
             grabOffset: CGSize(width: pointer.x - iconCenter.x, height: pointer.y - iconCenter.y)
         )
-        if case .app(let draggedApp) = item, multiSelection.contains(draggedApp), multiSelection.count > 1 {
+        if isPicked(entry), multiSelectedItems.count > 1 {
             // Lift the rest of the selection out so the whole group travels under the pointer.
-            session.companions = multiSelectedIDs.filter { $0 != draggedApp }
-            for id in session.companions { detach(id) }
-            if let folderID, folderContaining(draggedApp) != folderID {
+            // From inside a folder only the apps go along; picked folders stay where they are.
+            session.companions = multiSelectedItems.filter { other in
+                guard other.id != item.id else { return false }
+                if folderID != nil, case .folder = other { return false }
+                return true
+            }
+            for other in session.companions { lift(other) }
+            if let folderID, case .app(let draggedApp) = item, folderContaining(draggedApp) != folderID {
                 // Lifting the others emptied the folder down to this app.
                 session.folderID = nil
                 dropFolder()
@@ -65,11 +71,11 @@ extension LauncherModel {
             return
         }
 
-        // A widget goes by its top-left cell, under wherever its card is held.
-        var probe = point
+        // The held icon is drawn where it was grabbed, off the pointer: what it covers counts,
+        // not what the pointer is over. A widget goes by its top-left cell.
+        var probe = CGPoint(x: point.x - session.grabOffset.width, y: point.y - session.grabOffset.height)
         if case .widget(let widget) = session.item {
-            let center = CGPoint(x: point.x - session.grabOffset.width, y: point.y - session.grabOffset.height)
-            probe = metrics.widgetFirstCell(center: center, span: widget.size.span(columns: columns, rows: rows))
+            probe = metrics.widgetFirstCell(center: probe, span: widget.size.span(columns: columns, rows: rows))
         }
         if settings.browseStyle == .scroll {
             handleEdgeScrolling(at: point)
@@ -83,7 +89,7 @@ extension LauncherModel {
     /// The scrolling grid: pages run together without their empty cells, so a cell there is
     /// the n-th icon of the layout, and moving one shifts the rest along.
     private func hoverInScrollGrid(at point: CGPoint) {
-        guard let session = drag else { return }
+        guard drag != nil else { return }
         let m = metrics
         let top = m.gridTop + scrollLead - gridScrollOffset
         let col = Int(floor((point.x - m.gridOriginX) / m.cellSize.width))
@@ -99,26 +105,25 @@ extension LauncherModel {
         let index = row * columns + col
         let center = CGPoint(x: m.gridOriginX + (CGFloat(col) + 0.5) * m.cellSize.width,
                              y: top + (CGFloat(row) + 0.5) * m.cellSize.height)
-        let nearCenter = hypot(point.x - center.x, point.y - center.y) < m.iconSize * 0.32
         // Cells are packed around widgets, so an item is found by its ID, not by counting.
         let here = index < cells.count && !cells[index].entry.isGap
             ? flat.firstIndex { $0.id == cells[index].entry.id } : nil
-        if let here, flat[here].id != session.item.id, nearCenter, case .app = session.item,
-           !flat[here].isWidget, !Self.isSmartFolder(flat[here]) {
-            pendingMove?.work.cancel()
-            pendingMove = nil
-            if mergeTargetID != flat[here].id {
-                withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = flat[here].id }
+        var zone = HoverZone.between
+        if let here, canMerge(onto: flat[here]) {
+            zone = Self.hoverZone(distance: hypot(point.x - center.x, point.y - center.y),
+                                  iconSize: m.iconSize, merging: mergeTargetID == flat[here].id)
+            if zone == .merge {
+                setMergeTarget(flat[here].id)
+                return
             }
-            return
         }
-        if mergeTargetID != nil { withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = nil } }
+        setMergeTarget(nil)
         // An empty cell goes by the next item after it, or the end.
         let next = here ?? cells.indices.dropFirst(min(index, cells.count)).lazy
             .filter { !cells[$0].entry.isGap }
             .compactMap { i in flat.firstIndex { $0.id == cells[i].entry.id } }.first
         let target = min(next ?? flat.count - 1, flat.count - 1)
-        schedule("scroll:\(target)") { [weak self] in self?.moveDraggedInOrder(to: target) }
+        schedule("scroll:\(target)", delay: zone.reorderDelay) { [weak self] in self?.moveDraggedInOrder(to: target) }
     }
 
     /// Moves the held item to the `index`-th place among all icons, keeping every page's
@@ -175,11 +180,21 @@ extension LauncherModel {
         lastDragEnd = Date()
         var newFolderID: String?
 
-        // Other ⌘-selected apps travel with the dragged one (already lifted out in beginDrag).
-        let companions = session.companions
+        // Other ⌘-selected apps and folders travel with the dragged one (already lifted out in
+        // beginDrag). Dropped onto an app or into a folder, the folders among them are merged
+        // in; smart ones can't be, and land next to it.
+        let companionItems = session.companions
+        let companions = companionItems.flatMap { item -> [String] in
+            switch item {
+            case .app(let id): [id]
+            case .folder(let folder) where !folder.isSmart: folder.apps
+            default: []
+            }
+        }
+        let smartCompanions = companionItems.filter { if case .folder(let f) = $0 { f.isSmart } else { false } }
 
         if let targetID = mergeTargetID, case .app(let draggedApp) = session.item,
-           let target = location(of: targetID), let source = location(of: session.item.id) {
+           let target = location(of: targetID), location(of: session.item.id) != nil {
             switch layout[target.page][target.slot] {
             case .app(let targetApp):
                 let byID = Dictionary(catalog.apps.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
@@ -194,20 +209,21 @@ extension LauncherModel {
             case .gap, .widget, .cover:
                 break
             }
-            vacate(page: source.page, slot: source.slot)
-        } else if !companions.isEmpty, let at = location(of: session.item.id) {
-            layout[at.page].insert(contentsOf: companions.map(LayoutItem.app), at: at.slot + 1)
+            layout[target.page].insert(contentsOf: smartCompanions, at: min(target.slot + 1, layout[target.page].count))
+            if let source = location(of: session.item.id) { vacate(page: source.page, slot: source.slot) }
+        } else if !companionItems.isEmpty, let at = location(of: session.item.id) {
+            layout[at.page].insert(contentsOf: companionItems, at: at.slot + 1)
         } else if !companions.isEmpty, case .app(let draggedApp) = session.item,
                   let folderID = folderContaining(draggedApp), let loc = location(ofFolder: folderID),
                   case .folder(var folder) = layout[loc.page][loc.slot], let i = folder.apps.firstIndex(of: draggedApp) {
             // Dropped inside an open folder: the group lands there, after the dragged app.
             folder.apps.insert(contentsOf: companions, at: i + 1)
             layout[loc.page][loc.slot] = .folder(folder)
-        } else if !companions.isEmpty {
+        } else if !companionItems.isEmpty {
             if layout.isEmpty { layout = [[]] }
-            layout[min(currentPage, layout.count - 1)].append(contentsOf: companions.map(LayoutItem.app))
+            layout[min(currentPage, layout.count - 1)].append(contentsOf: companionItems)
         }
-        if !companions.isEmpty || mergeTargetID != nil { multiSelection = [] }
+        if !companionItems.isEmpty || mergeTargetID != nil { multiSelection = [] }
 
         let released = CGPoint(x: dragLocation.x - session.grabOffset.width, y: dragLocation.y - session.grabOffset.height)
         let mergedInto = mergeTargetID
@@ -279,6 +295,36 @@ extension LauncherModel {
         return m.iconCenter(slot: pos.slot)
     }
 
+    /// Over another icon, a held app makes or fills a folder from its middle and makes room
+    /// from between icons. The rim in between waits a while before making room, so aiming
+    /// at a folder doesn't push it away first; once a folder is lit, it holds out to the rim.
+    enum HoverZone {
+        case merge, rim, between
+
+        var reorderDelay: Double { self == .rim ? 0.6 : 0.2 }
+    }
+
+    nonisolated static func hoverZone(distance: CGFloat, iconSize: CGFloat, merging: Bool) -> HoverZone {
+        let rim = iconSize * 0.62
+        if distance < (merging ? rim : iconSize * 0.42) { return .merge }
+        return distance < rim ? .rim : .between
+    }
+
+    /// Only an app goes into a folder, and never a widget or a smart folder (those fill themselves).
+    private func canMerge(onto item: LayoutItem) -> Bool {
+        guard let session = drag, case .app = session.item else { return false }
+        return !item.isGap && !item.isWidget && item.id != session.item.id && !Self.isSmartFolder(item)
+    }
+
+    private func setMergeTarget(_ id: String?) {
+        if id != nil {
+            pendingMove?.work.cancel()
+            pendingMove = nil
+        }
+        guard mergeTargetID != id else { return }
+        withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = id }
+    }
+
     private func cancelTimers() {
         pendingMove?.work.cancel()
         pendingMove = nil
@@ -300,7 +346,7 @@ extension LauncherModel {
     }
 
     private func hoverInGrid(at point: CGPoint) {
-        guard let session = drag else { return }
+        guard drag != nil else { return }
         let m = metrics
         let col = Int(floor((point.x - m.gridOriginX) / m.cellSize.width))
         let row = Int(floor((point.y - m.gridTop) / m.cellSize.height))
@@ -316,24 +362,22 @@ extension LauncherModel {
         let page = layout[currentPage]
         let slot = row * columns + col
         let center = m.iconCenter(slot: slot)
-        let nearCenter = hypot(point.x - center.x, point.y - center.y) < m.iconSize * 0.32
-
-        if slot < page.count, !page[slot].isGap, page[slot].id != session.item.id, nearCenter, case .app = session.item,
-           !Self.isSmartFolder(page[slot]) {
+        var zone = HoverZone.between
+        if slot < page.count, canMerge(onto: page[slot]) {
             // Dropping an app onto another app or a folder makes / fills a folder.
-            pendingMove?.work.cancel()
-            pendingMove = nil
-            if mergeTargetID != page[slot].id {
-                withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = page[slot].id }
+            zone = Self.hoverZone(distance: hypot(point.x - center.x, point.y - center.y),
+                                  iconSize: m.iconSize, merging: mergeTargetID == page[slot].id)
+            if zone == .merge {
+                setMergeTarget(page[slot].id)
+                return
             }
-            return
         }
-        if mergeTargetID != nil { withAnimation(.easeOut(duration: 0.15)) { mergeTargetID = nil } }
+        setMergeTarget(nil)
 
         let targetPage = currentPage
         // Placed freely, any cell will do, even past the last icon; lined up, it's next in line.
         let targetSlot = freePlacement ? slot : min(slot, page.count)
-        schedule("grid:\(targetPage):\(targetSlot)") { [weak self] in
+        schedule("grid:\(targetPage):\(targetSlot)", delay: zone.reorderDelay) { [weak self] in
             self?.moveDragged(toPage: targetPage, slot: targetSlot)
         }
     }

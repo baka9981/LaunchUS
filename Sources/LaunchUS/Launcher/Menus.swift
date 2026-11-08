@@ -297,12 +297,15 @@ enum LauncherMenus {
         return menu
     }
 
-    /// Right-click on one of several selected apps.
+    /// Right-click on one of several selected apps and folders. What only apps can do (open,
+    /// tags, hide) acts on the picked apps and shows only when there are some.
     static func selection(_ model: LauncherModel) -> NSMenu {
         let menu = NSMenu.launcher()
         let ids = model.multiSelectedIDs
-        menu.addItem(.sectionHeader(title: String(localized: "已选中 \(ids.count) 个项目")))
-        menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.launchSelection() }
+        menu.addItem(.sectionHeader(title: String(localized: "已选中 \(model.multiSelectedItems.count) 个项目")))
+        if !ids.isEmpty {
+            menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.launchSelection() }
+        }
         menu.add(String(localized: "创建新文件夹"), symbol: "folder.badge.plus") { model.folderFromSelection() }
         menu.addSubmenu(String(localized: "移动到"), symbol: "arrow.right.square", enabled: model.canRearrange) { sub in
             let inFolder = ids.contains { model.folderContaining($0) != nil }
@@ -311,20 +314,22 @@ enum LauncherMenus {
                            toFolder: { model.moveSelection(toFolder: $0) },
                            toPage: { model.moveSelection(toPage: $0) },
                            toEdge: { start in
-                               let ids = model.multiSelectedIDs
+                               let items = model.multiSelectedItems
                                model.multiSelection = []
-                               model.moveApps(ids, toStart: start)
+                               model.moveItems(items, toStart: start)
                            })
         }
-        addCategoryMenu(to: menu, ids: ids, model: model)
-        menu.addSubmenu(String(localized: "标签"), symbol: "tag") { sub in
-            for tag in model.allTags {
-                sub.add(tag, checked: ids.allSatisfy { model.meta(for: $0).tags.contains(tag) }) {
-                    model.addTag(tag, toSelection: ids)
+        if !ids.isEmpty {
+            addCategoryMenu(to: menu, ids: ids, model: model)
+            menu.addSubmenu(String(localized: "标签"), symbol: "tag") { sub in
+                for tag in model.allTags {
+                    sub.add(tag, checked: ids.allSatisfy { model.meta(for: $0).tags.contains(tag) }) {
+                        model.addTag(tag, toSelection: ids)
+                    }
                 }
             }
+            menu.add(String(localized: "隐藏"), symbol: "eye.slash") { model.hideSelection() }
         }
-        menu.add(String(localized: "隐藏"), symbol: "eye.slash") { model.hideSelection() }
         menu.addSeparator()
         menu.add(String(localized: "取消选择"), symbol: "xmark.circle") { model.multiSelection = [] }
         return menu

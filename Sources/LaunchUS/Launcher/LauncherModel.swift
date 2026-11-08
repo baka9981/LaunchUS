@@ -98,8 +98,8 @@ struct DragSession {
     var folderID: String?
     /// Pointer position minus the icon centre at the moment the drag started.
     var grabOffset: CGSize
-    /// Other ⌘-selected apps carried along; they are lifted out of the layout while dragging.
-    var companions: [String] = []
+    /// Other ⌘-selected apps and folders carried along; they are lifted out of the layout while dragging.
+    var companions: [LayoutItem] = []
 }
 
 @MainActor @Observable
@@ -184,7 +184,9 @@ final class LauncherModel {
     /// The scrolling grid: every page's items run together and packed again as one long page,
     /// with the page and cell each came from (nil for empty cells).
     private(set) var scrollCells: [ScrollCell] = []
-    var currentPage = 0
+    var currentPage = 0 {
+        didSet { if currentPage != oldValue { folderPick = nil } }
+    }
     var selection: GridPos?
     /// Live horizontal offset while a swipe or mouse drag is in progress.
     var dragOffset: CGFloat = 0
@@ -202,6 +204,8 @@ final class LauncherModel {
     @ObservationIgnored var editingFromOption = false
     /// Apps picked with ⌘-click (or the chosen modifier), acted on together.
     var multiSelection: Set<String> = []
+    /// A folder clicked with the multi-select key, asking whether to pick it or open it (`multiSelectClick`).
+    var folderPick: String?
     /// The rectangle being dragged out on empty space to pick apps, in launcher coordinates.
     var marquee: CGRect?
     /// What was picked before the rectangle started; the rectangle adds to it.
@@ -753,6 +757,7 @@ final class LauncherModel {
         if openFolderID != nil { closeFolder() }
         isEditing = false
         multiSelection = []
+        folderPick = nil
         refresh()
         currentPage = 0
         dragOffset = 0
@@ -787,6 +792,7 @@ final class LauncherModel {
         dragOffset = 0
         isEditing = false
         multiSelection = []
+        folderPick = nil
         editingNoteID = nil
         dropFolder()
         isPresented = false

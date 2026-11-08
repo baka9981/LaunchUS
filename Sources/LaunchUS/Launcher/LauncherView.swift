@@ -104,6 +104,15 @@ struct LauncherView: View {
                         .zIndex(4)
                 }
 
+                if let id = model.folderPick, let rect = model.tileRect(ofFolder: id) {
+                    let below = rect.minY < 72
+                    FolderPickBubble(model: model, windowed: windowed, below: below)
+                        .position(x: min(max(rect.midX, 170), geo.size.width - 170),
+                                  y: below ? rect.maxY + (metrics.hideNames ? 0 : metrics.labelSize * 1.6) + 28 : rect.minY - 26)
+                        .transition(.scale(scale: 0.85, anchor: below ? .top : .bottom).combined(with: .opacity))
+                        .zIndex(6)
+                }
+
                 if let result = model.calculation {
                     CalculationCard(result: result, windowed: windowed) { model.copyCalculation() }
                         .position(x: geo.size.width / 2, y: metrics.gridTop + metrics.cellSize.height * 0.6)
@@ -448,7 +457,7 @@ struct DragOverlay: View {
                 .position(landing.position)
                 .allowsHitTesting(false)
         } else if let drag = model.drag, let entry = entry(for: drag.item) {
-            let others = drag.companions.prefix(3).compactMap { self.entry(for: LayoutItem.app($0)) }
+            let others = drag.companions.prefix(3).compactMap { self.entry(for: $0) }
             ZStack {
                 // The rest of the selection, fanned out behind the grabbed icon.
                 ForEach(Array(others.enumerated().reversed()), id: \.offset) { i, other in
