@@ -7,6 +7,7 @@ import Foundation
 /// since the last ping and by what (shortcut, pinch, hot corner…), so the site can count how
 /// many Macs use LaunchUS and what they use. After a crash it also sends what macOS wrote down
 /// about it (see `CrashReports`).
+/// Turning it off sends one last note with just the install number (`sharingChanged`).
 /// No app names, searches, folder names, paths or anything that points to a person.
 @MainActor
 enum Heartbeat {
@@ -91,6 +92,27 @@ enum Heartbeat {
             ]
         }
         return parts.url
+    }
+
+    /// The user switched 「每日活跃」. Turning it off sends one last note with only the install
+    /// number and version (dl…/optout), so the site counts this Mac as having stopped sharing
+    /// rather than as uninstalled; nothing goes out after that. Turning it back on sends the
+    /// usual ping soon, which also clears the note on the site.
+    static func sharingChanged(on: Bool) {
+        guard let endpoint, ProcessInfo.processInfo.environment["LAUNCHUS_DEMO"] == nil else { return }
+        if on {
+            UserDefaults.standard.set(0, forKey: lastKey)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) { sendIfDue() }
+            return
+        }
+        guard var parts = URLComponents(url: endpoint.deletingLastPathComponent().appendingPathComponent("optout"),
+                                        resolvingAgainstBaseURL: false) else { return }
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        parts.queryItems = [URLQueryItem(name: "id", value: installID), URLQueryItem(name: "v", value: version)]
+        guard let url = parts.url else { return }
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 20)
+        request.setValue("LaunchUS/\(version)", forHTTPHeaderField: "User-Agent")
+        URLSession(configuration: .ephemeral).dataTask(with: request).resume()
     }
 
     private static func sendIfDue() {

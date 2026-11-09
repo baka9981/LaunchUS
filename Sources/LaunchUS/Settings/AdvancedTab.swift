@@ -347,7 +347,7 @@ struct SharingSheet: View {
             VStack(spacing: 0) {
                 item(String(localized: "每日活跃"), isOn: $settings.shareUsage,
                      sends: String(localized: "一个随机生成的安装编号、LaunchUS 版本、macOS 版本、芯片类型和系统语言，每天最多一次。"),
-                     why: String(localized: "知道有多少台 Mac 在用、新版本有没有装上、还要不要支持旧版 macOS 和 Intel 芯片、先翻译哪种语言。关掉后，下面两项也不会发送。"))
+                     why: String(localized: "知道有多少台 Mac 在用、新版本有没有装上、还要不要支持旧版 macOS 和 Intel 芯片、先翻译哪种语言。关掉后，下面两项也不会发送；关掉的那一刻会发最后一条（只有安装编号），让我们知道这台 Mac 是关了统计，而不是卸载了。"))
                 Divider()
                 item(String(localized: "用了哪些功能"), isOn: $settings.shareFeatures, enabled: settings.shareUsage,
                      sends: String(localized: "用全屏、窗口还是圆环，有没有开智能栏、iCloud 同步，有没有设置 AI（不含密钥和对话）。"),

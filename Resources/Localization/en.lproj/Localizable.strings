@@ -992,7 +992,7 @@
 "用全屏还是窗口，有没有开智能栏、iCloud 同步，有没有设置 AI（不含密钥和对话）。" = "Full screen or window, whether the smart bar and iCloud sync are on, and whether AI is set up (no keys or chats).";
 "用途" = "Used for";
 "知道哪些功能值得继续做好，哪些没人用可以简化。" = "To know which features are worth improving, and which nobody uses and can be simplified.";
-"知道有多少台 Mac 在用、新版本有没有装上、还要不要支持旧版 macOS 和 Intel 芯片、先翻译哪种语言。关掉后，下面两项也不会发送。" = "To know how many Macs use it, whether new versions get installed, whether older macOS and Intel chips still need support, and which language to translate first. When off, the two below aren't sent either.";
+"知道有多少台 Mac 在用、新版本有没有装上、还要不要支持旧版 macOS 和 Intel 芯片、先翻译哪种语言。关掉后，下面两项也不会发送；关掉的那一刻会发最后一条（只有安装编号），让我们知道这台 Mac 是关了统计，而不是卸载了。" = "To know how many Macs use it, whether new versions get installed, whether older macOS and Intel chips still need support, and which language to translate first. When off, the two below aren't sent either; turning it off sends one last note (just the install number) so we know this Mac stopped sharing rather than uninstalled LaunchUS.";
 "都已关闭" = "All off";
 
 /* Widgets */

@@ -401,7 +401,12 @@ final class Settings {
     var showCategoryBar: Bool { didSet { save(showCategoryBar, "showCategoryBar") } }
     /// The daily anonymous ping (Heartbeat): on unless the user turns it off. Without it no ping
     /// goes out, so the two below only add to it.
-    var shareUsage: Bool { didSet { save(shareUsage, "shareUsage") } }
+    var shareUsage: Bool {
+        didSet {
+            save(shareUsage, "shareUsage")
+            if oldValue != shareUsage { Heartbeat.sharingChanged(on: shareUsage) }
+        }
+    }
     /// The ping also says which features are on (full screen, smart bar, iCloud, AI).
     var shareFeatures: Bool { didSet { save(shareFeatures, "shareFeatures") } }
     /// The ping also says how often the launcher opened, and by what.
