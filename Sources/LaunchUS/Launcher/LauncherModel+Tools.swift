@@ -203,6 +203,17 @@ extension LauncherModel {
         }
     }
 
+    /// Moves a folder to the end of a home page; `layout.count` makes a new page.
+    func moveFolder(_ id: String, toPage page: Int) {
+        guard let loc = location(ofFolder: id), case .folder(let folder) = layout[loc.page][loc.slot] else { return }
+        lift(.folder(folder))
+        layout = layout.filter { !$0.isEmpty }
+        let target = min(page, layout.count)
+        if target == layout.count { layout.append([]) }
+        layout[target].append(.folder(folder))
+        withAnimation(.spring(response: 0.42, dampingFraction: 1)) { commitLayout() }
+    }
+
     /// Scroll mode has no pages to pick: moves apps to the very start or end of the grid.
     func moveApps(_ ids: [String], toStart: Bool) {
         moveItems(ids.map(LayoutItem.app), toStart: toStart)

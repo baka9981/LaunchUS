@@ -155,34 +155,36 @@ enum LauncherMenus {
             menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.launch(app) }
         case .app(let app):
             let meta = model.meta(for: app.id)
+            // Apps and folders share one order: open, look inside, edit, appearance, place, remove.
             menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.launch(app) }
             if model.runningIDs.contains(app.id) {
                 menu.add(String(localized: "退出"), symbol: "xmark.circle") { RunningApps.quit(app, force: false) }
                 // Hold ⌥ for Force Quit, as in the Dock.
                 menu.addAlternate(String(localized: "强制退出"), symbol: "xmark.octagon") { RunningApps.quit(app, force: true) }
             }
-            if app.custom == nil || app.custom == .file {
-                menu.add(String(localized: "在访达中显示"), symbol: "folder") { model.reveal(app.url.path) }
-            }
             if app.custom == nil {
+                menu.add(String(localized: "简介…"), symbol: "info.circle") { model.showInfo(app.id) }
                 // Hold ⌥, as in Finder.
                 menu.addAlternate(String(localized: "显示简介"), symbol: "info.circle") {
                     model.onClose?()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { FinderInfo.show(app.url) }
                 }
-                menu.add(String(localized: "简介…"), symbol: "info.circle") { model.showInfo(app.id) }
+            }
+            if app.custom == nil || app.custom == .file {
+                menu.add(String(localized: "在访达中显示"), symbol: "magnifyingglass") { model.reveal(app.url.path) }
             }
             menu.addSeparator()
-            // Name, icon, tags and Dock all live in one editor.
+            // Name, icon, tags, shortcut and Dock all live in one editor.
             menu.add(String(localized: "编辑…"), symbol: "pencil") {
                 model.sheet = app.isCustom ? .editCustom(app.id) : .editApp(app.id)
             }
             addCategoryMenu(to: menu, ids: [app.id], model: model)
-            if app.custom == nil, app.bundleID != nil {
-                let limit = AppUsage.shared.limit(app.bundleID!)
+            if app.custom == nil, let bundleID = app.bundleID {
+                let limit = AppUsage.shared.limit(bundleID)
                 menu.add(limit.map { String(localized: "限时使用（每天 \($0.minutes) 分钟）…") } ?? String(localized: "限时使用…"),
                          symbol: "hourglass") { model.sheet = .appLimit(app.id) }
             }
+            menu.addSeparator()
             menu.addSubmenu(String(localized: "移动到"), symbol: "arrow.right.square", enabled: model.canRearrange) { sub in
                 let current = model.folderContaining(app.id)
                 addMoveTargets(to: sub, model: model, current: current,
@@ -204,12 +206,18 @@ enum LauncherMenus {
                 menu.add(String(localized: "卸载…"), symbol: "trash", enabled: app.isRemovable) { model.sheet = .confirmTrash(app.id) }
             }
         case .folder(let folder, let apps):
-            menu.add(String(localized: "打开"), symbol: "folder") { model.openFolder(folder.id) }
+            menu.add(String(localized: "打开"), symbol: "arrow.up.forward.app") { model.openFolder(folder.id) }
             menu.add(String(localized: "全部打开"), symbol: "square.stack.3d.forward.dottedline", enabled: !apps.isEmpty) {
                 model.openAll(folder.id)
             }
-            menu.add(String(localized: "快捷键…"), symbol: "command") { model.sheet = .folderShortcut(folder.id) }
+            menu.addSeparator()
             menu.add(String(localized: "重命名"), symbol: "pencil") { model.startRenaming(folder: folder.id) }
+            if folder.isSmart {
+                menu.add(String(localized: "编辑智能文件夹…"), symbol: "slider.horizontal.3") {
+                    model.sheet = .editSmartFolder(folder.id, query: "")
+                }
+            }
+            menu.add(String(localized: "快捷键…"), symbol: "command") { model.sheet = .folderShortcut(folder.id) }
             menu.addSubmenu(String(localized: "颜色"), symbol: "paintpalette") { sub in
                 sub.add(String(localized: "无"), checked: folder.color == nil) { model.setFolderColor(folder.id, nil) }
                 sub.addSeparator()
@@ -218,7 +226,7 @@ enum LauncherMenus {
                     item.image = Self.swatch(color)
                 }
             }
-            menu.addSubmenu(String(localized: "样式"), symbol: "folder.badge.gearshape") { sub in
+            menu.addSubmenu(String(localized: "样式"), symbol: "folder") { sub in
                 sub.add(String(localized: "跟随设置"), checked: folder.style == nil) { model.setFolderStyle(folder.id, nil) }
                 sub.addSeparator()
                 for style in FolderIconStyle.allCases {
@@ -226,11 +234,13 @@ enum LauncherMenus {
                 }
             }
             menu.addSeparator()
-            if folder.isSmart {
-                menu.add(String(localized: "编辑智能文件夹…"), symbol: "slider.horizontal.3") {
-                    model.sheet = .editSmartFolder(folder.id, query: "")
-                }
-            } else {
+            menu.addSubmenu(String(localized: "移动到"), symbol: "arrow.right.square", enabled: model.canRearrange) { sub in
+                addPageTargets(to: sub, model: model,
+                               toPage: { model.moveFolder(folder.id, toPage: $0) },
+                               toEdge: { model.moveItems([.folder(folder)], toStart: $0) })
+            }
+            if !folder.isSmart {
+                menu.addSeparator()
                 menu.add(String(localized: "解散文件夹"), symbol: "folder.badge.minus") { model.dissolveFolder(folder.id) }
             }
         case .widget(let widget):
@@ -576,6 +586,11 @@ enum LauncherMenus {
             sub.add(target.name, symbol: "folder") { toFolder(target.id) }
         }
         sub.addSeparator()
+        addPageTargets(to: sub, model: model, toPage: toPage, toEdge: toEdge)
+    }
+
+    private static func addPageTargets(to sub: NSMenu, model: LauncherModel,
+                                       toPage: @escaping (Int) -> Void, toEdge: @escaping (Bool) -> Void) {
         // Scrolling runs the pages together, so there are none to pick.
         if Settings.shared.pageStyle == .scroll {
             sub.add(String(localized: "移到最前"), symbol: "arrow.up.to.line") { toEdge(true) }
