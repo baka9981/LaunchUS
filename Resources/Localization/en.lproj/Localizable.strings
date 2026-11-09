@@ -1650,3 +1650,5 @@
 "退出 LaunchUS，限时使用会停止" = "quit LaunchUS, which stops the time limits";
 "可以用键盘输入，Esc 清零" = "You can type on the keyboard; Esc clears";
 "App 图标" = "App Icons";
+"接收 Beta 版" = "Get Beta Versions";
+"提前收到还在测试的新版本，可能有问题，遇到了请在「反馈」里告诉开发者。关掉后不会退回旧版本，下一个正式版出来时照常更新。" = "Get new versions early, while they are still being tested. They may have problems; if you run into one, tell the developer in Feedback. Turning this off doesn’t go back to an older version; the next release arrives as usual.";

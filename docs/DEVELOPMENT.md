@@ -72,6 +72,18 @@ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | build/LaunchUS.
 
 App 用 [Sparkle](https://sparkle-project.org) 检查更新，更新源是 `update.conf` 里 `DOWNLOAD_URL` 下的 `appcast.xml`。发布由维护者负责。
 
+更新分正式版和 Beta 两个渠道，用同一份更新源：正式版是 `appcast.xml` 的第一项，Beta 是后面带 `<sparkle:channel>beta</sparkle:channel>` 的那一项，只有在「设置 › 通用」打开「接收 Beta 版」的 Mac 才会收到。Beta 用正常的版本号，转正式版时不重新构建，安装过的人不会再收到一次同样的更新。
+
+```bash
+./scripts/release.sh 1.8.0            # 打包，正式版和 Beta 一样
+./scripts/publish.sh --beta 1.8.0     # 作为 Beta 发布，安装包在 v1.8.0/ 里，LaunchUS.dmg 不变
+./scripts/publish.sh --promote 1.8.0  # 转为正式版（GitHub 上的 prerelease 也改成正式版）
+./scripts/publish.sh --withdraw-beta  # 撤下 Beta，装了的人保留，下一个更新的版本出来时照常更新
+./scripts/publish.sh 1.8.0            # 直接发布正式版；比它新的 Beta 保留，旧的撤下
+```
+
+`scripts/appcast.py` 负责合并两个渠道的更新源。
+
 ## 数据
 
 都在 `~/Library/Application Support/LaunchUS`：`layout.json`（布局）、`meta.json`（别名 / 当前方案的隐藏 / 自选图标）、`custom.json`（启动项）、`profiles.json`（其他布局方案的页面、设置和隐藏名单）、`Icons/`、`Background/`、`Backups/`、`Profiles/<方案名>/`（其他方案自己的 `Backups/` 和 `Chats/`）。AI 密钥在钥匙串里，默认方案的账户名是 `apiKey`，其他方案是 `apiKey.<方案名>`。删除 `layout.json` 即回到首次运行状态。

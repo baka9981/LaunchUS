@@ -58,7 +58,25 @@ final class Updater: NSObject, SPUStandardUserDriverDelegate, SPUUpdaterDelegate
         set { controller?.updater.automaticallyDownloadsUpdates = newValue }
     }
 
+    /// Beta versions come through the same feed, marked with Sparkle's "beta" channel; only
+    /// Macs that opted in see them. A beta later becomes the release as it is (the same build),
+    /// so turning this off never goes back: the next release arrives as usual.
+    nonisolated static let betaKey = "updateChannelBeta"
+
+    var receivesBeta: Bool {
+        get { UserDefaults.app.bool(forKey: Self.betaKey) }
+        set {
+            UserDefaults.app.set(newValue, forKey: Self.betaKey)
+            // Look for the beta now rather than at the next scheduled check.
+            if newValue { controller?.updater.checkForUpdatesInBackground() }
+        }
+    }
+
     // MARK: SPUUpdaterDelegate
+
+    nonisolated func allowedChannels(for updater: SPUUpdater) -> Set<String> {
+        UserDefaults.app.bool(forKey: Self.betaKey) ? ["beta"] : []
+    }
 
     /// A downloaded update would otherwise wait for LaunchUS to quit, which it rarely does:
     /// install it right away and restart.

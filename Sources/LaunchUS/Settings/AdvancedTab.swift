@@ -11,6 +11,7 @@ struct AdvancedTab: View {
     @State private var autoCheck = Updater.shared.automaticallyChecks
     @State private var checkInterval = Updater.shared.checkInterval
     @State private var autoInstall = Updater.shared.automaticallyInstalls
+    @State private var beta = Updater.shared.receivesBeta
     @State private var exporting = false
     @State private var showSharing = false
 
@@ -41,6 +42,11 @@ struct AdvancedTab: View {
                             .toggleStyle(.switch).labelsHidden()
                             .disabled(!autoCheck)
                             .onChange(of: autoInstall) { _, on in Updater.shared.automaticallyInstalls = on }
+                    }
+                    Row(title: String(localized: "接收 Beta 版"),
+                        info: String(localized: "提前收到还在测试的新版本，可能有问题，遇到了请在「反馈」里告诉开发者。关掉后不会退回旧版本，下一个正式版出来时照常更新。")) {
+                        Toggle("", isOn: $beta).toggleStyle(.switch).labelsHidden()
+                            .onChange(of: beta) { _, on in Updater.shared.receivesBeta = on }
                     }
                 }
             }
