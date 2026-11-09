@@ -2,7 +2,7 @@
 # Publish a release that release.sh packaged:
 #   ./scripts/publish.sh 1.3.0
 # Copies releases/v<version>/ to the download site on DEPLOY_HOST (see update.conf) over SSH,
-# removes the older versions there, then mirrors it to a GitHub release when GITHUB_REPO is set
+# keeps the version it replaces for a rollback and removes the older ones there, then mirrors it to a GitHub release when GITHUB_REPO is set
 # (GitHub keeps every version).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -28,15 +28,20 @@ DL="$DEPLOY_DIR/dl"
 # The update zip goes first, then the dmg (only as LaunchUS.dmg, the latest), and the feed
 # last, so the feed never lists a file that isn't up yet.
 # The Intel build the same way: its zip next to the other, LaunchUS-Intel.dmg, appcast-intel.xml.
+# The live version's dmgs and feeds go into its own folder first, so it can be put back.
+OLD=$(ssh "$DEPLOY_HOST" "sed -n 's/.*<sparkle:shortVersionString>\\([^<]*\\)<.*/\\1/p' '$DL/appcast.xml' 2>/dev/null | head -n 1")
+if [[ -n "$OLD" && "$OLD" != "$VERSION" ]]; then
+    ssh "$DEPLOY_HOST" "cd '$DL' && [ -d 'v$OLD' ] && cp -p LaunchUS.dmg LaunchUS-Intel.dmg appcast.xml appcast-intel.xml 'v$OLD/' || true"
+fi
 ssh "$DEPLOY_HOST" "mkdir -p '$DL/v$VERSION'"
 rsync -t --progress "$ZIP" "$INTEL_ZIP" "$DEPLOY_HOST:$DL/v$VERSION/"
 rsync -t "$DMG" "$DEPLOY_HOST:$DL/LaunchUS.dmg"
 rsync -t "$INTEL_DMG" "$DEPLOY_HOST:$DL/LaunchUS-Intel.dmg"
 rsync -t "$FEED" "$DEPLOY_HOST:$DL/appcast.xml"
 rsync -t "$INTEL_FEED" "$DEPLOY_HOST:$DL/appcast-intel.xml"
-# The server keeps only this release (the feed lists just it, and in-app updates from China
-# need its zip here); older versions live on GitHub Releases.
-ssh "$DEPLOY_HOST" "find '$DL' -mindepth 1 -maxdepth 1 -type d -name 'v*' ! -name 'v$VERSION' -exec rm -rf {} +"
+# The server keeps this release (the feed lists just it, and in-app updates from China need its
+# zip here) and the one before it; older versions live on GitHub Releases.
+ssh "$DEPLOY_HOST" "find '$DL' -mindepth 1 -maxdepth 1 -type d -name 'v*' ! -name 'v$VERSION' ! -name 'v${OLD:-none}' -exec rm -rf {} +"
 echo "Published $VERSION to $DOWNLOAD_URL"
 
 if [[ -n "${GITHUB_REPO:-}" ]]; then

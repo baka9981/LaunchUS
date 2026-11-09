@@ -72,8 +72,10 @@ hdiutil detach -quiet "/Volumes/$VOLUME"
 rm -f "$OUT"
 hdiutil convert -quiet "$WORK/rw.dmg" -format ULMO -o "$OUT"
 
-# Same identity as the app (build.sh), when the local signing certificate exists.
-if security find-identity -p codesigning | grep -q "LaunchUS Local Signing"; then
+# Same identity as the app (build.sh): SIGN_IDENTITY, else the local signing certificate.
+if [[ -n "${SIGN_IDENTITY:-}" ]]; then
+    codesign --force --timestamp --sign "$SIGN_IDENTITY" "$OUT"
+elif security find-identity -p codesigning | grep -q "LaunchUS Local Signing"; then
     codesign --force --sign "LaunchUS Local Signing" "$OUT"
 fi
 echo "Wrote $OUT"

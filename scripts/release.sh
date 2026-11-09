@@ -6,7 +6,8 @@
 # drag-to-install .dmg for first installs:
 #   LaunchUS-<v>.zip        appcast.xml        LaunchUS-<v>.dmg         Apple silicon
 #   LaunchUS-<v>-Intel.zip  appcast-intel.xml  LaunchUS-<v>-Intel.dmg   Intel
-# Then ./scripts/publish.sh <version> uploads them.
+# Then ./scripts/publish.sh <version> uploads them. With SIGN_IDENTITY="Developer ID
+# Application: …" and NOTARY_PROFILE set, the apps and dmgs are notarized too (notarize.sh).
 # Needs DOWNLOAD_URL in update.conf and the update signing key in the login keychain.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -32,6 +33,8 @@ for spec in "arm64 appcast.xml" "x86_64 appcast-intel.xml -Intel"; do
     read -r ARCH FEED SUFFIX <<< "$spec"
     ARCH="$ARCH" ./scripts/build.sh release
     APP="$(app_for "$ARCH")"
+    # Before zipping, so the update zip carries the stapled app (no-op without NOTARY_PROFILE).
+    ./scripts/notarize.sh "$APP"
     NAME="LaunchUS-$VERSION${SUFFIX:-}"
     STAGE="$OUT/.$ARCH"
     mkdir -p "$STAGE"
@@ -49,6 +52,7 @@ for spec in "arm64 appcast.xml" "x86_64 appcast-intel.xml -Intel"; do
     [[ -d "$APP.dSYM" ]] && ditto "$APP.dSYM" "$OUT/$NAME.dSYM"
     # After the appcast, so updates keep coming from the zip.
     ./scripts/dmg.sh "$OUT/$NAME.dmg" "$APP"
+    ./scripts/notarize.sh "$OUT/$NAME.dmg"
 done
 
 echo

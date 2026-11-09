@@ -6,7 +6,8 @@
 # the Intel one reads its own update feed, so each Mac only ever gets its own build.
 # Signs with SIGN_IDENTITY, else the "LaunchUS Local Signing" certificate when it's in the
 # keychain, else ad-hoc. A fixed identity keeps privacy permissions (Accessibility, Full Disk
-# Access) across rebuilds; ad-hoc builds lose them each time.
+# Access) across rebuilds; ad-hoc builds lose them each time. With a "Developer ID
+# Application" identity the app gets the hardened runtime, ready for scripts/notarize.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -104,9 +105,21 @@ LOCAL_IDENTITY="LaunchUS Local Signing"
 if [[ -z "${SIGN_IDENTITY:-}" ]] && security find-identity -p codesigning | grep -q "\"$LOCAL_IDENTITY\""; then
     SIGN_IDENTITY="$LOCAL_IDENTITY"
 fi
+# A Developer ID build is what Apple notarizes (scripts/notarize.sh): it needs the hardened
+# runtime on the app too and a secure timestamp. Local and ad-hoc builds stay as they were.
+APP_FLAGS=()
+TIMESTAMP=()
+if [[ "${SIGN_IDENTITY:-}" == "Developer ID Application"* ]]; then
+    APP_FLAGS=(--options runtime --entitlements Resources/LaunchUS.entitlements)
+    TIMESTAMP=(--timestamp)
+fi
+# A custom Finder icon or other extended attributes on the bundle fail strict signature
+# checks (and notarization), so they go before signing.
+rm -f "$APP/Icon"$'\r'
+xattr -cr "$APP"
 # Inside out: Sparkle's helpers, the framework, then the app.
 for item in "$SPARKLE/Versions/B/Autoupdate" "$SPARKLE/Versions/B/Updater.app" "$SPARKLE"; do
-    codesign --force --options runtime --sign "${SIGN_IDENTITY:--}" "$item" 2>&1 | { grep -v "replacing existing" || true; }
+    codesign --force --options runtime ${TIMESTAMP[@]+"${TIMESTAMP[@]}"} --sign "${SIGN_IDENTITY:--}" "$item" 2>&1 | { grep -v "replacing existing" || true; }
 done
-codesign --force --sign "${SIGN_IDENTITY:--}" "$APP" 2>&1 | { grep -v "replacing existing" || true; }
+codesign --force ${APP_FLAGS[@]+"${APP_FLAGS[@]}"} ${TIMESTAMP[@]+"${TIMESTAMP[@]}"} --sign "${SIGN_IDENTITY:--}" "$APP" 2>&1 | { grep -v "replacing existing" || true; }
 echo "Built $APP"
