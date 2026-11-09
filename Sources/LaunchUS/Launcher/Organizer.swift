@@ -8,6 +8,7 @@ enum AppRelauncher {
         task.arguments = ["-c", "sleep 0.6; if [ -n \"$1\" ]; then /usr/bin/open -a \"$0\" \"$1\"; else /usr/bin/open \"$0\"; fi",
                           Bundle.main.bundlePath, url?.absoluteString ?? ""]
         try? task.run()
+        AppUsage.shared.quitApproved = true
         NSApp.terminate(nil)
     }
 }

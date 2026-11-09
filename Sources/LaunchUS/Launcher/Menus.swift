@@ -435,6 +435,14 @@ enum LauncherMenus {
                         WidgetStore.shared.updateExtras(widget.id) { $0.countLaunches = true }
                     }
                 }
+                menu.addSubmenu(String(localized: "样式"), symbol: "square.grid.3x3") { sub in
+                    sub.add(String(localized: "颜色"), checked: extras.heatIcons != true) {
+                        WidgetStore.shared.updateExtras(widget.id) { $0.heatIcons = nil }
+                    }
+                    sub.add(String(localized: "App 图标"), checked: extras.heatIcons == true) {
+                        WidgetStore.shared.updateExtras(widget.id) { $0.heatIcons = true }
+                    }
+                }
             case .clipboard?:
                 menu.add(String(localized: "清空记录"), symbol: "trash", enabled: !ClipboardHistory.shared.items.isEmpty) {
                     ClipboardHistory.shared.clear()

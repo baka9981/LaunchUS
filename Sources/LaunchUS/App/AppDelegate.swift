@@ -286,6 +286,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     /// Opening LaunchUS.app again (Finder, Dock, `open`) toggles the launcher.
+    /// With 限时使用 locked, quitting LaunchUS (which would stop the limits) needs Touch ID or
+    /// the password; logging out or shutting down never waits.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let usage = AppUsage.shared
+        let event = NSAppleEventManager.shared().currentAppleEvent
+        let systemQuit = event?.attributeDescriptor(forKeyword: AEKeyword(kAEQuitReason)) != nil
+        guard usage.guardsQuit, !systemQuit else { return .terminateNow }
+        usage.authorize(String(localized: "退出 LaunchUS，限时使用会停止"),
+                        denied: { NSApp.reply(toApplicationShouldTerminate: false) }) {
+            usage.quitApproved = true
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         // The Dock icon is the default profile's; opened from Finder without one, the current profile.
         guard let launcher else { return false }  // nil while quitting to reopen from /Applications

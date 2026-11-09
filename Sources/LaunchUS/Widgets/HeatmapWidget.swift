@@ -43,7 +43,8 @@ struct HeatmapWidget: View {
         VStack(alignment: .leading, spacing: 0) {
             headerRow(app: app, today: value(now), launches: launches)
                 .frame(height: header, alignment: .topLeading)
-            grid(in: gridArea, now: now, value: value)
+            grid(in: gridArea, now: now, value: value,
+                 icon: extras.heatIcons == true ? { date in Self.icon(on: date, app: app, launches: launches, launchLog: launchLog) } : nil)
             if size == .large {
                 Spacer(minLength: unit * 0.1)
                 if app == nil {
@@ -74,7 +75,20 @@ struct HeatmapWidget: View {
     }
 
     /// Columns are weeks, oldest on the left; rows are the days of the week.
-    private func grid(in area: CGSize, now: Date, value: (Date) -> Double) -> some View {
+    /// The icon a day shows in the App 图标 style: the followed app's, or that day's most used.
+    @MainActor private static func icon(on date: Date, app: AppItem?, launches: Bool, launchLog: [String: [String: Int]]) -> CGImage? {
+        guard let model = WidgetHost.model else { return nil }
+        if let app { return model.catalog.icons[app.id] }
+        let day = LaunchLog.day(date)
+        let top: String? = launches
+            ? launchLog[day]?.max { $0.value < $1.value }?.key
+            : AppUsage.shared.log[day]?.max { $0.value < $1.value }?.key
+                ?? (Calendar.current.isDateInToday(date) ? NSWorkspace.shared.frontmostApplication?.bundleIdentifier : nil)
+        guard let top, let item = model.app(top) else { return nil }
+        return model.catalog.icons[item.id]
+    }
+
+    private func grid(in area: CGSize, now: Date, value: (Date) -> Double, icon: ((Date) -> CGImage?)?) -> some View {
         let cal = Calendar.current
         let gap = max(1.5, unit * 0.025)
         let cell = max(4, (area.height - gap * 6) / 7)
@@ -92,9 +106,18 @@ struct HeatmapWidget: View {
         return ZStack(alignment: .topLeading) {
             ForEach(Array(days.enumerated()), id: \.offset) { i, day in
                 let level = day.1 / peak
-                RoundedRectangle(cornerRadius: cell * 0.25, style: .continuous)
-                    .fill(day.1 <= 0 ? AnyShapeStyle(.primary.opacity(0.09))
-                          : AnyShapeStyle(Color(red: 0.2, green: 0.78, blue: 0.4).opacity(0.3 + 0.7 * level)))
+                Group {
+                    if day.1 > 0, let image = icon?(day.0) {
+                        // Busier days are bigger and brighter.
+                        Image(decorative: image, scale: 2).resizable().interpolation(.medium)
+                            .frame(width: cell * (0.7 + 0.35 * level), height: cell * (0.7 + 0.35 * level))
+                            .opacity(0.45 + 0.55 * level)
+                    } else {
+                        RoundedRectangle(cornerRadius: cell * 0.25, style: .continuous)
+                            .fill(day.1 <= 0 ? AnyShapeStyle(.primary.opacity(0.09))
+                                  : AnyShapeStyle(Color(red: 0.2, green: 0.78, blue: 0.4).opacity(0.3 + 0.7 * level)))
+                    }
+                }
                     .frame(width: cell, height: cell)
                     .help(Text(verbatim: "\(day.0.formatted(date: .abbreviated, time: .omitted))"))
                     .offset(x: CGFloat(i / 7) * (cell + gap), y: CGFloat(i % 7) * (cell + gap))

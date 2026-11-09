@@ -386,6 +386,8 @@ extension WidgetStore {
         // Heatmap: one app (its ID), or all of them.
         var hotspot: String?
         var countLaunches: Bool?
+        /// Each day shows the icon of the app used most that day instead of a colour.
+        var heatIcons: Bool?
     }
 }
 

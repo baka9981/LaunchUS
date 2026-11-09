@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import os
 
 /// What the App manager knows about the installed apps: version and chip (read each time it
 /// opens, quickly), size (slow, kept until the app changes) and found updates.
@@ -125,12 +126,20 @@ enum LaunchLog {
     static let keepDays = 56
 
     /// Day ("2026-11-06") → app ID → launches.
+    /// Read once and kept, since the heatmap asks on every redraw.
+    private static let cache = OSAllocatedUnfairLock<[String: [String: Int]]?>(initialState: nil)
+
     static func load() -> [String: [String: Int]] {
-        (UserDefaults.app.dictionary(forKey: key) as? [String: [String: Int]]) ?? [:]
+        if let log = cache.withLock({ $0 }) { return log }
+        let log = (UserDefaults.app.dictionary(forKey: key) as? [String: [String: Int]]) ?? [:]
+        cache.withLock { $0 = log }
+        return log
     }
 
     static func record(_ id: String, at date: Date = Date()) {
-        UserDefaults.app.set(adding(id, at: date, to: load()), forKey: key)
+        let log = adding(id, at: date, to: load())
+        cache.withLock { $0 = log }
+        UserDefaults.app.set(log, forKey: key)
     }
 
     static func adding(_ id: String, at date: Date, to log: [String: [String: Int]]) -> [String: [String: Int]] {
@@ -145,7 +154,10 @@ enum LaunchLog {
         return String(format: "%04d-%02d-%02d", c.year ?? 0, c.month ?? 0, c.day ?? 0)
     }
 
-    static func reset() { UserDefaults.app.removeObject(forKey: key) }
+    static func reset() {
+        cache.withLock { $0 = nil }
+        UserDefaults.app.removeObject(forKey: key)
+    }
 
     /// Launches per app over the last `days` days (today included), most first.
     static func top(_ log: [String: [String: Int]], days: Int, now: Date = Date()) -> [(id: String, count: Int)] {

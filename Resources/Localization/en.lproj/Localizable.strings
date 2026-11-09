@@ -1642,3 +1642,11 @@
 "隐藏 App" = "Hide App";
 "雨声" = "Rain";
 "音量" = "Volume";
+
+"先打开“音乐”或 Spotify" = "Open Music or Spotify first";
+"文件夹形状" = "Folder";
+"%@ 还能用 1 分钟" = "1 minute left for %@";
+"加的时间快用完了。" = "The extra time is almost up.";
+"退出 LaunchUS，限时使用会停止" = "quit LaunchUS, which stops the time limits";
+"可以用键盘输入，Esc 清零" = "You can type on the keyboard; Esc clears";
+"App 图标" = "App Icons";

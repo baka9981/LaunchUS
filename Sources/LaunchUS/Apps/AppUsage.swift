@@ -53,7 +53,13 @@ final class AppUsage {
     @ObservationIgnored private var warned: [String: String] = [:]
     @ObservationIgnored private var toldUp: [String: String] = [:]
     @ObservationIgnored private var lastBlockNote: [String: Date] = [:]
+    @ObservationIgnored private var extraWarned: [String: Date] = [:]
     @ObservationIgnored private var started = false
+    /// Set once quitting is allowed (unlocked, or LaunchUS restarting itself).
+    @ObservationIgnored var quitApproved = false
+
+    /// Locked limits would stop counting if LaunchUS quit, so quitting asks first.
+    var guardsQuit: Bool { locked && !limits.isEmpty && !quitApproved }
 
     static var url: URL { LayoutStore.directory.appendingPathComponent("usage.json") }
 
@@ -220,6 +226,12 @@ final class AppUsage {
         let used = seconds(id)
         let allowed = Double(limit.minutes * 60)
         let name = app.localizedName ?? id
+        // A minute before 再用 15 分钟 runs out, once for each extension.
+        if let extra = limit.extraUntil, extra > Date(), extra.timeIntervalSinceNow <= 60, extraWarned[id] != extra,
+           limit.action != .remind {
+            extraWarned[id] = extra
+            Self.notify(String(localized: "\(name) 还能用 1 分钟"), String(localized: "加的时间快用完了。"))
+        }
         if limit.extraUntil.map({ $0 > Date() }) != true, used < allowed {
             if allowed - used <= 300, allowed >= 600, warned[id] != today {
                 warned[id] = today
@@ -249,7 +261,7 @@ final class AppUsage {
     }
 
     /// Touch ID or the login password, when limits are locked; straight through otherwise.
-    func authorize(_ reason: String, then done: @escaping @MainActor () -> Void) {
+    func authorize(_ reason: String, denied: (@MainActor () -> Void)? = nil, then done: @escaping @MainActor () -> Void) {
         guard locked else {
             done()
             return
@@ -261,7 +273,7 @@ final class AppUsage {
             return
         }
         context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { ok, _ in
-            if ok { DispatchQueue.main.async { MainActor.assumeIsolated { done() } } }
+            DispatchQueue.main.async { MainActor.assumeIsolated { ok ? done() : denied?() } }
         }
     }
 

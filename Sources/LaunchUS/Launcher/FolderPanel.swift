@@ -122,7 +122,8 @@ struct FolderPanel: View {
             // Launchpad; the clip grows from the tile to the grid along with them.
             let mini = origin.width * 0.232
             let step = origin.width * 0.263
-            let miniScale = mini / metrics.iconSize
+            let classic = folder.iconStyle == .classic
+            let miniScale = (classic ? origin.width * ClassicFolderTile.iconSide : mini) / metrics.iconSize
             let clip = expanded
                 ? CGRect(x: grid.minX, y: grid.minY, width: grid.width, height: grid.height + metrics.labelOverflow).intersection(rect)
                 : origin
@@ -133,12 +134,14 @@ struct FolderPanel: View {
                     let slot = metrics.folderIconCenter(slot: index)
                     let pageShift = model.folderScrolls ? 0 : CGFloat(page - model.folderPage) * grid.width + model.folderDragOffset
                     let scrollShift = model.folderScrolls ? model.folderScrollOffset : 0
-                    let inTile = position < 9
+                    let inTile = position < (classic ? ClassicFolderTile.shown : 9)
+                    let spot = classic
+                        ? ClassicFolderTile.spot(position, of: min(apps.count, ClassicFolderTile.shown))
+                        : CGPoint(x: CGFloat(position % 3 - 1) * step / origin.width, y: CGFloat(position / 3 - 1) * step / origin.width)
                     let target = expanded
                         ? CGPoint(x: slot.x + pageShift, y: slot.y - scrollShift)
                         : inTile
-                            ? CGPoint(x: origin.midX + CGFloat(position % 3 - 1) * step,
-                                      y: origin.midY + CGFloat(position / 3 - 1) * step)
+                            ? CGPoint(x: origin.midX + spot.x * origin.width, y: origin.midY + spot.y * origin.width)
                             : CGPoint(x: origin.midX, y: origin.midY)
                     let scale = expanded ? 1 : inTile ? miniScale : miniScale * 0.5
                     // Apps scrolled or paged out of the panel aren't drawn: a big folder would

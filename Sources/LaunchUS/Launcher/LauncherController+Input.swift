@@ -106,6 +106,16 @@ extension LauncherController {
             return nil
         }
         commandChanged(false)
+        if let id = model.activeCalculator, model.query.isEmpty, model.openFolderID == nil, !model.isEditing {
+            if model.location(of: "widget:" + id) == nil {
+                model.activeCalculator = nil
+            } else if let key = Self.calculatorKey(event) {
+                Calculators.shared.press(key, id)
+                // Esc clears; the next Esc closes the launcher as usual.
+                if Int(event.keyCode) == kVK_Escape { model.activeCalculator = nil }
+                return nil
+            }
+        }
         // ⌘1…⌘9 open the numbered items; ⌃1…⌃9 go to that page.
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if let digit = Self.digit(event), flags == .command || flags == .control {
@@ -172,6 +182,29 @@ extension LauncherController {
             return event
         }
         return nil
+    }
+
+    /// A calculator key for a typed character: digits, + − × ÷ = % . (keypad too), ↩ for =,
+    /// ⌫ and Esc for C.
+    private static func calculatorKey(_ event: NSEvent) -> String? {
+        let flags = event.modifierFlags.intersection([.command, .option, .control])
+        guard flags.isEmpty else { return nil }
+        switch Int(event.keyCode) {
+        case kVK_Return, kVK_ANSI_KeypadEnter: return "="
+        case kVK_Delete, kVK_ForwardDelete: return "⌫"
+        case kVK_Escape, kVK_ANSI_KeypadClear: return "C"
+        default: break
+        }
+        guard let ch = event.charactersIgnoringModifiers?.first ?? event.characters?.first else { return nil }
+        switch ch {
+        case "0"..."9", ".", "+", "=", "%": return String(ch)
+        case ",": return "."
+        case "-": return "−"
+        case "*", "x", "X": return "×"
+        case "/": return "÷"
+        case "c", "C": return "C"
+        default: return nil
+        }
     }
 
     /// 1…9 from the number row or keypad.

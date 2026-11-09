@@ -380,10 +380,9 @@ struct EntryIcon: View {
                     RoundedRectangle(cornerRadius: tile * 0.225, style: .continuous).fill(.white.opacity(0.12))
                         .frame(width: tile, height: tile)
                 }
-            case .folder(let folder, let apps)
-                where (folder.style.flatMap(FolderIconStyle.init(rawValue:)) ?? Settings.shared.folderIconStyle) == .classic:
+            case .folder(let folder, let apps) where folder.iconStyle == .classic:
                 ClassicFolderTile(size: tile, tint: folder.color.flatMap(FolderColor.init(rawValue:)),
-                                  icons: apps.prefix(3).compactMap { icons[$0.id] }, contentsOut: contentsOut)
+                                  icons: apps.prefix(ClassicFolderTile.shown).compactMap { icons[$0.id] }, contentsOut: contentsOut)
                     .scaleEffect(mergeTarget ? 1.12 : 1)
             case .folder(let folder, let apps):
                 FolderBackground(size: tile, tint: folder.color.flatMap(FolderColor.init(rawValue:)))
@@ -424,10 +423,22 @@ struct EntryIcon: View {
 
 /// A folder like Finder's 📂: a back with a tab, a few apps peeking out, and the front over them.
 struct ClassicFolderTile: View {
+    /// How many apps stand in the folder.
+    static let shown = 3
     let size: CGFloat
     var tint: FolderColor?
     var icons: [CGImage] = []
     var contentsOut = false
+
+    /// An app's side, as a share of the tile.
+    static let iconSide: CGFloat = 0.36
+
+    /// Where the i-th of `count` apps stands, from the tile's centre as a share of its side.
+    /// Opening the folder flies the apps out from here.
+    static func spot(_ i: Int, of count: Int) -> CGPoint {
+        let x = CGFloat(i) * 0.24 - CGFloat(max(count, 1) - 1) * 0.12
+        return CGPoint(x: x, y: -0.12)
+    }
 
     var body: some View {
         let base = tint?.color ?? Color(red: 0.36, green: 0.68, blue: 0.96)
@@ -445,13 +456,12 @@ struct ClassicFolderTile: View {
                 .offset(x: size * 0.04, y: size * 0.18)
             // Apps standing in it, fanned a little.
             ForEach(Array(icons.enumerated()), id: \.offset) { i, icon in
-                let side = size * 0.36
-                let x = size * 0.5 - side / 2 + CGFloat(i - (icons.count - 1) / 2) * size * 0.24
-                    - (icons.count == 2 ? size * 0.12 : 0)
+                let side = size * Self.iconSide
+                let spot = Self.spot(i, of: icons.count)
                 Image(decorative: icon, scale: 2).resizable().interpolation(.medium)
                     .frame(width: side, height: side)
                     .rotationEffect(.degrees(Double(i - 1) * 8))
-                    .offset(x: x, y: size * 0.2)
+                    .offset(x: size * (0.5 + spot.x) - side / 2, y: size * (0.5 + spot.y) - side / 2)
                     .opacity(contentsOut ? 0 : 1)
             }
             // The front, lighter at the top like a lit edge.

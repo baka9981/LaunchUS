@@ -107,6 +107,7 @@ extension LauncherModel {
                 editingNoteID = widget.id
             }
         case .calculator?:
+            activeCalculator = widget.id
             if let point, let key = CalculatorWidget.key(at: point, size: widget.size, card: card) {
                 Calculators.shared.press(key, widget.id)
             }

@@ -201,6 +201,8 @@ final class LauncherModel {
         didSet { if currentPage != oldValue { folderPick = nil } }
     }
     var selection: GridPos?
+    /// The calculator widget last clicked: typed digits and operators go to it.
+    var activeCalculator: String?
     /// Live horizontal offset while a swipe or mouse drag is in progress.
     var dragOffset: CGFloat = 0
     var isPresented = false
@@ -581,6 +583,12 @@ final class LauncherModel {
         normalizeLayout()
         if layout.joined().contains(where: { if case .widget(let w) = $0 { w.kind == BuiltInWidget.clipboard.rawValue } else { false } }) {
             ClipboardHistory.shared.start()
+        }
+        // The last white-noise widget gone, its sound goes with it.
+        if NoisePlayer.shared.playing != nil, !layout.joined().contains(where: {
+            if case .widget(let w) = $0 { w.kind == BuiltInWidget.noise.rawValue } else { false }
+        }) {
+            NoisePlayer.shared.stop()
         }
         visibleApps = catalog.apps.compactMap { app in
             guard let m = meta[app.id] else { return app }

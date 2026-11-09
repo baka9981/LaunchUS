@@ -6,6 +6,13 @@ import Observation
 enum DisplayMode: String, CaseIterable, Codable { case fullScreen, window, ring }
 enum SortOrder: String, CaseIterable, Codable { case custom, name, recentlyAdded, recentlyUsed, mostUsed }
 enum BrowseStyle: String, CaseIterable, Codable { case paged, scroll }
+extension Folder {
+    /// This folder's own style, or the one in 显示.
+    @MainActor var iconStyle: FolderIconStyle {
+        style.flatMap(FolderIconStyle.init(rawValue:)) ?? Settings.shared.folderIconStyle
+    }
+}
+
 /// How a folder looks on the grid: a glass tile of app icons, or a folder 📂 with apps peeking out.
 enum FolderIconStyle: String, CaseIterable, Codable {
     case grid, classic
@@ -13,7 +20,7 @@ enum FolderIconStyle: String, CaseIterable, Codable {
     var title: String {
         switch self {
         case .grid: String(localized: "图标网格")
-        case .classic: String(localized: "文件夹")
+        case .classic: String(localized: "文件夹形状")
         }
     }
 }

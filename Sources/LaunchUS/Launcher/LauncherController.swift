@@ -419,6 +419,7 @@ final class LauncherController {
     ///     came to the front); it comes back over the launcher when that opens again.
     func hide(restoreFocus: Bool, force: Bool = false, keepSettings: Bool = false) {
         guard panel.isVisible, !isHiding else { return }
+        model.activeCalculator = nil
         if model.showSettings, !keepSettings {
             guard force else { return }
             model.tuner = nil

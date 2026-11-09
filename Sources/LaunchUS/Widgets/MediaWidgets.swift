@@ -100,8 +100,20 @@ final class NowPlaying {
         }
     }
 
+    /// A button was pressed with no player open: the widget says so for a moment, rather
+    /// than opening Music.
+    private(set) var noPlayer = false
+    @ObservationIgnored private var noPlayerWork: DispatchWorkItem?
+
     func perform(_ command: Command) {
-        let target = player.flatMap { $0.isRunning ? $0 : nil } ?? Player.allCases.first(where: \.isRunning) ?? .music
+        guard let target = player.flatMap({ $0.isRunning ? $0 : nil }) ?? Player.allCases.first(where: \.isRunning) else {
+            noPlayer = true
+            noPlayerWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.noPlayer = false }
+            noPlayerWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: work)
+            return
+        }
         if player == nil { player = target }
         // Show the change at once; the player's notification confirms it.
         if command == .playPause, !title.isEmpty { playing.toggle() }
@@ -195,7 +207,9 @@ struct MusicWidget: View {
                 .offset(x: cover.minX, y: cover.minY)
             VStack(alignment: size == .large ? .center : .leading, spacing: unit * 0.02) {
                 if size != .small { Spacer(minLength: 0) }
-                Text(now.title.isEmpty ? String(localized: "没有在播放") : now.title)
+                Text(now.title.isEmpty
+                     ? now.noPlayer ? String(localized: "先打开“音乐”或 Spotify") : String(localized: "没有在播放")
+                     : now.title)
                     .font(.system(size: unit * (size == .large ? 0.16 : 0.13), weight: .semibold)).lineLimit(size == .medium ? 2 : 1)
                 if !now.artist.isEmpty {
                     Text(now.artist).font(.system(size: unit * 0.1)).opacity(0.65).lineLimit(1)
@@ -280,6 +294,7 @@ final class NoisePlayer {
     @ObservationIgnored private let generator = NoiseGenerator()
     @ObservationIgnored private var stopWork: DispatchWorkItem?
     @ObservationIgnored private var timerWork: DispatchWorkItem?
+    @ObservationIgnored private var configObserver: NSObjectProtocol?
 
     func toggle(_ sound: Sound) {
         if playing == sound { stop() } else { play(sound) }
@@ -300,6 +315,11 @@ final class NoisePlayer {
             engine.connect(node, to: engine.mainMixerNode, format: format)
             engine.mainMixerNode.outputVolume = Float(volume)
             self.engine = engine
+            // AirPods coming or going stops the engine; build it again for the new output.
+            configObserver = NotificationCenter.default.addObserver(
+                forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.outputChanged() }
+            }
         }
         do {
             if engine?.isRunning != true { try engine?.start() }
@@ -309,6 +329,16 @@ final class NoisePlayer {
             engine = nil
             playing = nil
         }
+    }
+
+    private func outputChanged() {
+        configObserver.map(NotificationCenter.default.removeObserver)
+        configObserver = nil
+        engine?.stop()
+        engine = nil
+        guard let sound = playing else { return }
+        playing = nil
+        play(sound)
     }
 
     func stop() {
@@ -321,6 +351,8 @@ final class NoisePlayer {
             guard let self, playing == nil else { return }
             engine?.stop()
             engine = nil
+            configObserver.map(NotificationCenter.default.removeObserver)
+            configObserver = nil
         }
         stopWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: work)
@@ -346,6 +378,8 @@ private final class NoiseGenerator: @unchecked Sendable {
     // Written on the main thread, read on the audio thread; a torn read only changes the
     // sound for one buffer.
     private var kind = 0
+    /// The sound asked for; the old one fades out before it comes in.
+    private var next = 0
     private var target: Float = 0
     private var gain: Float = 0
     private var seed: UInt32 = 0x9E37_79B9
@@ -356,7 +390,12 @@ private final class NoiseGenerator: @unchecked Sendable {
     private var time: Double = 0
 
     func set(sound: NoisePlayer.Sound?, on: Bool) {
-        if let sound { kind = NoisePlayer.Sound.allCases.firstIndex(of: sound) ?? 0 }
+        if let sound {
+            let index = NoisePlayer.Sound.allCases.firstIndex(of: sound) ?? 0
+            // Nothing playing yet: start on the new sound straight away.
+            if gain < 0.01 { kind = index }
+            next = index
+        }
         target = on ? 1 : 0
     }
 
@@ -381,9 +420,16 @@ private final class NoiseGenerator: @unchecked Sendable {
     }
 
     func render(frames: Int, into buffers: UnsafeMutableAudioBufferListPointer) {
-        let kind = self.kind, target = self.target
+        var kind = self.kind
+        let next = self.next, target = self.target
         for frame in 0..<frames {
-            gain += (target - gain) * 0.0002
+            if kind != next {
+                // About a fifth of a second down, then the new sound fades up as usual.
+                gain += (0 - gain) * 0.0006
+                if gain < 0.004 { kind = next; self.kind = next }
+            } else {
+                gain += (target - gain) * 0.0002
+            }
             let w = white()
             var sample: Float
             switch kind {
@@ -469,9 +515,12 @@ struct NoiseWidget: View {
             ZStack {
                 Circle().fill(on ? AnyShapeStyle(Color(red: 0.25, green: 0.6, blue: 0.75)) : AnyShapeStyle(.primary.opacity(0.12)))
                 if on, live {
-                    TimelineView(.animation(minimumInterval: 1 / 20)) { context in
-                        bars(context.date, side: play.width)
+                    // Only this small canvas redraws; the card around it isn't laid out again.
+                    TimelineView(.animation(minimumInterval: 1 / 12)) { context in
+                        Canvas { gc, size in Self.drawBars(in: &gc, size: size, date: context.date) }
                     }
+                    .frame(width: play.width * 0.6, height: play.height * 0.5)
+                    .allowsHitTesting(false)
                 } else {
                     Image(systemName: on ? "pause.fill" : chosen.symbol).font(.system(size: play.width * 0.36, weight: .semibold))
                 }
@@ -513,13 +562,14 @@ struct NoiseWidget: View {
         .frame(width: area.width, height: area.height, alignment: .topLeading)
     }
 
-    private func bars(_ date: Date, side: CGFloat) -> some View {
+    /// Five bars bouncing at their own pace, drawn straight into the canvas.
+    private static func drawBars(in gc: inout GraphicsContext, size: CGSize, date: Date) {
         let t = date.timeIntervalSinceReferenceDate
-        return HStack(spacing: side * 0.05) {
-            ForEach(0..<5) { i in
-                let h = 0.3 + 0.7 * abs(sin(t * (2.1 + Double(i) * 0.7) + Double(i)))
-                Capsule().frame(width: side * 0.07, height: side * 0.4 * h)
-            }
+        let width = size.width / 9
+        for i in 0..<5 {
+            let h = size.height * (0.3 + 0.7 * abs(sin(t * (2.1 + Double(i) * 0.7) + Double(i))))
+            let rect = CGRect(x: CGFloat(i) * width * 2, y: (size.height - h) / 2, width: width, height: h)
+            gc.fill(Capsule().path(in: rect), with: .foreground)
         }
     }
 }
@@ -535,6 +585,17 @@ struct VideoWidget: View {
     /// The chosen file: found again by its bookmark if it was moved.
     @MainActor static func url(_ id: String) -> URL? {
         let extras = WidgetStore.shared.extras(id)
+        // Resolving the bookmark touches the disk, so a widget redrawing reuses the answer for a few seconds.
+        let key = [extras.videoBookmark?.hashValue.description ?? "", extras.videoPath ?? ""].joined(separator: "|")
+        if let hit = resolved[id], hit.key == key, hit.at.timeIntervalSinceNow > -5 { return hit.url }
+        let url = resolve(extras)
+        resolved[id] = (key, url, Date())
+        return url
+    }
+
+    @MainActor private static var resolved: [String: (key: String, url: URL?, at: Date)] = [:]
+
+    @MainActor private static func resolve(_ extras: WidgetStore.Extras) -> URL? {
         if let data = extras.videoBookmark {
             var stale = false
             if let url = try? URL(resolvingBookmarkData: data, options: [.withoutUI, .withoutMounting], bookmarkDataIsStale: &stale),

@@ -29,6 +29,7 @@ enum InstallLocation {
             task.executableURL = URL(fileURLWithPath: "/bin/sh")
             task.arguments = ["-c", "sleep 0.6; /usr/bin/open \"$0\"", installed.path]
             try task.run()
+            AppUsage.shared.quitApproved = true
             NSApp.terminate(nil)
             return true
         } catch {

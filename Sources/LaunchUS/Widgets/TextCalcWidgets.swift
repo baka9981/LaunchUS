@@ -354,6 +354,11 @@ struct CalculatorWidget: View {
                     .monospacedDigit().lineLimit(1).minimumScaleFactor(0.35)
             }
             .frame(width: display.width, height: display.height, alignment: .bottomTrailing)
+            if WidgetHost.model?.activeCalculator == id {
+                // Typing goes here now.
+                Image(systemName: "keyboard").font(.system(size: unit * 0.08, weight: .medium)).opacity(0.45)
+                    .help(Text(String(localized: "可以用键盘输入，Esc 清零")))
+            }
             ForEach(Array(zip(keys, rects)), id: \.0) { key, rect in
                 let isOp = ["+", "−", "×", "÷", "="].contains(key)
                 let active = state.op == key && state.fresh
