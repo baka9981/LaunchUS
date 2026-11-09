@@ -139,6 +139,13 @@ extension LauncherModel {
         commitLayout()
     }
 
+    func setFolderStyle(_ id: String, _ style: FolderIconStyle?) {
+        guard let loc = location(ofFolder: id), case .folder(var folder) = layout[loc.page][loc.slot] else { return }
+        folder.style = style?.rawValue
+        layout[loc.page][loc.slot] = .folder(folder)
+        commitLayout()
+    }
+
     func location(ofFolder id: String) -> GridPos? {
         for (p, page) in layout.enumerated() {
             for (s, item) in page.enumerated() {

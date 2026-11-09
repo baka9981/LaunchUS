@@ -117,7 +117,7 @@ struct WidgetCell: View {
 
     /// Widgets with buttons of their own, and the note (it turns into a text field), don't darken as a whole when pressed.
     private static func pressesInside(_ widget: WidgetItem) -> Bool {
-        [BuiltInWidget.note, .apps, .actions, .todo, .clipboard].map(\.rawValue).contains(widget.kind)
+        [BuiltInWidget.note, .apps, .actions, .todo, .clipboard, .calculator, .music, .noise, .text].map(\.rawValue).contains(widget.kind)
     }
 }
 
@@ -152,7 +152,7 @@ struct WidgetCard: View {
         let note = widget.kind == BuiltInWidget.note.rawValue ? WidgetStore.shared.note(widget.id) : nil
         content(provider)
             // Plugins lay out their own margins over the whole card, and a photo fills it.
-            .padding(isPlugin || widget.kind == BuiltInWidget.photo.rawValue ? 0 : padding)
+            .padding(isPlugin || [BuiltInWidget.photo.rawValue, BuiltInWidget.video.rawValue].contains(widget.kind) ? 0 : padding)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
             .foregroundStyle(note != nil ? AnyShapeStyle(Color.black.opacity(0.8))
                              : windowed ? AnyShapeStyle(.primary) : AnyShapeStyle(.white))
@@ -199,6 +199,12 @@ struct WidgetCard: View {
         case .builtIn(.group)?: GroupWidget(id: widget.id, size: widget.size, unit: unit, card: size)
         case .builtIn(.photo)?: PhotoWidget(id: widget.id, unit: unit, card: size)
         case .builtIn(.currency)?: CurrencyWidget(id: widget.id, size: widget.size, unit: unit, live: live)
+        case .builtIn(.text)?: TextWidget(id: widget.id, size: widget.size, unit: unit, editing: editing)
+        case .builtIn(.calculator)?: CalculatorWidget(id: widget.id, size: widget.size, unit: unit, card: size)
+        case .builtIn(.music)?: MusicWidget(size: widget.size, unit: unit, card: size, live: live)
+        case .builtIn(.noise)?: NoiseWidget(id: widget.id, size: widget.size, unit: unit, card: size, live: live)
+        case .builtIn(.video)?: VideoWidget(id: widget.id, unit: unit, card: size, live: live)
+        case .builtIn(.heatmap)?: HeatmapWidget(id: widget.id, size: widget.size, unit: unit, card: size, live: live)
         case .plugin(let folder, let manifest)?:
             PluginWidgetView(folder: folder, manifest: manifest, size: widget.size, frame: size, unit: unit,
                              dark: !windowed || colorScheme == .dark, live: live,

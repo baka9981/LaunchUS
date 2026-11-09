@@ -68,6 +68,7 @@ enum ProfileSettings {
         Field(.display, "hideFolderNames", \.hideFolderNames),
         Field(.display, "browseStyle", \.browseStyle),
         Field(.display, "folderBrowseStyle", \.folderBrowseStyle),
+        Field(.display, "folderIconStyle", \.folderIconStyle),
         Field(.display, "showFrequent", \.showFrequent),
         Field(.display, "showCategoryBar", \.showCategoryBar),
         Field(.display, "background", \.background),

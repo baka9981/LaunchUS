@@ -72,15 +72,22 @@ enum BuiltInWidget: String, CaseIterable {
     case group = "launchus.group"
     case photo = "launchus.photo"
     case currency = "launchus.currency"
+    case text = "launchus.text"
+    case calculator = "launchus.calculator"
+    case music = "launchus.music"
+    case noise = "launchus.noise"
+    case video = "launchus.video"
+    case heatmap = "launchus.heatmap"
 
     /// How the gallery groups widgets.
     enum Category: CaseIterable {
-        case time, tools, system, plugin
+        case time, tools, media, system, plugin
 
         var title: String {
             switch self {
             case .time: String(localized: "时间与日程")
             case .tools: String(localized: "实用工具")
+            case .media: String(localized: "影音与文字")
             case .system: String(localized: "系统")
             case .plugin: String(localized: "插件")
             }
@@ -90,8 +97,9 @@ enum BuiltInWidget: String, CaseIterable {
     var category: Category {
         switch self {
         case .clock, .analogClock, .calendar, .countdown, .progress: .time
-        case .note, .todo, .apps, .timer, .actions, .clipboard, .group, .photo, .currency: .tools
-        case .system, .battery, .network, .storage: .system
+        case .note, .todo, .apps, .timer, .actions, .clipboard, .group, .currency, .calculator: .tools
+        case .photo, .video, .music, .noise, .text: .media
+        case .system, .battery, .network, .storage, .heatmap: .system
         }
     }
 
@@ -115,6 +123,12 @@ enum BuiltInWidget: String, CaseIterable {
         case .group: String(localized: "App 组")
         case .photo: String(localized: "照片")
         case .currency: String(localized: "汇率")
+        case .text: String(localized: "文字")
+        case .calculator: String(localized: "计算器")
+        case .music: String(localized: "音乐")
+        case .noise: String(localized: "白噪音")
+        case .video: String(localized: "视频")
+        case .heatmap: String(localized: "使用热点图")
         }
     }
 
@@ -138,6 +152,12 @@ enum BuiltInWidget: String, CaseIterable {
         case .group: String(localized: "一组 App，点一下全部打开，比如把写代码要用的编辑器、终端和浏览器放在一起。右键挑选 App 或选一个文件夹。")
         case .photo: String(localized: "放一张自己的照片。右键选图片，还能像背景一样调模糊、颜色、暗角和颗粒。")
         case .currency: String(localized: "常用外币换算成本币是多少，每小时更新。右键选本币和要显示的货币，点一下立即刷新。")
+        case .text: String(localized: "放一句自己的话，或者每天换一句名言。点一下直接在卡片上写，右键切换每日一言。")
+        case .calculator: String(localized: "随手算一笔：加减乘除和百分比，点按键就行。")
+        case .music: String(localized: "正在播放的歌和封面，点按钮播放、暂停和切歌。支持“音乐”和 Spotify。")
+        case .noise: String(localized: "白噪音、粉红噪音、棕噪音、雨声和海浪，点一下播放或停止，关掉启动台也会继续放。")
+        case .video: String(localized: "放一段自己的视频，静音循环播放，像照片小组件一样。右键选视频和打开声音。")
+        case .heatmap: String(localized: "每天用了多久电脑，按周排成热点图。右键可以只看一个 App，卡片上会显示它的图标。")
         }
     }
 
@@ -161,6 +181,12 @@ enum BuiltInWidget: String, CaseIterable {
         case .group: "square.stack.3d.forward.dottedline"
         case .photo: "photo"
         case .currency: "dollarsign.arrow.circlepath"
+        case .text: "quote.opening"
+        case .calculator: "plus.forwardslash.minus"
+        case .music: "music.note"
+        case .noise: "waveform"
+        case .video: "play.rectangle"
+        case .heatmap: "square.grid.3x3.square"
         }
     }
 
@@ -184,6 +210,12 @@ enum BuiltInWidget: String, CaseIterable {
         case .group: (Color(red: 1, green: 0.55, blue: 0.75), Color(red: 0.85, green: 0.25, blue: 0.5))
         case .photo: (Color(red: 0.55, green: 0.85, blue: 1), Color(red: 0.95, green: 0.6, blue: 0.3))
         case .currency: (Color(red: 0.95, green: 0.8, blue: 0.35), Color(red: 0.75, green: 0.55, blue: 0.1))
+        case .text: (Color(red: 0.62, green: 0.6, blue: 0.95), Color(red: 0.4, green: 0.32, blue: 0.75))
+        case .calculator: (Color(red: 1, green: 0.66, blue: 0.25), Color(red: 0.9, green: 0.42, blue: 0.1))
+        case .music: (Color(red: 1, green: 0.42, blue: 0.5), Color(red: 0.92, green: 0.18, blue: 0.35))
+        case .noise: (Color(red: 0.45, green: 0.8, blue: 0.85), Color(red: 0.2, green: 0.5, blue: 0.65))
+        case .video: (Color(red: 0.5, green: 0.55, blue: 0.95), Color(red: 0.95, green: 0.4, blue: 0.55))
+        case .heatmap: (Color(red: 0.5, green: 0.88, blue: 0.5), Color(red: 0.12, green: 0.55, blue: 0.3))
         }
     }
 
@@ -194,7 +226,9 @@ enum BuiltInWidget: String, CaseIterable {
         case .calendar, .countdown, .progress: (String(localized: "打开日历"), "/System/Applications/Calendar.app")
         case .system, .network: (String(localized: "打开活动监视器"), "/System/Applications/Utilities/Activity Monitor.app")
         case .storage: (String(localized: "打开磁盘工具"), "/System/Applications/Utilities/Disk Utility.app")
-        case .battery, .note, .todo, .apps, .timer, .actions, .clipboard, .group, .photo, .currency: nil
+        case .music: (String(localized: "打开音乐"), "/System/Applications/Music.app")
+        case .battery, .note, .todo, .apps, .timer, .actions, .clipboard, .group, .photo, .currency,
+             .text, .calculator, .noise, .video, .heatmap: nil
         }
         if let (title, path) = app {
             return FileManager.default.fileExists(atPath: path) ? (title, URL(fileURLWithPath: path)) : nil

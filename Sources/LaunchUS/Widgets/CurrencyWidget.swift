@@ -127,7 +127,8 @@ struct CurrencyWidget: View {
         return value.formatted(.number.precision(.fractionLength(digits)))
     }
 
-    private var rows: Int {
+    /// How many currencies the card has room for.
+    static func rows(_ size: WidgetItem.Size) -> Int {
         switch size {
         case .small: 1
         case .medium: 3
@@ -139,7 +140,7 @@ struct CurrencyWidget: View {
         TimelineView(.periodic(from: .now, by: live ? 600 : 3600)) { _ in
             let settings = WidgetStore.shared.currencies(id)
             let base = settings.resolvedBase
-            let shown = Array(settings.resolvedShown.prefix(rows))
+            let shown = Array(settings.resolvedShown.prefix(Self.rows(size)))
             let rates = CurrencyRates.shared
             VStack(alignment: .leading, spacing: unit * 0.08) {
                 HStack(spacing: unit * 0.05) {

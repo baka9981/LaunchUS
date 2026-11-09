@@ -138,6 +138,10 @@ struct SheetCard: View {
                 PhotoWidgetCard(model: model, id: id)
             case .widgetApps(let id):
                 WidgetAppsCard(model: model, id: id)
+            case .appLimit(let id):
+                if let app = model.app(id) { AppLimitCard(model: model, app: app) }
+            case .limitReached(let id):
+                if let app = model.app(id) { LimitReachedCard(model: model, app: app) }
             case .message(let title, let text, let revealPath):
                 MessageCard(model: model, title: title, text: text, revealPath: revealPath)
             }

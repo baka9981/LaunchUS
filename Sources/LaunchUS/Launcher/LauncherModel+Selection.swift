@@ -245,6 +245,11 @@ extension LauncherModel {
             onLaunch?(app)
             return
         }
+        // Today's time is up: the card offers a little more instead of opening it.
+        if AppUsage.shared.isBlocked(app.bundleID) {
+            sheet = .limitReached(app.id)
+            return
+        }
         RecentLaunches.record(app.id)
         recentIDs = RecentLaunches.load()
         widgetLaunches += 1

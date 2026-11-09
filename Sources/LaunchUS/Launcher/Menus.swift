@@ -178,6 +178,11 @@ enum LauncherMenus {
                 model.sheet = app.isCustom ? .editCustom(app.id) : .editApp(app.id)
             }
             addCategoryMenu(to: menu, ids: [app.id], model: model)
+            if app.custom == nil, app.bundleID != nil {
+                let limit = AppUsage.shared.limit(app.bundleID!)
+                menu.add(limit.map { String(localized: "限时使用（每天 \($0.minutes) 分钟）…") } ?? String(localized: "限时使用…"),
+                         symbol: "hourglass") { model.sheet = .appLimit(app.id) }
+            }
             menu.addSubmenu(String(localized: "移动到"), symbol: "arrow.right.square", enabled: model.canRearrange) { sub in
                 let current = model.folderContaining(app.id)
                 addMoveTargets(to: sub, model: model, current: current,
@@ -211,6 +216,13 @@ enum LauncherMenus {
                 for color in FolderColor.allCases {
                     let item = sub.add(color.title, checked: folder.color == color.rawValue) { model.setFolderColor(folder.id, color) }
                     item.image = Self.swatch(color)
+                }
+            }
+            menu.addSubmenu(String(localized: "样式"), symbol: "folder.badge.gearshape") { sub in
+                sub.add(String(localized: "跟随设置"), checked: folder.style == nil) { model.setFolderStyle(folder.id, nil) }
+                sub.addSeparator()
+                for style in FolderIconStyle.allCases {
+                    sub.add(style.title, checked: folder.style == style.rawValue) { model.setFolderStyle(folder.id, style) }
                 }
             }
             menu.addSeparator()
@@ -291,19 +303,128 @@ enum LauncherMenus {
                         }
                     }
                 }
+                // The ticks are what the card shows at its size: a small one shows one currency, so
+                // picking another swaps it in; bigger ones put a new pick on top, where it's seen.
+                let room = CurrencyWidget.rows(widget.size)
                 menu.addSubmenu(String(localized: "显示的货币"), symbol: "list.bullet") { sub in
                     let shown = settings.resolvedShown
+                    let visible = Set(shown.prefix(room))
                     for code in Currencies.common where code != base {
-                        sub.add("\(Currencies.flag(code)) \(code)  \(Currencies.name(code))", checked: shown.contains(code)) {
+                        sub.add("\(Currencies.flag(code)) \(code)  \(Currencies.name(code))", checked: visible.contains(code)) {
                             var next = WidgetStore.shared.currencies(widget.id)
                             var list = next.resolvedShown
-                            if let i = list.firstIndex(of: code) { list.remove(at: i) } else { list.append(code) }
+                            let wasVisible = list.prefix(room).contains(code)
+                            list.removeAll { $0 == code }
+                            if room == 1 || !wasVisible { list.insert(code, at: 0) }
                             next.shown = list
+                            WidgetStore.shared.setCurrencies(next, widget.id)
+                        }
+                    }
+                    if room > 1 {
+                        sub.addSeparator()
+                        sub.add(String(localized: "全部取消"), enabled: !shown.isEmpty) {
+                            var next = WidgetStore.shared.currencies(widget.id)
+                            next.shown = []
                             WidgetStore.shared.setCurrencies(next, widget.id)
                         }
                     }
                 }
                 menu.add(String(localized: "立即刷新"), symbol: "arrow.clockwise") { CurrencyRates.shared.refreshIfNeeded(force: true) }
+            case .text?:
+                let extras = WidgetStore.shared.extras(widget.id)
+                let daily = extras.dailyQuote == true
+                menu.add(String(localized: "自己写的文字"), symbol: "character.cursor.ibeam", checked: !daily) {
+                    WidgetStore.shared.updateExtras(widget.id) { $0.dailyQuote = nil }
+                }
+                menu.add(String(localized: "每日一言"), symbol: "quote.opening", checked: daily) {
+                    WidgetStore.shared.updateExtras(widget.id) { $0.dailyQuote = true }
+                }
+                if daily {
+                    menu.add(String(localized: "换一句"), symbol: "arrow.triangle.2.circlepath") {
+                        model.activateWidget(widget, at: nil, card: .zero)
+                    }
+                } else {
+                    menu.add(String(localized: "编辑文字"), symbol: "pencil") { model.activateWidget(widget, at: nil, card: .zero) }
+                }
+                menu.add(String(localized: "衬线字体"), symbol: "textformat", checked: extras.serif == true) {
+                    WidgetStore.shared.updateExtras(widget.id) { $0.serif = $0.serif == true ? nil : true }
+                }
+            case .calculator?:
+                let state = Calculators.shared.state(widget.id)
+                menu.add(String(localized: "拷贝结果"), symbol: "doc.on.doc") {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(state.entry, forType: .string)
+                }
+                menu.add(String(localized: "清除"), symbol: "clear") { Calculators.shared.press("C", widget.id) }
+            case .music?:
+                let now = NowPlaying.shared
+                menu.add(now.playing ? String(localized: "暂停") : String(localized: "播放"),
+                         symbol: now.playing ? "pause.fill" : "play.fill") { now.perform(.playPause) }
+                menu.add(String(localized: "下一首"), symbol: "forward.fill") { now.perform(.next) }
+                menu.add(String(localized: "上一首"), symbol: "backward.fill") { now.perform(.previous) }
+            case .noise?:
+                let player = NoisePlayer.shared
+                let chosen = NoiseWidget.sound(widget.id)
+                menu.addSubmenu(String(localized: "声音"), symbol: "waveform") { sub in
+                    for sound in NoisePlayer.Sound.allCases {
+                        sub.add(sound.title, symbol: sound.symbol, checked: sound == chosen) {
+                            WidgetStore.shared.updateExtras(widget.id) { $0.noise = sound.rawValue }
+                            if player.playing != nil { player.play(sound) }
+                        }
+                    }
+                }
+                menu.addSubmenu(String(localized: "音量"), symbol: "speaker.wave.2") { sub in
+                    for level in [0.2, 0.35, 0.5, 0.75, 1.0] {
+                        sub.add("\(Int(level * 100))%", checked: abs(player.volume - level) < 0.01) { player.volume = level }
+                    }
+                }
+                menu.addSubmenu(String(localized: "定时停止"), symbol: "moon.zzz") { sub in
+                    sub.add(String(localized: "不停止"), checked: player.stopAt == nil) { player.setTimer(nil) }
+                    for minutes in [15, 30, 45, 60, 90] {
+                        sub.add(String(localized: "\(minutes) 分钟"), enabled: player.playing != nil) { player.setTimer(minutes) }
+                    }
+                }
+                if player.playing != nil {
+                    menu.add(String(localized: "停止"), symbol: "stop.fill") { player.stop() }
+                }
+            case .video?:
+                let extras = WidgetStore.shared.extras(widget.id)
+                menu.add(String(localized: "选择视频…"), symbol: "film") { model.chooseVideo(for: widget.id) }
+                menu.add(String(localized: "播放声音"), symbol: "speaker.wave.2", checked: extras.videoSound == true) {
+                    WidgetStore.shared.updateExtras(widget.id) { $0.videoSound = $0.videoSound == true ? nil : true }
+                }
+                menu.add(String(localized: "完整显示"), symbol: "rectangle.arrowtriangle.2.inward", checked: extras.videoFit == true) {
+                    WidgetStore.shared.updateExtras(widget.id) { $0.videoFit = $0.videoFit == true ? nil : true }
+                }
+            case .heatmap?:
+                let extras = WidgetStore.shared.extras(widget.id)
+                menu.addSubmenu(String(localized: "热点"), symbol: "scope") { sub in
+                    sub.add(String(localized: "全部 App"), checked: extras.hotspot == nil) {
+                        WidgetStore.shared.updateExtras(widget.id) { $0.hotspot = nil }
+                    }
+                    sub.addSeparator()
+                    let used = AppUsage.shared.top(days: 30).map(\.id) + LaunchLog.top(LaunchLog.load(), days: 30).map(\.id)
+                    var seen = Set<String>()
+                    let apps = used.compactMap(model.app).filter { seen.insert($0.id).inserted }.prefix(15)
+                    if apps.isEmpty { sub.add(String(localized: "还没有使用记录"), enabled: false) {} }
+                    for app in apps {
+                        let item = sub.add(app.name, checked: extras.hotspot == app.id) {
+                            WidgetStore.shared.updateExtras(widget.id) { $0.hotspot = app.id }
+                        }
+                        if let icon = model.catalog.icons[app.id] {
+                            let image = NSImage(cgImage: icon, size: NSSize(width: 16, height: 16))
+                            item.image = image
+                        }
+                    }
+                }
+                menu.addSubmenu(String(localized: "统计"), symbol: "chart.bar") { sub in
+                    sub.add(String(localized: "使用时长"), checked: extras.countLaunches != true) {
+                        WidgetStore.shared.updateExtras(widget.id) { $0.countLaunches = nil }
+                    }
+                    sub.add(String(localized: "从启动台打开的次数"), checked: extras.countLaunches == true) {
+                        WidgetStore.shared.updateExtras(widget.id) { $0.countLaunches = true }
+                    }
+                }
             case .clipboard?:
                 menu.add(String(localized: "清空记录"), symbol: "trash", enabled: !ClipboardHistory.shared.items.isEmpty) {
                     ClipboardHistory.shared.clear()

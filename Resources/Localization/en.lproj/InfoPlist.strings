@@ -1,3 +1,3 @@
-"NSAppleEventsUsageDescription" = "Used to open an app’s Get Info window in Finder.";
+"NSAppleEventsUsageDescription" = "Used to open an app’s Get Info window in Finder, and for the Music widget to show and control what’s playing in Music or Spotify.";
 "NSCalendarsFullAccessUsageDescription" = "Shows today’s events in the Calendar widget.";
 "NSRemindersFullAccessUsageDescription" = "Shows open reminders in the Calendar widget.";

@@ -9,6 +9,8 @@ struct Folder: Codable, Hashable, Identifiable {
     var query: String?
     /// Tint of the folder tile, a `FolderColor` raw value; nil is the plain glass.
     var color: String?
+    /// "grid" or "classic" for this folder alone; nil follows the setting.
+    var style: String?
 
     init(id: String = UUID().uuidString, name: String, apps: [String], query: String? = nil) {
         self.id = id

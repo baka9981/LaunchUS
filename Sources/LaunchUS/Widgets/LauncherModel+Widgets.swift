@@ -50,6 +50,8 @@ extension LauncherModel {
         guard let pos = location(of: "widget:" + id) else { return }
         if editingNoteID == id { editingNoteID = nil }
         WidgetStore.shared.forget(id)
+        Calculators.shared.forget(id)
+        VideoPauses.shared.paused.remove(id)
         // Placed freely, its cells simply empty out; lined up, the icons after it close the gap
         // and the page takes back what it pushed on to the next one.
         let wasFull = LayoutOps.fullPages(layout, columns: columns, rows: rows)
@@ -96,6 +98,35 @@ extension LauncherModel {
             openPhotoWidget(widget)
         case .currency?:
             CurrencyRates.shared.refreshIfNeeded(force: true)
+        case .text?:
+            if WidgetStore.shared.extras(widget.id).dailyQuote == true {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    WidgetStore.shared.updateExtras(widget.id) { $0.quoteShift = ($0.quoteShift ?? 0) + 1 }
+                }
+            } else {
+                editingNoteID = widget.id
+            }
+        case .calculator?:
+            if let point, let key = CalculatorWidget.key(at: point, size: widget.size, card: card) {
+                Calculators.shared.press(key, widget.id)
+            }
+        case .music?:
+            switch point.map({ MusicWidget.hit($0, size: widget.size, card: card) }) ?? .command(.playPause) {
+            case .command(let command): NowPlaying.shared.perform(command)
+            case .open: openWidgetApp(widget)
+            }
+        case .noise?:
+            switch point.map({ NoiseWidget.hit($0, size: widget.size, card: card) }) ?? .toggle {
+            case .toggle:
+                NoisePlayer.shared.toggle(NoiseWidget.sound(widget.id))
+            case .sound(let sound):
+                WidgetStore.shared.updateExtras(widget.id) { $0.noise = sound.rawValue }
+                NoisePlayer.shared.play(sound)
+            }
+        case .video?:
+            activateVideoWidget(widget)
+        case .heatmap?:
+            sheet = .manager
         case .apps?:
             if let point, let app = AppsWidget.app(at: point, id: widget.id, size: widget.size, card: card) { launch(app) }
         case .actions?:

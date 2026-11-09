@@ -178,6 +178,19 @@ struct EntryView: View {
                             .transition(.opacity.combined(with: .scale(scale: 0.4, anchor: .center)))
                     }
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    // 限时使用: today's time is up.
+                    if case .app(let app) = entry, AppUsage.shared.isBlocked(app.bundleID), !model.isEditing {
+                        Image(systemName: "hourglass")
+                            .font(.system(size: max(10, metrics.iconSize * 0.13), weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: max(20, metrics.iconSize * 0.25), height: max(20, metrics.iconSize * 0.25))
+                            .background(Circle().fill(Color.orange))
+                            .shadow(color: .black.opacity(0.25), radius: 1.5, y: 0.5)
+                            .offset(x: -metrics.iconSize * 0.04, y: -metrics.iconSize * 0.06)
+                            .help(String(localized: "今天的时间到了"))
+                    }
+                }
                 .overlay(alignment: .topTrailing) {
                     if let badge = model.badge(entry), model.shortcutNumber(of: entry) == nil, !model.isEditing {
                         Text(verbatim: badge)
@@ -367,6 +380,11 @@ struct EntryIcon: View {
                     RoundedRectangle(cornerRadius: tile * 0.225, style: .continuous).fill(.white.opacity(0.12))
                         .frame(width: tile, height: tile)
                 }
+            case .folder(let folder, let apps)
+                where (folder.style.flatMap(FolderIconStyle.init(rawValue:)) ?? Settings.shared.folderIconStyle) == .classic:
+                ClassicFolderTile(size: tile, tint: folder.color.flatMap(FolderColor.init(rawValue:)),
+                                  icons: apps.prefix(3).compactMap { icons[$0.id] }, contentsOut: contentsOut)
+                    .scaleEffect(mergeTarget ? 1.12 : 1)
             case .folder(let folder, let apps):
                 FolderBackground(size: tile, tint: folder.color.flatMap(FolderColor.init(rawValue:)))
                     .overlay {
@@ -401,6 +419,52 @@ struct EntryIcon: View {
             }
         }
         .frame(width: size, height: size)
+    }
+}
+
+/// A folder like Finder's 📂: a back with a tab, a few apps peeking out, and the front over them.
+struct ClassicFolderTile: View {
+    let size: CGFloat
+    var tint: FolderColor?
+    var icons: [CGImage] = []
+    var contentsOut = false
+
+    var body: some View {
+        let base = tint?.color ?? Color(red: 0.36, green: 0.68, blue: 0.96)
+        let r = size * 0.07
+        ZStack(alignment: .topLeading) {
+            // The back and its tab.
+            UnevenRoundedRectangle(topLeadingRadius: r, bottomLeadingRadius: 0, bottomTrailingRadius: 0, topTrailingRadius: r,
+                                   style: .continuous)
+                .fill(base.mix(with: .black, by: 0.18))
+                .frame(width: size * 0.4, height: size * 0.14)
+                .offset(x: size * 0.04, y: size * 0.1)
+            RoundedRectangle(cornerRadius: r, style: .continuous)
+                .fill(base.mix(with: .black, by: 0.18))
+                .frame(width: size * 0.92, height: size * 0.68)
+                .offset(x: size * 0.04, y: size * 0.18)
+            // Apps standing in it, fanned a little.
+            ForEach(Array(icons.enumerated()), id: \.offset) { i, icon in
+                let side = size * 0.36
+                let x = size * 0.5 - side / 2 + CGFloat(i - (icons.count - 1) / 2) * size * 0.24
+                    - (icons.count == 2 ? size * 0.12 : 0)
+                Image(decorative: icon, scale: 2).resizable().interpolation(.medium)
+                    .frame(width: side, height: side)
+                    .rotationEffect(.degrees(Double(i - 1) * 8))
+                    .offset(x: x, y: size * 0.2)
+                    .opacity(contentsOut ? 0 : 1)
+            }
+            // The front, lighter at the top like a lit edge.
+            RoundedRectangle(cornerRadius: r, style: .continuous)
+                .fill(LinearGradient(colors: [base.mix(with: .white, by: 0.22), base], startPoint: .top, endPoint: .bottom))
+                .overlay(RoundedRectangle(cornerRadius: r, style: .continuous).strokeBorder(.white.opacity(0.35), lineWidth: 0.75))
+                .frame(width: size * 0.92, height: size * 0.5)
+                .offset(x: size * 0.04, y: size * 0.4)
+                .shadow(color: .black.opacity(0.18), radius: size * 0.02, y: -size * 0.005)
+        }
+        .frame(width: size, height: size, alignment: .topLeading)
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.2), radius: size * 0.03, y: size * 0.015)
     }
 }
 

@@ -6,6 +6,17 @@ import Observation
 enum DisplayMode: String, CaseIterable, Codable { case fullScreen, window, ring }
 enum SortOrder: String, CaseIterable, Codable { case custom, name, recentlyAdded, recentlyUsed, mostUsed }
 enum BrowseStyle: String, CaseIterable, Codable { case paged, scroll }
+/// How a folder looks on the grid: a glass tile of app icons, or a folder 📂 with apps peeking out.
+enum FolderIconStyle: String, CaseIterable, Codable {
+    case grid, classic
+
+    var title: String {
+        switch self {
+        case .grid: String(localized: "图标网格")
+        case .classic: String(localized: "文件夹")
+        }
+    }
+}
 /// How fast the launcher's animations run.
 /// Where "search the web" goes when search finds nothing.
 enum SearchEngine: String, CaseIterable, Codable {
@@ -397,6 +408,7 @@ final class Settings {
     var pageStyle: BrowseStyle { displayMode == .ring ? .paged : browseStyle }
     /// How an open folder with more apps than fit is browsed.
     var folderBrowseStyle: BrowseStyle { didSet { save(folderBrowseStyle.rawValue, "folderBrowseStyle") } }
+    var folderIconStyle: FolderIconStyle { didSet { save(folderIconStyle.rawValue, "folderIconStyle") } }
     /// Window mode's row of category tabs under the search field.
     var showCategoryBar: Bool { didSet { save(showCategoryBar, "showCategoryBar") } }
     /// The daily anonymous ping (Heartbeat): on unless the user turns it off. Without it no ping
@@ -588,6 +600,7 @@ final class Settings {
         sortOrder = SortOrder(rawValue: value("sortOrder", "")) ?? .custom
         browseStyle = BrowseStyle(rawValue: value("browseStyle", "")) ?? .paged
         folderBrowseStyle = BrowseStyle(rawValue: value("folderBrowseStyle", "")) ?? .paged
+        folderIconStyle = FolderIconStyle(rawValue: value("folderIconStyle", "")) ?? .grid
         showCategoryBar = value("showCategoryBar", true)
         shareUsage = value("shareUsage", true)
         shareFeatures = value("shareFeatures", true)

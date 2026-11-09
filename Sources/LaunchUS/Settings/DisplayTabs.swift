@@ -122,6 +122,12 @@ struct DisplayTab: View {
                     }
                     .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
                 }
+                Row(title: String(localized: "文件夹样式"), info: String(localized: "图标网格：玻璃方块里排着 App 图标。文件夹：像访达里的文件夹 📂，App 从里面探出头。单个文件夹可以在右键菜单里另选")) {
+                    Picker("", selection: $settings.folderIconStyle) {
+                        ForEach(FolderIconStyle.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.radioGroup).horizontalRadioGroupLayout().labelsHidden().fixedSize()
+                }
                 Row(title: String(localized: "智能栏"),
                     info: String(localized: "搜索框下面的一排智能文件夹，点一个只看里面的 App。可以把 App Store 分类导入成智能文件夹，新装的 App 会自动归进去")) {
                     HStack(spacing: 8) {

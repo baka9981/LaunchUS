@@ -38,7 +38,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>用于在访达中打开 App 的「显示简介」窗口。</string>
+	<string>用于在访达中打开 App 的「显示简介」窗口，以及让音乐小组件显示和控制“音乐”或 Spotify 正在播放的歌。</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>用于在日历小组件中显示今天的日程。</string>
 	<key>NSHighResolutionCapable</key>

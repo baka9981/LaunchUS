@@ -48,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Heartbeat.start()
         License.shared.checkIfDue()
         Feedback.shared.start()
+        AppUsage.shared.start()
         ICloudSync.onRemoteChange = { [weak self] backup in self?.launcher.model.applySynced(backup) }
         // Before the first scan, so icons are drawn light or dark only once.
         apply("appearance")

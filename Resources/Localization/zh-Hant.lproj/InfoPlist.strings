@@ -1,3 +1,3 @@
-"NSAppleEventsUsageDescription" = "用於在 Finder 中開啟 App 的「取得資訊」視窗。";
+"NSAppleEventsUsageDescription" = "用於在 Finder 中開啟 App 的「取得資訊」視窗，以及讓音樂小工具顯示和控制「音樂」或 Spotify 正在播放的歌。";
 "NSCalendarsFullAccessUsageDescription" = "用於在行事曆小工具中顯示今天的行程。";
 "NSRemindersFullAccessUsageDescription" = "用於在行事曆小工具中顯示未完成的提醒事項。";

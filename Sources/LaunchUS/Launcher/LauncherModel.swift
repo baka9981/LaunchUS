@@ -71,6 +71,10 @@ enum LauncherSheet: Hashable {
     case photoWidget(String)
     /// The apps a frequent-apps or app group widget shows, picked by hand.
     case widgetApps(String)
+    /// How long an app may be used each day.
+    case appLimit(String)
+    /// An app whose time is up was clicked.
+    case limitReached(String)
 
     /// The manager and the smart bar editor: big cards that take most of the launcher.
     var isLarge: Bool {

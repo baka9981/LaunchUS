@@ -55,10 +55,11 @@ final class WidgetStore {
         var photos: [String: Photo] = [:]
         var appLists: [String: [String]] = [:]
         var currencies: [String: Currencies] = [:]
+        var extras: [String: Extras] = [:]
 
         init(notes: [String: Note], timers: [String: TimerState], todos: [String: [Todo]],
              groups: [String: String], photos: [String: Photo], appLists: [String: [String]],
-             currencies: [String: Currencies]) {
+             currencies: [String: Currencies], extras: [String: Extras]) {
             self.notes = notes
             self.timers = timers
             self.todos = todos
@@ -66,6 +67,7 @@ final class WidgetStore {
             self.photos = photos
             self.appLists = appLists
             self.currencies = currencies
+            self.extras = extras
         }
 
         /// Older files have no to-dos yet.
@@ -78,6 +80,7 @@ final class WidgetStore {
             photos = try c.decodeIfPresent([String: Photo].self, forKey: .photos) ?? [:]
             appLists = try c.decodeIfPresent([String: [String]].self, forKey: .appLists) ?? [:]
             currencies = try c.decodeIfPresent([String: Currencies].self, forKey: .currencies) ?? [:]
+            extras = try c.decodeIfPresent([String: Extras].self, forKey: .extras) ?? [:]
         }
     }
 
@@ -91,6 +94,8 @@ final class WidgetStore {
     private(set) var appLists: [String: [String]] = [:]
     /// Exchange-rate widgets: the home currency and the ones shown against it.
     private(set) var currencies: [String: Currencies] = [:]
+    /// The text, video, white-noise and heatmap widgets' choices.
+    private(set) var extras: [String: Extras] = [:]
     @ObservationIgnored private var saveWork: DispatchWorkItem?
     @ObservationIgnored private var rings: [String: DispatchWorkItem] = [:]
     /// Tests keep their notes to themselves.
@@ -107,6 +112,7 @@ final class WidgetStore {
             photos = file.photos
             appLists = file.appLists
             currencies = file.currencies
+            extras = file.extras
         }
         for id in timers.keys { schedule(id) }
     }
@@ -265,6 +271,20 @@ final class WidgetStore {
         save()
     }
 
+    func extras(_ id: String) -> Extras { extras[id] ?? Extras() }
+
+    func setExtras(_ value: Extras, _ id: String, soon: Bool = false) {
+        guard extras[id] != value else { return }
+        extras[id] = value
+        save(soon: soon)
+    }
+
+    func updateExtras(_ id: String, _ change: (inout Extras) -> Void) {
+        var value = extras(id)
+        change(&value)
+        setExtras(value, id)
+    }
+
     func photo(_ id: String) -> Photo { photos[id] ?? Photo() }
 
     func setPhoto(_ photo: Photo, _ id: String) {
@@ -277,13 +297,14 @@ final class WidgetStore {
     /// A removed widget takes its note, timer and picture with it.
     func forget(_ id: String) {
         guard notes[id] != nil || timers[id] != nil || todos[id] != nil || groups[id] != nil || photos[id] != nil
-                || appLists[id] != nil || currencies[id] != nil else { return }
+                || appLists[id] != nil || currencies[id] != nil || extras[id] != nil else { return }
         notes[id] = nil
         timers[id] = nil
         todos[id] = nil
         groups[id] = nil
         appLists[id] = nil
         currencies[id] = nil
+        extras[id] = nil
         if let file = photos[id]?.file { WidgetPhotos.remove(file) }
         photos[id] = nil
         rings[id]?.cancel()
@@ -297,7 +318,7 @@ final class WidgetStore {
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             let file = File(notes: notes, timers: timers, todos: todos, groups: groups, photos: photos,
-                            appLists: appLists, currencies: currencies)
+                            appLists: appLists, currencies: currencies, extras: extras)
             guard let data = try? JSONEncoder().encode(file) else { return }
             try? FileManager.default.createDirectory(at: LayoutStore.directory, withIntermediateDirectories: true)
             try? data.write(to: Self.url, options: .atomic)
@@ -343,6 +364,28 @@ enum NoteColor: String, Codable, CaseIterable {
         case .purple: Color(red: 0.77, green: 0.66, blue: 0.98)
         case .gray: Color(red: 0.82, green: 0.82, blue: 0.82)
         }
+    }
+}
+
+extension WidgetStore {
+    /// Per-widget choices of the newer widgets, all optional so older and newer files read.
+    struct Extras: Codable, Equatable {
+        // Text: your own words, or a line a day.
+        var text: String?
+        var dailyQuote: Bool?
+        /// Clicks on a daily quote move this many lines on from today's.
+        var quoteShift: Int?
+        var serif: Bool?
+        // Video
+        var videoBookmark: Data?
+        var videoPath: String?
+        var videoSound: Bool?
+        var videoFit: Bool?
+        // White noise
+        var noise: String?
+        // Heatmap: one app (its ID), or all of them.
+        var hotspot: String?
+        var countLaunches: Bool?
     }
 }
 
